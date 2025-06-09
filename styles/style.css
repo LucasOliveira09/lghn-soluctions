@@ -2,3 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+
+
+#show-bebida {
+    display: none;
+}
+
+#show-esfirra {
+    display: none;
+
+}
+
+#show-lanche {
+    display: none;
+}

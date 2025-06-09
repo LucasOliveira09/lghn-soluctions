@@ -4,10 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="./styles/output.css">
+    <link rel="stylesheet" href="styles/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/k7ujTnHg4CGR2D7kSs0v4LLanw2qksYuRlEzO+tcaEPQogQ0KaoGN26/zrn20ImR1DfuLWnOo7aBA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <title>Central</title>
 </head>
 <body>
+
+
+
+
     <header class="w-full h-[420px] shadow-sm bg-zinc-900 bg-home bg-cover bg-center ">
         <div class="w-full h-full flex flex-col justify-center items-center">
             <img src="assets/logo.jpg" alt="" class="w-32 h-32 rounded-full shadow-lg hover:scale-110 duration-200" >
@@ -17,23 +22,34 @@
                 <span class="text-white font-medium">Seg á Dom - 18:00 as 11:00</span>
             </div>
         </div>
+         
     </header>
+
+
+
+
 <div class=" flex justify-center items-center gap-6">
-        <button class="p-5 w-24 bg-slate-200 mt-4 rounded-2xl hover:bg-slate-300 hover:scale-110 hover:duration-200 shadow-lg">Pizzas</button>
-        <button class="p-5 w-24 mt-4 bg-slate-200 rounded-2xl hover:bg-slate-300 hover:scale-110 hover:duration-200 shadow-lg">Esfirras</button>
-        <button class="p-5 w-24 mt-4 bg-slate-200 rounded-2xl hover:bg-slate-300 hover:scale-110 hover:duration-200 shadow-lg">Lanches</button>
-        <button class="p-5 w-24 mt-4 bg-slate-200 rounded-2xl hover:bg-slate-300 hover:scale-110 hover:duration-200 shadow-lg">Bebidas</button>
+        <button onclick="showPizza()" class="p-5 w-24 bg-slate-200 mt-4 rounded-2xl hover:bg-slate-300 hover:scale-110 hover:duration-200 shadow-lg">Pizzas</button>
+        <button onclick="showEsfirra()" class="p-5 w-24 mt-4 bg-slate-200 rounded-2xl hover:bg-slate-300 hover:scale-110 hover:duration-200 shadow-lg">Esfirras</button>
+        <button onclick="showLanche()" class="p-5 w-24 mt-4 bg-slate-200 rounded-2xl hover:bg-slate-300 hover:scale-110 hover:duration-200 shadow-lg">Lanches</button>
+        <button onclick="showBebida()" class="p-5 w-24 mt-4 bg-slate-200 rounded-2xl hover:bg-slate-300 hover:scale-110 hover:duration-200 shadow-lg">Bebidas</button>
     </div>
+
+
+
+
+    <!-- Pizzas ------------------------------------------------------------------- -->
     
-    <main class="grid grid-cols-1 gap-7 mx-auto max-w-7xl md:grid-cols-2 mt-9">
-        <div class="flex gap-2">
-            <img src="assets/pizza.png" alt="" class="w-28 h-28 rounded-full hover:scale-110 hover:-rotate-2 duration-300">
+    <main id="show-pizza" class="grid grid-cols-1 gap-7 mx-auto max-w-7xl md:grid-cols-2 mt-9 mb-20">
+        
+        <div class="flex gap-2 mr-3">
+            <img src="assets/pizza.png" alt="" class="w-24 h-24 rounded hover:scale-110 hover:-rotate-2 duration-300">
             
-            <div>
+            <div class="w-full">
                 <p class="font-bold">Frango c/ catupiry</p>
                 <p class="text-sm">Frango e catupiry</p>
 
-                <div class="flex items-center gap-2 justify-between mt-3 w-60">
+                <div class="flex items-center gap-2 justify-between mt-3">
                    <p class="font-bold text-lg">R$ 52.00</p>
                     <button 
                         class="bg-gray-900 px-5 rounded add-to-cart-btn"
@@ -48,12 +64,12 @@
             
         </div>
 
-        <div class="flex">
-            <img src="assets/pizza.png" alt="" class="w-28 h-28 rounded-md hover:scale-110 hover:-rotate-2 duration-300">
+        <div class="flex gap-2 mr-3">
+            <img src="assets/pizza.png" alt="" class="w-24 h-24 rounded-md hover:scale-110 hover:-rotate-2 duration-300">
             
-            <div class="">
+            <div class="w-full">
                 <p class="font-bold">Quatro queijos</p>
-                <p class="text-sm"></p>
+                <p class="text-sm">Mussarela, parmesão, tomate e manjericão</p>
 
                 <div class="flex items-center gap-2 justify-between mt-3 ">
                    <p class="font-bold text-lg">R$ 52.00</p>
@@ -69,8 +85,171 @@
             </div>
             
         </div>
-     
+
+        <div class="flex gap-2 mr-3">
+            <img src="assets/pizza.png" alt="" class="w-24 h-24 rounded-md hover:scale-110 hover:-rotate-2 duration-300">
+            
+            <div class="w-full">
+                <p class="font-bold">Atum</p>
+                <p class="text-sm">Atum, cebola e mussarela</p>
+
+                <div class="flex items-center gap-2 justify-between mt-3 ">
+                   <p class="font-bold text-lg">R$ 52.00</p>
+                    <button 
+                        class="bg-gray-900 px-5 rounded add-to-cart-btn"
+                        data-name="Atum"
+                        data-price="52.00" 
+                    >
+                       
+                        <i class="fa fa-cart-plus text-lg text-white"></i>
+                    </button>
+                </div>
+            </div>
+            
+        </div>
+
+        <div class="flex gap-2 mr-3">
+            <img src="assets/pizza.png" alt="" class="w-24 h-24 rounded-md hover:scale-110 hover:-rotate-2 duration-300">
+            
+            <div class="w-full">
+                <p class="font-bold">Bacon</p>
+                <p class="text-sm">Bacon e mussarela</p>
+
+                <div class="flex items-center gap-2 justify-between mt-3 ">
+                   <p class="font-bold text-lg">R$ 52.00</p>
+                    <button 
+                        class="bg-gray-900 px-5 rounded add-to-cart-btn"
+                        data-name="Bacon"
+                        data-price="52.00" 
+                    >
+                       
+                        <i class="fa fa-cart-plus text-lg text-white"></i>
+                    </button>
+                </div>
+            </div>
+            
+        </div>
+
+        <div class="flex gap-2 mr-3">
+            <img src="assets/pizza.png" alt="" class="w-24 h-24 rounded-md hover:scale-110 hover:-rotate-2 duration-300">
+            
+            <div class="w-full">
+                <p class="font-bold">Baiana</p>
+                <p class="text-sm">Calabresa, ovo, cebola, mussarela e molho de pimenta</p>
+
+                <div class="flex items-center gap-2 justify-between mt-3 ">
+                   <p class="font-bold text-lg">R$ 52.00</p>
+                    <button 
+                        class="bg-gray-900 px-5 rounded add-to-cart-btn"
+                        data-name="Baiana"
+                        data-price="52.00" 
+                    >
+                       
+                        <i class="fa fa-cart-plus text-lg text-white"></i>
+                    </button>
+                </div>
+            </div>
+            
+        </div>
 
     </main>
+
+    <footer class="w-full bg-red-500 py-2 fixed bottom-0 z-40 flex items-center justify-center">  
+    <button class="flex px-28 items-center gap-2 text-white font-bold" id="cart-btn">
+            (<span id="cart-count">2</span>)
+            Ver carrinho
+            <i class="fa fa-cart-plus text-lg text-white"></i>
+    </button>
+
+    </footer>
+    
+
+
+<!-- BEBIDAS ------------------------------------------------------------------- -->
+  
+
+
+<div id="show-bebida" class=" grid-cols-1 gap-7 mx-auto max-w-7xl md:grid-cols-2 mt-9" >
+            <div class="flex gap-2 mr-3">
+            <img src="assets/refri-1.png" alt="" class="w-24 h-24 rounded-md hover:scale-110 hover:-rotate-2 duration-300">
+            
+            <div class="w-full">
+                <p class="font-bold">Coca lata</p>
+                <p class="text-sm"></p>
+
+                <div class="flex items-center gap-2 justify-between mt-3 ">
+                   <p class="font-bold text-lg">R$ 6.00</p>
+                    <button 
+                        class="bg-gray-900 px-5 rounded add-to-cart-btn"
+                        data-name="Coca"
+                        data-price="6" 
+                    >
+                       
+                        <i class="fa fa-cart-plus text-lg text-white"></i>
+                    </button>
+                </div>
+            </div>
+            </div>
+            
+            <div class="flex gap-2 mr-3">
+            <img src="assets/refri-2.png" alt="" class="w-24 h-24 rounded-md hover:scale-110 hover:-rotate-2 duration-300">
+            
+            <div class="w-full">
+                <p class="font-bold">Guarana lata</p>
+                <p class="text-sm"></p>
+
+                <div class="flex items-center gap-2 justify-between mt-3 ">
+                   <p class="font-bold text-lg">R$ 6.00</p>
+                    <button 
+                        class="bg-gray-900 px-5 rounded add-to-cart-btn"
+                        data-name="Guarana"
+                        data-price="6" 
+                    >
+                       
+                        <i class="fa fa-cart-plus text-lg text-white"></i>
+                    </button>
+                </div>
+            </div>
+
+
+    </div>
+
+
+
+
+       
+
+
 </body>
+ 
+<script>
+    function showPizza() {
+        document.getElementById('show-pizza').style.display = "grid"
+        document.getElementById('show-bebida').style.display = "none"
+        document.getElementById('show-esfirra').style.display = "none"
+        document.getElementById('show-lanche').style.display = "none"
+        
+    }
+
+    function showBebida(){
+        document.getElementById('show-pizza').style.display = "none"
+        document.getElementById('show-bebida').style.display = "grid"
+        document.getElementById('show-esfirra').style.display = "none"
+        document.getElementById('show-lanche').style.display = "none"
+    }
+
+    function showEsfirra() {
+        document.getElementById('show-pizza').style.display = "none"
+        document.getElementById('show-bebida').style.display = "none"
+        document.getElementById('show-esfirra').style.display = "grid"
+        document.getElementById('show-lanche').style.display = "none"
+    }
+
+    function showLanche() {
+        document.getElementById('show-pizza').style.display = "none"
+        document.getElementById('show-bebida').style.display = "none"
+        document.getElementById('show-esfirra').style.display = "grid"
+        document.getElementById('show-lanche').style.display = "none"
+    }
+</script>
 </html>
