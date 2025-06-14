@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
     <link rel="stylesheet" href="./styles/output.css">
     <link rel="stylesheet" href="styles/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/k7ujTnHg4CGR2D7kSs0v4LLanw2qksYuRlEzO+tcaEPQogQ0KaoGN26/zrn20ImR1DfuLWnOo7aBA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -77,6 +78,11 @@
 
     <!-- Resumo do Pedido -->
     
+    <div class="mb-6 border p-4 rounded-lg shadow-sm">
+      <h3 class="text-lg font-semibold mb-4">Seu nome</h3>
+      <input type="text" id="nome-cliente" placeholder="Nome" class="w-full border rounded-lg p-3">
+      <p id="nome-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
+    </div>
 
     <!-- Telefone -->
     <div class="mb-6 border p-4 rounded-lg shadow-sm">
@@ -155,6 +161,7 @@
       <div id="trocoSection" class="mt-4 hidden">
         <label class="block font-medium mb-1">Troco para quanto?</label>
         <input type="number" id="troco" placeholder="Ex: 100.00" class="w-full border rounded-lg p-3">
+        <p id="troco-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
       </div>
     </div>
 
@@ -404,8 +411,7 @@
 </div>     
 
 </body>
-
-<script src="script.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js"></script>
 
 <!-- Firebase Analytics (opcional) -->
@@ -413,6 +419,8 @@
 
 <!-- Firebase Realtime Database -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="script.js"></script>
+
 <script>
      function showPizza() {
         document.getElementById('show-pizza').style.display = "grid"
@@ -444,3 +452,4 @@
     }
 </script>
 </html>
+

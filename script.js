@@ -27,9 +27,13 @@ const observationInput = document.getElementById('observation')
 const rua = document.getElementById('rua')
 const bairro = document.getElementById('bairro')
 const numero = document.getElementById('numero')
+const telefoneInput = document.getElementById('telefone')
+const nomeInput = document.getElementById('nome-cliente')
 const ruaWarn = document.getElementById('rua-aste')
 const bairroWarn = document.getElementById('bairro-aste')
 const numeroWarn = document.getElementById('numero-aste')
+const telefoneWarn = document.getElementById('telefone-aste')
+const nomeWarn = document.getElementById('nome-aste')
 const submitBtn = document.getElementById('submit-order')
 const backBtn = document.getElementById('back-cart')
 const confirmModal = document.getElementById('confirm-modal')
@@ -149,7 +153,35 @@ function removeItemCart(name) {
 }
 
 checkoutBtn.addEventListener("click", function(){
+
+    const isOpen = checkRestaurantOpen();
+    if(!isOpen){
+      Toastify({
+          text: "Restaurante fechado!",
+          duration: 3000,
+          close: true,
+          gravity: "top",
+          position: "left",
+          stopOnFocus: true,
+          style: {
+          background: "#ef4444",
+            },
+          }).showToast();
+        //return;
+    }
+
     if(cart.length === 0){
+        Toastify({
+          text: "Carrinho está vazio!",
+          duration: 3000,
+          close: true,
+          gravity: "top",
+          position: "left",
+          stopOnFocus: true,
+          style: {
+          background: "#ef4444",
+            },
+          }).showToast();
         return;
     } else {
         atualizarConfirmacao()
@@ -158,22 +190,22 @@ checkoutBtn.addEventListener("click", function(){
     
 })
 
-//function checkRestaurantOpen(){
-//    const data = new Date();
-//    const hora = data.getHours();
-//   return hora >= 18 && hora < 23;
-//}
+function checkRestaurantOpen(){
+    const data = new Date();
+    const hora = data.getHours();
+   return hora >= 18 && hora < 23;
+}
 
-//const spanItem = document.getElementById("date-span")
-//const isOpen = checkRestaurantOpen();
+const spanItem = document.getElementById("date-span")
+const isOpen = checkRestaurantOpen();
 
-//if(isOpen){
-//    spanItem.classList.remove("bg-red-500")
-//    spanItem.classList.add("bg-green-600");
-//} else {
-//   spanItem.classList.remove("bg-green-500")
-//   spanItem.classList.add("bg-red-600");
-//}
+if(isOpen){
+    spanItem.classList.remove("bg-red-500")
+    spanItem.classList.add("bg-green-600");
+} else {
+   spanItem.classList.remove("bg-green-500")
+   spanItem.classList.add("bg-red-600");
+}
 
   function atualizarEntrega() {
     const retirada = document.getElementById("retirada");
@@ -220,6 +252,8 @@ checkoutBtn.addEventListener("click", function(){
   }
 
 
+  
+
   function enviarPedido() {
     let tipoEntrega = "";
     if (document.getElementById("retirada").checked) tipoEntrega = "Retirada";
@@ -253,64 +287,197 @@ checkoutBtn.addEventListener("click", function(){
   }
 
 
-    rua.addEventListener("input", function(event){
-    let inputValue = event.target.value;
 
-   if(inputValue !== ""){
-       rua.classList.remove("border-red-500")
-        ruaWarn.classList.add("hidden")
-    }
-});
+  // Envia, codigo final:::-----------------------------------
 
-    bairro.addEventListener("input", function(event){
-    let inputValue2 = event.target.value;
 
-   if(inputValue2 !== ""){
-       bairro.classList.remove("border-red-500")
-        bairroWarn.classList.add("hidden")
-    }
-});
 
-    numero.addEventListener("input", function(event){
-    let inputValue3 = event.target.value;
+rua.addEventListener("input",  function(event){
+  let inputValue = event.target.value;
 
-   if(inputValue3 !== ""){
-       numero.classList.remove("border-red-500")
-        numeroWarn.classList.add("hidden")
-    }
-});
+  if(inputValue !== ""){
+    rua.classList.remove("border-red-500")
+    ruaWarn.classList.add("hidden")
+  }
+})
+
+bairro.addEventListener("input",  function(event){
+  let inputValue = event.target.value;
+
+  if(inputValue !== ""){
+    bairro.classList.remove("border-red-500")
+    bairroWarn.classList.add("hidden")
+  }
+})
+
+numero.addEventListener("input",  function(event){
+  let inputValue = event.target.value;
+
+  if(inputValue !== ""){
+    numero.classList.remove("border-red-500")
+    numeroWarn.classList.add("hidden")
+  }
+})
+
+nomeInput.addEventListener("input",  function(event){
+  let inputValue = event.target.value;
+
+  if(inputValue !== ""){
+    nomeInput.classList.remove("border-red-500")
+    nomeWarn.classList.add("hidden")
+  }
+})
+
+telefoneInput.addEventListener("input",  function(event){
+  let inputValue = event.target.value;
+
+  if(inputValue !== ""){
+    telefoneInput.classList.remove("border-red-500")
+    telefoneWarn.classList.add("hidden")
+  }
+})
+
+document.getElementById('troco').addEventListener("input",  function(event){
+  let inputValue = event.target.value;
+
+  if(inputValue !== ""){
+    document.getElementById('troco').classList.remove("border-red-500")
+    document.getElementById('troco-warn').classList.add("hidden")
+  }
+})
+
 
 
 submitBtn.addEventListener("click", function(){
-    if(rua.value === ""){
-        ruaWarn.classList.remove("hidden")
-        rua.classList.add("border-red-500")
-        return;
-    }
-     if(bairro.value === ""){
-        bairroWarn.classList.remove("hidden")
-        bairro.classList.add("border-red-500")
-        return;
-    }
+  //verificação de pedido:
+  let verEnder = ""
+  let tipoEntrega = "";
+    if (document.getElementById("retirada").checked) tipoEntrega = "Retirada";
+    if (document.getElementById("entrega").checked) tipoEntrega = "Entrega";
 
-     if(numero.value === ""){
-        numeroWarn.classList.remove("hidden")
+  let pagamento = "";
+    if (document.getElementById("pagPix").checked) pagamento = "Pix";
+    if (document.getElementById("pagCartao").checked) pagamento = "Cartão";
+    if (document.getElementById("pagDinheiro").checked) pagamento = "Dinheiro";
+
+    let checkTel = telefoneInput.value;
+    let checkNome = nomeInput.value;
+
+    let trocoInput = document.getElementById('troco').value
+  
+  // Nome
+
+  if(checkNome === "") {
+    nomeWarn.classList.remove("hidden");
+    nomeInput.classList.add("border-red-500");
+    return;
+  }
+
+
+    // Telefone
+
+  if(checkTel === ""){
+    telefoneWarn.classList.remove("hidden");
+    telefoneInput.classList.add("border-red-500");
+    return;
+  }
+
+    //entrega ========
+  if(tipoEntrega === ""){
+  Toastify({
+  text: "Preencha da tipo da entrega!",
+  duration: 3000,
+  close: true,
+  gravity: "top", // `top` or `bottom`
+  position: "left", // `left`, `center` or `right`
+  stopOnFocus: true, // Prevents dismissing of toast on hover
+  style: {
+    background: "#ef4444",
+  },
+}).showToast();
+    return;
+  } 
+ 
+
+  if (tipoEntrega === "Entrega") {
+      let endereco = {};
+      endereco.ruas = document.getElementById("rua").value;
+      endereco.bairros = document.getElementById("bairro").value;
+      endereco.numeros = document.getElementById("numero").value;
+      
+      
+
+      if(endereco.ruas === "") {
+        ruaWarn.classList.remove("hidden");
+        rua.classList.add("border-red-500")
+        verEnder = "visto"
+      }
+
+      if(endereco.bairros === "") {
+        bairroWarn.classList.remove("hidden");
+        bairro.classList.add("border-red-500")
+        verEnder = "visto"
+      }
+
+      if(endereco.numeros === "") {
+        numeroWarn.classList.remove("hidden");
         numero.classList.add("border-red-500")
+        verEnder = "visto"
+      }
+
+      if(verEnder === "visto") {
         return;
-   }
+      }
+    }
+  
+  
+
+  // pagamento
+  if(pagamento === ""){
+  Toastify({
+  text: "Preencha a forma de pagamento!",
+  duration: 3000,
+  close: true,
+  gravity: "top",
+  position: "left",
+  stopOnFocus: true,
+  style: {
+    background: "#ef4444",
+  },
+}).showToast();
+    return;
+  }
+
+  if(pagamento === "Dinheiro"){
+    if(trocoInput === ""){
+      document.getElementById('troco').classList.add("border-red-500")
+      document.getElementById('troco-aste').classList.remove("hidden")
+      return;
+    }
+  }
 
    enviarPedido()
    const pedidoFormatado = montarPedido();
    enviarPedidoParaPainel(pedidoFormatado);
-
-   
+   zerarCarrinho()
 })
 
 backBtn.addEventListener("click", function(){
     document.getElementById('confirm-modal').classList.add("hidden")
 })
 
-  
+
+
+//-------------------------------------------------
+
+function zerarCarrinho(){
+  cart = []
+  document.getElementById('confirm-modal').classList.add("hidden")
+  cartModal.style.display = "none"
+  updateCartModal()
+}
+
+
 
 let selectedPizza = null;
 let selectedSize = "Grande";
@@ -430,20 +597,20 @@ let telefone = ""
 
 function enviarPedidoParaPainel(pedido) {
     const pedidosRef = database.ref('pedidos');
-
-    const novoPedidoRef = pedidosRef.push();
-    novoPedidoRef.set(pedido)
+    
+    // Adicionar status e timestamp antes de enviar
+    pedido.status = 'Aguardando';
+    pedido.timestamp = Date.now();
+    
+    pedidosRef.push(pedido)
       .then(() => {
         console.log("Pedido enviado com sucesso!");
         alert("Pedido enviado com sucesso!");
-        limparCarrinho();
       })
       .catch((error) => {
-        console.error("Error", error)
-        alert("Erro ao enviar pedido. Tente novamente.");
+        console.error("Erro ao enviar pedido: ", error);
       });
 }
-
 function montarPedido() {
     let tipoEntrega = document.getElementById("retirada").checked ? "Retirada" : "Entrega";
 
@@ -457,6 +624,7 @@ function montarPedido() {
     }
 
     telefone = document.getElementById('telefone').value
+    let nomeCliente = document.getElementById('nome-cliente').value
 
     let pagamento = "";
     if (document.getElementById("pagPix").checked) pagamento = "Pix";
@@ -478,6 +646,11 @@ function montarPedido() {
         pagamento,
         dinheiroTotal,
         totalPedido,
-        telefone
+        telefone,
+        nomeCliente
     };
+}
+
+function verificaPedido(){
+  
 }
