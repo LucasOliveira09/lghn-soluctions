@@ -16,3 +16,11 @@
 #show-lanche {
     display: none;
 }
+
+#pizza-modal .half-btn::-webkit-scrollbar {
+  display: none;
+}
+
+#pizza-modal .half-btn {
+  scrollbar-width: none;
+}

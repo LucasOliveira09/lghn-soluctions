@@ -8,11 +8,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/k7ujTnHg4CGR2D7kSs0v4LLanw2qksYuRlEzO+tcaEPQogQ0KaoGN26/zrn20ImR1DfuLWnOo7aBA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     
     <title>Central</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 </head>
 <body>
-
-
-
 
     <header class="w-full h-[420px] shadow-sm bg-zinc-900 bg-home bg-cover bg-center ">
         <div class="w-full h-full flex flex-col justify-center items-center">
@@ -27,7 +26,7 @@
     </header>
 
 
-    
+    <!-- botoes de mudar aba-->
 
 <div class=" flex justify-center gap-2 md:gap-4 items-center">
         <button onclick="showPizza()" class="px-2 py-5 w-20 bg-slate-200 mt-4 rounded-2xl hover:bg-slate-300 hover:scale-110 hover:duration-200 shadow-lg">Pizzas</button>
@@ -35,6 +34,9 @@
         <button onclick="showLanche()" class="px-2 py-5 w-20 mt-4 bg-slate-200 rounded-2xl hover:bg-slate-300 hover:scale-110 hover:duration-200 shadow-lg">Lanches</button>
         <button onclick="showBebida()" class="px-2 py-5 w-20 mt-4 bg-slate-200 rounded-2xl hover:bg-slate-300 hover:scale-110 hover:duration-200 shadow-lg">Bebidas</button>
     </div>
+
+
+    <!-- carrinho -->
 
     <div id="cart-modal" class="bg-black/50 w-full h-full fixed top-0 left-0 z-[99] hidden items-center justify-center">
 
@@ -68,103 +70,118 @@
 
 
     <!-- confirmação de dados -->
-    <div id="confirm-modal" class=" bg-white w-full h-full fixed top-0 left-0 z-[99]  items-center justify-center hidden">
-        <div class=" p-5 rounded-md min-w-[90%] md:min-w-[600px]">
-            <h2 class="text-2xl font-bold mb-6 text-center">Finalizar pedido!</h2>
+    <div id="confirm-modal" class="bg-white w-full h-full fixed top-0 left-0 z-[99] overflow-y-auto p-5 hidden">
+  <div class="max-w-md mx-auto">
 
-  <!-- Tipo de Entrega -->
-  <div class="mb-6 border p-4 rounded-lg">
-    <h3 class="text-lg font-semibold mb-4">Tipo de Entrega</h3>
-    <div class="flex justify-center gap-4">
-      <label class="flex items-center gap-2 bg-gray-200 px-4 py-3 rounded-lg cursor-pointer">
-        <input type="checkbox" id="retirada" onchange="atualizarEntrega()" class="w-6 h-6 text-green-500">
-        <span>Retirada</span>
-      </label>
-      <label class="flex items-center gap-2 bg-gray-200 px-4 py-3 rounded-lg cursor-pointer">
-        <input type="checkbox" id="entrega" onchange="atualizarEntrega()" class="w-6 h-6 text-green-500">
-        <span>Entrega</span>
-      </label>
+    <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Finalizar Pedido</h2>
+
+    <!-- Resumo do Pedido -->
+    
+
+    <!-- Telefone -->
+    <div class="mb-6 border p-4 rounded-lg shadow-sm">
+      <h3 class="text-lg font-semibold mb-4">Telefone para contato</h3>
+      <input type="tel" id="telefone" placeholder="(99) 99999-9999" class="w-full border rounded-lg p-3">
+      <p id="telefone-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
     </div>
-  </div>
 
-  <!-- Endereço -->
-   <div id="retirada-section" class="mb-6 border p-4 rounded-lg hidden">
-    <h3 class="text-lg font-semibold mb-4">Local:</h3>
-    <p class="block font-medium">Rua:</p>
-   </div>
-
-
-  <div id="address-section" class="mb-6 border p-4 rounded-lg hidden">
-    <h3 class="text-lg font-semibold mb-4">Endereço de Entrega</h3>
-    <div class="space-y-3">
-      <div>
-        <label class="block font-medium">Rua:
+    <!-- Tipo de Entrega -->
+    <div class="mb-6 border p-4 rounded-lg shadow-sm">
+      <h3 class="text-lg font-semibold mb-4">Tipo de Entrega</h3>
+      <div class="flex flex-col gap-3 md:flex-row md:justify-center">
+        <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
+          <input type="checkbox" id="retirada" onchange="atualizarEntrega()" class="w-5 h-5 text-green-500">
+          Retirada
         </label>
-        <div class="flex">
-            <input type="text" id="rua" placeholder="Digite a rua" class="w-full border rounded p-3">
-            <p id="rua-aste" class="text-red-500 text-lg hidden">*</p>
-        </div>
-        
-
-        
-        
-      </div>
-      <div class="flex justify-between">
-        <div>
-            <label class="block font-medium">Bairro:</label>
-            <div class="flex">
-                <input type="text" id="bairro" placeholder="Digite o bairro" class="w-full border rounded p-3">
-                <p id="bairro-aste" class="text-red-500 text-lg hidden">*</p>
-            </div>
-            
-        </div>
-
-        <div>
-            <label class="block font-medium">Número:</label>
-            <div class="flex">
-                <input type="text" id="numero" placeholder="Digite o número" class="w-full border rounded p-3">
-                <p id="numero-aste" class="text-red-500 text-lg hidden">*</p>
-            </div>
-            
-        </div>
+        <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
+          <input type="checkbox" id="entrega" onchange="atualizarEntrega()" class="w-5 h-5 text-green-500">
+          Entrega
+        </label>
       </div>
     </div>
-  </div>
 
-  <!-- Pagamento -->
-  <div class="mb-6 border p-4 rounded-lg">
-    <h3 class="text-lg font-semibold mb-4">Forma de Pagamento</h3>
-    <div class="flex justify-center gap-4 flex-wrap">
-      <label class="flex items-center gap-2 bg-gray-200 px-4 py-3 rounded-lg cursor-pointer">
-        <input type="checkbox" id="pagPix" onchange="atualizarPagamento()" class="w-6 h-6 text-green-500">
-        <span>Pix</span>
-      </label>
-      <label class="flex items-center gap-2 bg-gray-200 px-4 py-3 rounded-lg cursor-pointer">
-        <input type="checkbox" id="pagCartao" onchange="atualizarPagamento()" class="w-6 h-6 text-green-500">
-        <span>Cartão</span>
-      </label>
-      <label class="flex items-center gap-2 bg-gray-200 px-4 py-3 rounded-lg cursor-pointer">
-        <input type="checkbox" id="pagDinheiro" onchange="atualizarPagamento()" class="w-6 h-6 text-green-500">
-        <span>Dinheiro</span>
-      </label>
-    </div>
+    <!-- Endereço (somente quando entrega) -->
+    <div id="address-section" class="mb-6 border p-4 rounded-lg shadow-sm hidden">
+      <h3 class="text-lg font-semibold mb-4">Endereço de Entrega</h3>
+      <p class="mb-2 text-sm text-gray-500">Frete: R$4,00</p>
 
-    <div id="trocoSection" class="mt-4 hidden">
-      <label class="block font-medium mb-1">Troco para quanto?</label>
-      <input type="number" id="troco" placeholder="Ex: 100.00" class="w-full border rounded p-3">
-    </div>
-  </div>
-
-            
-
-            <div class="flex items-center justify-between mt-8 w-full">
-                <button id="back-cart">Voltar</button>
-                <button id="submit-order" class="bg-green-500 text-white px-4 py-1 rounded">Enviar pedido</button>
-            </div>
-
-
+      <div class="space-y-4">
+        <div>
+          <label class="block font-medium mb-1">Rua</label>
+          <input type="text" id="rua" placeholder="Digite a rua" class="w-full border rounded-lg p-3">
+          <p id="rua-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
         </div>
+
+        <div class="flex gap-3">
+          <div class="w-1/2">
+            <label class="block font-medium mb-1">Bairro</label>
+            <input type="text" id="bairro" placeholder="Digite o bairro" class="w-full border rounded-lg p-3">
+            <p id="bairro-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
+          </div>
+
+          <div class="w-1/2">
+            <label class="block font-medium mb-1">Número</label>
+            <input type="text" id="numero" placeholder="Nº" class="w-full border rounded-lg p-3">
+            <p id="numero-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
+          </div>
+        </div>
+      </div>
     </div>
+
+    <!-- Retirada (somente quando retirada) -->
+    <div id="retirada-section" class="mb-6 border p-4 rounded-lg shadow-sm hidden">
+      <h3 class="text-lg font-semibold mb-4">Local de Retirada</h3>
+      <p>Rua Exemplo, 123 - Centro - Fartura/SP</p>
+    </div>
+
+    <!-- Pagamento -->
+    <div class="mb-6 border p-4 rounded-lg shadow-sm">
+      <h3 class="text-lg font-semibold mb-4">Forma de Pagamento</h3>
+      <div class="flex flex-col gap-3 md:flex-row md:justify-center">
+        <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
+          <input type="checkbox" id="pagPix" onchange="atualizarPagamento()" class="w-5 h-5 text-green-500">
+          Pix
+        </label>
+        <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
+          <input type="checkbox" id="pagCartao" onchange="atualizarPagamento()" class="w-5 h-5 text-green-500">
+          Cartão
+        </label>
+        <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
+          <input type="checkbox" id="pagDinheiro" onchange="atualizarPagamento()" class="w-5 h-5 text-green-500">
+          Dinheiro
+        </label>
+      </div>
+
+      <div id="trocoSection" class="mt-4 hidden">
+        <label class="block font-medium mb-1">Troco para quanto?</label>
+        <input type="number" id="troco" placeholder="Ex: 100.00" class="w-full border rounded-lg p-3">
+      </div>
+    </div>
+
+
+    <div class="mb-6 border p-4 rounded-lg shadow-sm bg-gray-50">
+      <h3 class="text-lg font-semibold mb-4">Seu Pedido</h3>
+      <div id="confirm-cart-items" class="text-gray-700 text-sm">
+ 
+      </div>
+       <div id="confirm-total" class="font-bold text-lg">
+    Total: R$ 0,00
+</div>
+    </div>
+   
+   
+
+
+
+    <!-- Botões -->
+    <div class="flex justify-between items-center mt-8">
+      <button id="back-cart" class="px-5 py-3 border rounded-lg text-gray-700">Voltar</button>
+      <button id="submit-order" class="bg-green-500 text-white px-6 py-3 rounded-lg font-semibold shadow-md">Enviar Pedido</button>
+    </div>
+
+  </div>
+</div>
+
 
 
     <!-- Pizzas ------------------------------------------------------------------- -->   
@@ -176,14 +193,14 @@
             <img src="assets/pizza.png" alt="" class="w-24 h-24 rounded hover:scale-110 hover:-rotate-2 duration-300">
             
             <div class="w-full">
-                <p class="font-bold">Frango c/ catupiry</p>
+                <p class="font-bold">Frango com catupiry</p>
                 <p class="text-sm">Frango e catupiry</p>
 
                 <div class="flex items-center gap-2 justify-between mt-3">
                    <p class="font-bold text-lg">R$ 52.00</p>
                     <button 
-                        class="bg-gray-900 px-5 rounded add-to-cart-btn"
-                        data-name="Pizza de Frango c/ catupiry"
+                        class="bg-gray-900 px-5 rounded open-modal-btn"
+                        data-name="Pizza Frango com catupiry"
                         data-price="52.00" 
                     >
                        
@@ -204,7 +221,7 @@
                 <div class="flex items-center gap-2 justify-between mt-3 ">
                    <p class="font-bold text-lg">R$ 52.00</p>
                     <button 
-                        class="bg-gray-900 px-5 rounded add-to-cart-btn"
+                        class="bg-gray-900 px-5 rounded open-modal-btn"
                         data-name="Pizza de Quatro queijos"
                         data-price="52.00" 
                     >
@@ -226,8 +243,8 @@
                 <div class="flex items-center gap-2 justify-between mt-3 ">
                    <p class="font-bold text-lg">R$ 52.00</p>
                     <button 
-                        class="bg-gray-900 px-5 rounded add-to-cart-btn"
-                        data-name="Pizza de Atum"
+                        class="bg-gray-900 px-5 rounded open-modal-btn"
+                        data-name="Pizza Atum"
                         data-price="52.00" 
                     >
                        
@@ -248,8 +265,8 @@
                 <div class="flex items-center gap-2 justify-between mt-3 ">
                    <p class="font-bold text-lg">R$ 52.00</p>
                     <button 
-                        class="bg-gray-900 px-5 rounded add-to-cart-btn"
-                        data-name="Pizza de Bacon"
+                        class="bg-gray-900 px-5 rounded open-modal-btn"
+                        data-name="Pizza Bacon"
                         data-price="52.00" 
                     >
                        
@@ -270,7 +287,7 @@
                 <div class="flex items-center gap-2 justify-between mt-3 ">
                    <p class="font-bold text-lg">R$ 52.00</p>
                     <button 
-                        class="bg-gray-900 px-5 rounded add-to-cart-btn"
+                        class="bg-gray-900 px-5 rounded open-modal-btn"
                         data-name="Pizza Baiana"
                         data-price="52.00" 
                     >
@@ -343,19 +360,59 @@
     </button>
 </footer>
     
+<!-- Escolher sabor ou meia a meia-->
 
+<div id="pizza-modal" class="fixed top-0 left-0 w-full h-full bg-black/60 z-[999] hidden items-center justify-center p-5">
+  <div class="bg-white rounded-lg w-full max-w-md p-6 shadow-lg">
 
+    <h2 id="modal-title" class="text-2xl font-bold mb-6 text-center text-gray-800"></h2>
+
+    <!-- Tamanho -->
+    <div class="mb-6">
+      <h3 class="font-semibold mb-3 text-gray-700">Escolha o tamanho:</h3>
+      <div class="flex justify-center gap-4">
+        <button class="size-btn bg-gray-200 text-gray-700 py-3 rounded-full font-semibold transition-all w-20" data-size="Broto">
+          Broto
+        </button>
+        <button class="size-btn bg-gray-200 text-gray-700 px-2 py-3 rounded-full font-semibold transition-all w-20" data-size="Grande">
+          Grande
+        </button>
+      </div>
     </div>
 
+    <!-- Meia-Meia -->
+    <div class="mb-6">
+      <h3 class="font-semibold mb-3 text-gray-700">Deseja Meia-Meia?</h3>
+      <div class="max-h-52 overflow-y-auto flex flex-col gap-3 px-2">
+        <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" data-half="">Não</button>
+        <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" data-half="Frango com Catupiry">Frango com Catupiry</button>
+        <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" data-half="Quatro queijos">Quatro queijos</button>
+        <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" data-half="Atum">Atum</button>
+        <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" data-half="Bacon">Bacon</button>
+        <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" data-half="Baiana">Baiana</button>
+        <!-- Adicione mais sabores aqui -->
+      </div>
+    </div>
 
+    <!-- Botões -->
+    <div class="flex justify-between mt-8">
+      <button id="cancel-pizza" class="px-5 py-3 border border-gray-400 rounded-full text-gray-700">Cancelar</button>
+      <button id="confirm-pizza" class="bg-green-500 text-white px-5 py-3 rounded-full font-semibold shadow-md">Adicionar</button>
+    </div>
 
-
-       
-
+  </div>
+</div>     
 
 </body>
- 
+
 <script src="script.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js"></script>
+
+<!-- Firebase Analytics (opcional) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics-compat.js"></script>
+
+<!-- Firebase Realtime Database -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
      function showPizza() {
         document.getElementById('show-pizza').style.display = "grid"

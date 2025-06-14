@@ -1,3 +1,20 @@
+const firebaseConfig = {
+    apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
+    authDomain: "cardapioweb-99e7b.firebaseapp.com",
+    databaseURL: "https://cardapioweb-99e7b-default-rtdb.firebaseio.com",
+    projectId: "cardapioweb-99e7b",
+    storageBucket: "cardapioweb-99e7b.firebasestorage.app",
+    messagingSenderId: "110849299422",
+    appId: "1:110849299422:web:44083feefdd967f4f9434f",
+    measurementId: "G-Y4KFGTHFP1"
+  };
+
+// Inicializar Firebase
+firebase.initializeApp(firebaseConfig);
+
+// Obter referência ao Realtime Database
+const database = firebase.database();
+
 const menu = document.getElementById('menu')
 const cartBtn = document.getElementById('cart-btn')
 const cartModal = document.getElementById('cart-modal')
@@ -16,7 +33,10 @@ const numeroWarn = document.getElementById('numero-aste')
 const submitBtn = document.getElementById('submit-order')
 const backBtn = document.getElementById('back-cart')
 const confirmModal = document.getElementById('confirm-modal')
+const confirmCartItems = document.getElementById('confirm-cart-items');
+const confirmTotal = document.getElementById('confirm-total');
 
+const FRETE_VALOR = 5.00; 
 
 let cart = [];
 
@@ -128,12 +148,11 @@ function removeItemCart(name) {
     }
 }
 
-let observacao = observationInput.value
-
 checkoutBtn.addEventListener("click", function(){
     if(cart.length === 0){
         return;
     } else {
+        atualizarConfirmacao()
         confirmModal.classList.remove("hidden")
     }
     
@@ -179,6 +198,8 @@ checkoutBtn.addEventListener("click", function(){
     } else {
       retiradaSection.classList.add("hidden");
     }
+
+     atualizarConfirmacao();
   }
 
   function atualizarPagamento() {
@@ -198,16 +219,18 @@ checkoutBtn.addEventListener("click", function(){
     }
   }
 
+
   function enviarPedido() {
     let tipoEntrega = "";
     if (document.getElementById("retirada").checked) tipoEntrega = "Retirada";
     if (document.getElementById("entrega").checked) tipoEntrega = "Entrega";
 
     let endereco = {};
+
     if (tipoEntrega === "Entrega") {
-      endereco.rua = document.getElementById("rua").value;
-      endereco.bairro = document.getElementById("bairro").value;
-      endereco.numero = document.getElementById("numero").value;
+      endereco.ruas = document.getElementById("rua").value;
+      endereco.bairros = document.getElementById("bairro").value;
+      endereco.numeros = document.getElementById("numero").value;
     }
 
     let pagamento = "";
@@ -220,8 +243,16 @@ checkoutBtn.addEventListener("click", function(){
       dinheiroTotal = document.getElementById("troco").value;
     }
 
+    let observacao = document.getElementById('observation').value;
 
+    let totalPedido = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    let pedido = { endereco, cart, observacao, tipoEntrega, pagamento, dinheiroTotal, totalPedido };
+
+    console.log(pedido)
   }
+
+
     rua.addEventListener("input", function(event){
     let inputValue = event.target.value;
 
@@ -254,19 +285,25 @@ submitBtn.addEventListener("click", function(){
     if(rua.value === ""){
         ruaWarn.classList.remove("hidden")
         rua.classList.add("border-red-500")
+        return;
     }
      if(bairro.value === ""){
         bairroWarn.classList.remove("hidden")
         bairro.classList.add("border-red-500")
+        return;
     }
 
      if(numero.value === ""){
         numeroWarn.classList.remove("hidden")
         numero.classList.add("border-red-500")
+        return;
    }
-   let pedido = {rua, bairro, numero, cart, observacao} ;
 
-   console.log(pedido)
+   enviarPedido()
+   const pedidoFormatado = montarPedido();
+   enviarPedidoParaPainel(pedidoFormatado);
+
+   
 })
 
 backBtn.addEventListener("click", function(){
@@ -275,5 +312,172 @@ backBtn.addEventListener("click", function(){
 
   
 
+let selectedPizza = null;
+let selectedSize = "Grande";
+let selectedHalf = "";
+
+document.querySelectorAll('.open-modal-btn').forEach(button => {
+  button.addEventListener('click', () => {
+    selectedPizza = {
+      name: button.dataset.name,
+      price: parseFloat(button.dataset.price)
+    };
+
+    selectedSize = "Grande";
+    selectedHalf = "";
+    resetSelections();
+
+    document.getElementById('modal-title').innerText = selectedPizza.name;
+    document.getElementById('pizza-modal').style.display = 'flex';
+  });
+});
+
+document.getElementById('cancel-pizza').addEventListener('click', () => {
+  document.getElementById('pizza-modal').style.display = 'none';
+});
+
+document.querySelectorAll('.size-btn').forEach(button => {
+  button.addEventListener('click', () => {
+    selectedSize = button.dataset.size;
+    document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+    button.classList.add('bg-green-500', 'text-white');
+  });
+});
+
+document.querySelectorAll('.half-btn').forEach(button => {
+  button.addEventListener('click', () => {
+    selectedHalf = button.dataset.half;
+    document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+    button.classList.add('bg-green-500', 'text-white');
+  });
+});
+
+document.getElementById('confirm-pizza').addEventListener('click', () => {
+  let nameFinal = selectedPizza.name;
+  if (selectedHalf && selectedHalf !== selectedPizza.name) {
+    nameFinal = `${selectedPizza.name} / ${selectedHalf}`;
+  }
+  nameFinal += ` (${selectedSize})`;
+
+  const priceMultiplier = selectedSize === "Broto" ? 0.6 : 1;
+
+  const item = {
+    name: nameFinal,
+    price: selectedPizza.price * priceMultiplier,
+    quantity: 1
+  };
+
+  cart.push(item);
+  document.getElementById('pizza-modal').style.display = 'none';
+  updateCartModal();
+
+  
+});
+
+function resetSelections() {
+  document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+  document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+
+  document.querySelector('.size-btn[data-size="Grande"]').classList.add('bg-green-500', 'text-white');
+  document.querySelector('.half-btn[data-half=""]').classList.add('bg-green-500', 'text-white');
+}
 
 
+
+
+function atualizarConfirmacao() {
+  confirmCartItems.innerHTML = "";
+  
+  let subtotal = 0;
+  
+  cart.forEach(item => {
+    const itemContainer = document.createElement('div');
+    itemContainer.classList.add('mb-4');
+
+    const topBorder = document.createElement('div');
+    topBorder.classList.add('h-[1px]', 'bg-gray-300', 'mb-2');
+    itemContainer.appendChild(topBorder);
+
+    const itemContent = document.createElement('div');
+    itemContent.classList.add('flex', 'justify-between', 'items-center');
+    itemContent.innerHTML = `
+      <div>
+        <p class="font-medium">${item.quantity}x ${item.name}</p>
+        <p class="text-sm text-gray-600">Subtotal: R$ ${(item.price * item.quantity).toFixed(2)}</p>
+      </div>
+    `;
+    itemContainer.appendChild(itemContent);
+
+    const bottomBorder = document.createElement('div');
+    bottomBorder.classList.add('h-[1px]', 'bg-gray-300', 'mt-2');
+    itemContainer.appendChild(bottomBorder);
+
+    confirmCartItems.appendChild(itemContainer);
+    
+    subtotal += item.price * item.quantity;
+  });
+
+  let totalComFrete = subtotal;
+  const entregaSelecionada = document.getElementById("entrega").checked;
+  if (entregaSelecionada) {
+    totalComFrete += FRETE_VALOR;
+  }
+
+  confirmTotal.textContent = `Total: R$ ${totalComFrete.toFixed(2)}${entregaSelecionada ? ` (Inclui frete de R$ ${FRETE_VALOR.toFixed(2)})` : ''}`;
+}
+
+let telefone = ""
+
+function enviarPedidoParaPainel(pedido) {
+    const pedidosRef = database.ref('pedidos');
+
+    const novoPedidoRef = pedidosRef.push();
+    novoPedidoRef.set(pedido)
+      .then(() => {
+        console.log("Pedido enviado com sucesso!");
+        alert("Pedido enviado com sucesso!");
+        limparCarrinho();
+      })
+      .catch((error) => {
+        console.error("Error", error)
+        alert("Erro ao enviar pedido. Tente novamente.");
+      });
+}
+
+function montarPedido() {
+    let tipoEntrega = document.getElementById("retirada").checked ? "Retirada" : "Entrega";
+
+    let endereco = {};
+    if (tipoEntrega === "Entrega") {
+        endereco = {
+            rua: rua.value,
+            bairro: bairro.value,
+            numero: numero.value
+        };
+    }
+
+    telefone = document.getElementById('telefone').value
+
+    let pagamento = "";
+    if (document.getElementById("pagPix").checked) pagamento = "Pix";
+    if (document.getElementById("pagCartao").checked) pagamento = "Cartão";
+    if (document.getElementById("pagDinheiro").checked) pagamento = "Dinheiro";
+
+    let dinheiroTotal = pagamento === "Dinheiro" ? document.getElementById("troco").value : null;
+
+    let observacao = observationInput.value;
+
+    let subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    let totalPedido = subtotal + (tipoEntrega === "Entrega" ? FRETE_VALOR : 0);
+
+    return {
+        endereco,
+        cart,
+        observacao,
+        tipoEntrega,
+        pagamento,
+        dinheiroTotal,
+        totalPedido,
+        telefone
+    };
+}
