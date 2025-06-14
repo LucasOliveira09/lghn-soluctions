@@ -65,10 +65,17 @@ function gerarHtmlPedido(pedido, pedidoId) {
     ? new Date(pedido.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     : 'Sem horário';
 
+  // Adição de Nome e Telefone
+  let clienteInfo = `
+    <p class="text-sm mb-1"><strong>Cliente:</strong> ${pedido.nomeCliente || '-'}</p>
+    <p class="text-sm mb-1"><strong>Telefone:</strong> ${pedido.telefone || '-'}</p>
+  `;
+
   return `
   <div class="flex flex-col justify-between h-full">
     <div>
       <h2 class="text-lg font-bold mb-2">Pedido (${horario})</h2>
+      ${clienteInfo}
       ${enderecoTexto}
       <p class="text-sm"><strong>Pagamento:</strong> ${pedido.pagamento} ${pedido.dinheiroTotal ? '(Troco p/ R$ ' + pedido.dinheiroTotal + ')' : ''}</p>
       <p class="text-sm"><strong>Obs:</strong> ${pedido.observacao || '-'}</p>
@@ -81,7 +88,7 @@ function gerarHtmlPedido(pedido, pedidoId) {
         <span class="${getStatusColor(pedido.status)}">${pedido.status}</span>
       </p>
 
-      ${pedido.status === 'Aguardando' ? `
+      ${pedido.status === 'Aguardando' ? ` 
         <div class="flex gap-2 mt-4">
           <button onclick="aceitarPedido('${pedidoId}')" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition">
             Aceitar
