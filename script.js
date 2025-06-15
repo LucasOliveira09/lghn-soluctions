@@ -605,7 +605,7 @@ function enviarPedidoParaPainel(pedido) {
     pedidosRef.push(pedido)
       .then(() => {
         console.log("Pedido enviado com sucesso!");
-        alert("Pedido enviado com sucesso!");
+        mostrarPedidoSucessoComLogo()
       })
       .catch((error) => {
         console.error("Erro ao enviar pedido: ", error);
@@ -651,6 +651,52 @@ function montarPedido() {
     };
 }
 
-function verificaPedido(){
-  
+function mostrarPedidoSucessoComLogo() {
+  Toastify({
+    text: `
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+        <img src="assets/logo.png" alt="Logo" style="width: 200px; height: 200px; margin-bottom: 20px; border-radius: 10px;" />
+        <span style="font-size: 20px; font-weight: bold; color: #ffffff;">Pedido realizado com sucesso!</span>
+      </div>
+    `,
+    duration: 3000,
+    close: true,
+    gravity: "center", 
+    position: "center",
+    backgroundColor: "rgba(0,0,0,0.8)",  // fundo translúcido
+    stopOnFocus: true,
+    escapeMarkup: false,  // permite o HTML dentro do text
+    style: {
+      borderRadius: "15px",
+      padding: "30px 20px",
+      boxShadow: "0 4px 15px rgba(0,0,0,0.5)",
+      backdropFilter: "blur(5px)",
+      width: "320px",
+    }
+  }).showToast();
 }
+
+const scrollContainer = document.getElementById('scroll-container');
+const scrollIndicator = document.getElementById('scroll-indicator');
+
+scrollIndicator.addEventListener('click', () => {
+  scrollContainer.scrollBy({
+    left: 300, 
+    behavior: 'smooth'
+  });
+});
+function checkScrollEnd() {
+  const scrollLeft = scrollContainer.scrollLeft;
+  const scrollWidth = scrollContainer.scrollWidth;
+  const clientWidth = scrollContainer.clientWidth;
+
+  if (scrollLeft + clientWidth >= scrollWidth - 5) {
+    scrollIndicator.style.display = 'none';
+  } else {
+    scrollIndicator.style.display = 'flex';
+  }
+}
+
+scrollContainer.addEventListener('scroll', checkScrollEnd);
+
+window.addEventListener('load', checkScrollEnd);
