@@ -207,7 +207,7 @@ if(isOpen){
    spanItem.classList.add("bg-red-600");
 }
 
-  function atualizarEntrega() {
+ function atualizarEntrega() {
     const retirada = document.getElementById("retirada");
     const entrega = document.getElementById("entrega");
     const enderecoSection = document.getElementById("address-section");
@@ -232,7 +232,7 @@ if(isOpen){
     }
 
      atualizarConfirmacao();
-  }
+  }
 
   function atualizarPagamento() {
     const pagPix = document.getElementById("pagPix");
@@ -248,8 +248,8 @@ if(isOpen){
       trocoSection.classList.remove("hidden");
     } else {
       trocoSection.classList.add("hidden");
-    }
-  }
+    }
+  }
 
 
   

@@ -34,6 +34,14 @@ const abaProdutos = document.getElementById('aba-produtos');
 
 let pedidos = {};
 
+let senhaTentada = prompt("Qual a senha do painel?");
+
+let senha = "1234"
+
+if(senhaTentada !== senha ){
+  document.getElementById('tudoSome').classList.add("hidden")
+}
+
 pedidosRef.on('value', (snapshot) => {
   pedidos = {};
   snapshot.forEach(child => {
