@@ -13,7 +13,15 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 </head>
 <style>
- 
+ .input-ok {
+  border-color: #22c55e !important; /* verde-500 do Tailwind */
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3);
+}
+
+.input-error {
+  border-color: #ef4444 !important; /* vermelho-500 do Tailwind */
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3);
+}
 </style>
 <body>
 
@@ -97,25 +105,29 @@
     </div>
 
 
-    <!-- confirmação de dados -->
-    <div id="confirm-modal" class="bg-white w-full h-full fixed top-0 left-0 z-[99] overflow-y-auto p-5 hidden">
-  <div class="max-w-md mx-auto">
+    <!-- Confirmação de Dados -->
+<div id="confirm-modal" class="bg-white w-full h-full fixed top-0 left-0 z-[99] overflow-y-auto p-5 hidden">
+  <div class="max-w-lg mx-auto">
 
-    <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Finalizar Pedido</h2>
+    <h2 class="text-3xl font-bold mb-8 text-center text-gray-800">Confirmar Pedido</h2>
 
-    <!-- Resumo do Pedido -->
-    
+    <!-- Dados do Cliente -->
     <div class="mb-6 border p-4 rounded-lg shadow-sm">
-      <h3 class="text-lg font-semibold mb-4">Seu nome</h3>
-      <input type="text" id="nome-cliente" placeholder="Nome" class="w-full border rounded-lg p-3">
-      <p id="nome-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
-    </div>
+      <h3 class="text-lg font-semibold mb-4">Seus Dados</h3>
 
-    <!-- Telefone -->
-    <div class="mb-6 border p-4 rounded-lg shadow-sm">
-      <h3 class="text-lg font-semibold mb-4">Telefone para contato</h3>
-      <input type="tel" id="telefone" placeholder="(99) 99999-9999" class="w-full border rounded-lg p-3">
-      <p id="telefone-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
+      <div class="space-y-4">
+        <div>
+          <label for="nome-cliente" class="block font-medium mb-1">Nome Completo</label>
+          <input type="text" id="nome-cliente" placeholder="Digite seu nome" class="w-full border rounded-lg p-3">
+          <p id="nome-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
+        </div>
+
+        <div>
+          <label for="telefone" class="block font-medium mb-1">Telefone</label>
+          <input type="tel" id="telefone" placeholder="(99) 99999-9999" class="w-full border rounded-lg p-3">
+          <p id="telefone-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
+        </div>
+      </div>
     </div>
 
     <!-- Tipo de Entrega -->
@@ -124,50 +136,54 @@
       <div class="flex flex-col gap-3 md:flex-row md:justify-center">
         <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
           <input type="checkbox" id="retirada" onchange="atualizarEntrega()" class="w-5 h-5 text-green-500">
-          Retirada
+          Retirada no Local
         </label>
         <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
           <input type="checkbox" id="entrega" onchange="atualizarEntrega()" class="w-5 h-5 text-green-500">
-          Entrega
+          Entrega em Casa
         </label>
       </div>
     </div>
 
-    <!-- Endereço (somente quando entrega) -->
+    <!-- Endereço de Entrega -->
     <div id="address-section" class="mb-6 border p-4 rounded-lg shadow-sm hidden">
-      <h3 class="text-lg font-semibold mb-4">Endereço de Entrega</h3>
-      <p class="mb-2 text-sm text-gray-500">Frete: R$4,00</p>
+      <h3 class="text-lg font-semibold mb-4">Endereço de Entrega <span class="text-sm text-gray-500">(Frete: R$ 4,00)</span></h3>
 
       <div class="space-y-4">
         <div>
-          <label class="block font-medium mb-1">Rua</label>
+          <label for="rua" class="block font-medium mb-1">Rua</label>
           <input type="text" id="rua" placeholder="Digite a rua" class="w-full border rounded-lg p-3">
           <p id="rua-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
         </div>
 
         <div class="flex gap-3">
           <div class="w-1/2">
-            <label class="block font-medium mb-1">Bairro</label>
+            <label for="bairro" class="block font-medium mb-1">Bairro</label>
             <input type="text" id="bairro" placeholder="Digite o bairro" class="w-full border rounded-lg p-3">
             <p id="bairro-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
           </div>
 
           <div class="w-1/2">
-            <label class="block font-medium mb-1">Número</label>
+            <label for="numero" class="block font-medium mb-1">Número</label>
             <input type="text" id="numero" placeholder="Nº" class="w-full border rounded-lg p-3">
             <p id="numero-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
           </div>
         </div>
+
+        <div>
+          <label for="referencia" class="block font-medium mb-1">Ponto de Referência</label>
+          <input type="text" id="referencia" placeholder="Ex: Casa amarela, próximo ao mercado..." class="w-full border rounded-lg p-3">
+        </div>
       </div>
     </div>
 
-    <!-- Retirada (somente quando retirada) -->
+    <!-- Local de Retirada -->
     <div id="retirada-section" class="mb-6 border p-4 rounded-lg shadow-sm hidden">
       <h3 class="text-lg font-semibold mb-4">Local de Retirada</h3>
       <p>Rua Exemplo, 123 - Centro - Fartura/SP</p>
     </div>
 
-    <!-- Pagamento -->
+    <!-- Forma de Pagamento -->
     <div class="mb-6 border p-4 rounded-lg shadow-sm">
       <h3 class="text-lg font-semibold mb-4">Forma de Pagamento</h3>
       <div class="flex flex-col gap-3 md:flex-row md:justify-center">
@@ -186,26 +202,18 @@
       </div>
 
       <div id="trocoSection" class="mt-4 hidden">
-        <label class="block font-medium mb-1">Troco para quanto?</label>
+        <label for="troco" class="block font-medium mb-1">Troco para quanto?</label>
         <input type="number" id="troco" placeholder="Ex: 100.00" class="w-full border rounded-lg p-3">
         <p id="troco-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
       </div>
     </div>
 
-
+    <!-- Resumo do Pedido -->
     <div class="mb-6 border p-4 rounded-lg shadow-sm bg-gray-50">
-      <h3 class="text-lg font-semibold mb-4">Seu Pedido</h3>
-      <div id="confirm-cart-items" class="text-gray-700 text-sm">
- 
-      </div>
-       <div id="confirm-total" class="font-bold text-lg">
-    Total: R$ 0,00
-</div>
+      <h3 class="text-lg font-semibold mb-4">Resumo do Pedido</h3>
+      <div id="confirm-cart-items" class="text-gray-700 text-sm"></div>
+      <div id="confirm-total" class="font-bold text-lg mt-2">Total: R$ 0,00</div>
     </div>
-   
-   
-
-
 
     <!-- Botões -->
     <div class="flex justify-between items-center mt-8">

@@ -700,3 +700,45 @@ function checkScrollEnd() {
 scrollContainer.addEventListener('scroll', checkScrollEnd);
 
 window.addEventListener('load', checkScrollEnd);
+
+document.addEventListener("DOMContentLoaded", () => {
+  const camposOrdem = [
+    "nome-cliente",
+    "telefone",
+    "rua",
+    "bairro",
+    "numero",
+    "referencia",
+    "troco"
+  ];
+
+  camposOrdem.forEach((campoId, index) => {
+    const campo = document.getElementById(campoId);
+
+    if (campo) {
+      campo.addEventListener("blur", () => {
+        validarCampo(campo, index, camposOrdem);
+      });
+    }
+  });
+
+  function validarCampo(campo, index, lista) {
+    const valor = campo.value.trim();
+
+    // Limpa as classes antes
+    campo.classList.remove("input-ok", "input-error");
+
+    if (valor === "") {
+      campo.classList.add("input-error");
+    } else {
+      campo.classList.add("input-ok");
+
+      // Pula para o próximo campo automaticamente
+      const proximoId = lista[index + 1];
+      const proximoCampo = document.getElementById(proximoId);
+      if (proximoCampo) {
+        proximoCampo.focus();
+      }
+    }
+  }
+});
