@@ -345,7 +345,7 @@ btnAtivos.click();
       <strong>Telefone:</strong> ${pedido.telefone || '-'}<br/>
       <strong>Tipo de Entrega:</strong> ${pedido.tipoEntrega}<br/>
       ${pedido.tipoEntrega === 'Entrega' ? `
-        <strong>Endereço:</strong> ${pedido.endereco?.rua || ''}, ${pedido.endereco?.numero || ''} - ${pedido.endereco?.bairro || ''}<br/>
+        <strong>Endereço:</strong> ${pedido.endereco?.rua || ''}, ${pedido.endereco?.numero || ''} - ${pedido.endereco?.bairro || ''}, ${pedido.referencia || ''}<br/>
       ` : '<strong>Retirada no Local</strong>'}
     </div>
 

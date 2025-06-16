@@ -625,6 +625,7 @@ function montarPedido() {
 
     telefone = document.getElementById('telefone').value
     let nomeCliente = document.getElementById('nome-cliente').value
+    let referencia = document.getElementById('referencia').value
 
     let pagamento = "";
     if (document.getElementById("pagPix").checked) pagamento = "Pix";
@@ -647,7 +648,8 @@ function montarPedido() {
         dinheiroTotal,
         totalPedido,
         telefone,
-        nomeCliente
+        nomeCliente,
+        referencia
     };
 }
 
