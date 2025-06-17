@@ -21,9 +21,9 @@ const horarioElement = document.getElementById("horario-pedido");
 
 function atualizarUI(status) {
   status = status.toLowerCase();
-  const steps = ["pendente", "aceito", "saiu para entrega", "finalizado"];
+  const steps = ["aguardando", "aceito", "saiu para entrega", "finalizado"];
   const icons = {
-    "pendente": "icon-pendente",
+    "aguardando": "icon-pendente",
     "aceito": "icon-aceito",
     "saiu para entrega": "icon-em-entrega",
     "finalizado": "icon-finalizado"
@@ -49,7 +49,7 @@ function atualizarUI(status) {
   });
 
   const mensagens = {
-    "pendente": "Pedido recebido! Estamos confirmando.",
+    "aguardando": "Pedido recebido! Estamos confirmando.",
     "aceito": "Pedido aceito! Estamos preparando.",
     "saiu para entrega": "Saiu para entrega! Aguarde...",
     "finalizado": "Pedido entregue! Bom apetite.",
