@@ -603,9 +603,13 @@ function enviarPedidoParaPainel(pedido) {
     pedido.timestamp = Date.now();
     
     pedidosRef.push(pedido)
-      .then(() => {
+      .then((ref) => {
+        const pedidoId = ref.key;
         console.log("Pedido enviado com sucesso!");
         mostrarPedidoSucessoComLogo()
+        
+        window.location.href = `status.html?pedidoId=${pedidoId}`;
+        
       })
       .catch((error) => {
         console.error("Erro ao enviar pedido: ", error);
