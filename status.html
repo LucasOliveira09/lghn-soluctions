@@ -45,28 +45,64 @@
       <div class="flex flex-col items-center">
         <i id="icon-finalizado" class="ph ph-check-circle text-2xl text-gray-400"></i>
         <p class="text-xs mt-1">Entregue</p>
-
       </div>
-      
     </div>
-    <div id="info-horarios" class="flex justify-center gap-4 mt-3 text-sm text-gray-600 font-medium">
-  <span id="horario-pedido" class="flex items-center gap-2">
-    <i class="fas fa-clock text-xs"></i>
-    <span id="hora-pedido-texto">--:--</span>
-  </span>
-  <span id="previsao-entrega" class="flex items-center gap-2">
-    <i class="fas fa-box text-xs"></i>
-    <span id="hora-previsao-texto">--:--</span>
-  </span>
-</div>
 
-    <!-- Mensagem de status -->
-    <p id="status" class="text-lg font-medium text-gray-700">Carregando status...</p>
+    <!-- Horários -->
+    <div id="info-horarios" class="flex justify-center gap-4 mt-3 text-sm text-gray-600 font-medium">
+      <span id="horario-pedido" class="flex items-center gap-2">
+        <i class="fas fa-clock text-xs"></i>
+        <span id="hora-pedido-texto">--:--</span>
+      </span>
+      <span id="previsao-entrega" class="flex items-center gap-2">
+        <i class="fas fa-box text-xs"></i>
+        <span id="hora-previsao-texto">--:--</span>
+      </span>
+    </div>
+
+    <!-- Status -->
+    <p id="status" class="text-lg font-medium text-gray-700 mt-4">Carregando status...</p>
+
+    <!-- Resumo do Pedido -->
+    <div class="bg-gray-50 rounded-xl p-4 mt-6 text-left text-sm text-gray-700 shadow-inner">
+      <p class="font-semibold mb-2">Resumo do Pedido</p>
+      <ul id="itens-pedido" class="list-disc list-inside space-y-1 text-gray-600">
+        <!-- Preenchido pelo JS -->
+      </ul>
+      <div class="mt-2 flex justify-between text-sm font-medium">
+        <span>Pagamento:</span>
+        <span id="forma-pagamento">---</span>
+      </div>
+      <div class="flex justify-between text-sm font-semibold">
+        <span>Total:</span>
+        <span id="total-pedido">R$ --,--</span>
+      </div>
+    </div>
+
+    <!-- Entrega -->
+    <div class="bg-white mt-4 p-4 rounded-xl shadow-sm text-sm text-left text-gray-700">
+      <p class="font-semibold mb-2">Entrega</p>
+      <p id="tipo-entrega">---</p>
+      <p id="endereco-entrega">---</p>
+    </div>
+
+    <!-- Atualizar -->
+    <div class="mt-6">
+      <button onclick="location.reload()" class="text-xs text-gray-400 hover:text-gray-700">
+        <i class="fas fa-sync-alt mr-1"></i>Atualizar página
+      </button>
+    </div>
+
+    <!-- Contato -->
+    <a href="https://wa.me/14997580837" target="_blank" class="text-sm text-green-600 flex items-center justify-center gap-2 mt-4 hover:underline">
+      <i class="fab fa-whatsapp text-lg"></i> Falar com o restaurante
+    </a>
+
+    <!-- Frase -->
+    <p class="mt-6 text-xs text-gray-400 italic">Obrigado por escolher a gente ❤️</p>
+
   </div>
 
-  
-
-  <!-- Firebase & JS -->
   <script type="module" src="status.js"></script>
 </body>
 </html>

@@ -63,36 +63,60 @@ if (pedidoId) {
   const pedidoRef = ref(database, `pedidos/${pedidoId}`);
   onValue(pedidoRef, (snapshot) => {
     if (snapshot.exists()) {
-      const pedido = snapshot.val();
-      const status = pedido.status || "pendente";
-      atualizarUI(status);
+  const pedido = snapshot.val();
+  const status = pedido.status || "pendente";
+  atualizarUI(status);
 
-      if (pedido.timestamp) {
-  const pedidoDate = new Date(pedido.timestamp);
+  // Atualizar horário
+  if (pedido.timestamp) {
+    const pedidoDate = new Date(pedido.timestamp);
+    const horarioPedido = pedidoDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const previsaoDate = new Date(pedidoDate.getTime() + 40 * 60000);
+    const horarioPrevisao = previsaoDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-  // Formatar os horários
-  const horarioPedido = pedidoDate.toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+    document.getElementById('hora-pedido-texto').textContent = horarioPedido;
+    document.getElementById('hora-previsao-texto').textContent = horarioPrevisao;
+  } else {
+    document.getElementById('hora-pedido-texto').textContent = '--:--';
+    document.getElementById('hora-previsao-texto').textContent = '--:--';
+  }
 
-  const previsaoDate = new Date(pedidoDate.getTime() + 40 * 60000);
-  const horarioPrevisao = previsaoDate.toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  // ✅ Preencher itens do pedido
+  const itensContainer = document.getElementById('itens-pedido');
+  itensContainer.innerHTML = '';
 
-  // Atualizar apenas os textos dos spans
-  document.getElementById('hora-pedido-texto').textContent = horarioPedido;
-  document.getElementById('hora-previsao-texto').textContent = horarioPrevisao;
-} else {
-  horarioElement.textContent = 'Horário do pedido não disponível';
-  document.getElementById('previsao-entrega').textContent = '';
-}
+  if (pedido.cart && Array.isArray(pedido.cart)) {
+    pedido.cart.forEach(item => {
+      const li = document.createElement('li');
+      li.textContent = `${item.quantity || 1}x ${item.name || 'Item'}`;
+      itensContainer.appendChild(li);
+    });
+  }
+
+  // ✅ Preencher forma de pagamento
+  document.getElementById('forma-pagamento').textContent = pedido.pagamento || '---';
+
+  // ✅ Preencher total
+  document.getElementById('total-pedido').textContent = `R$ ${pedido.totalPedido || '--,--'}`;
+
+  // ✅ Preencher tipo de entrega
+  document.getElementById('tipo-entrega').textContent = pedido.tipoEntrega || '---';
+
+  // ✅ Preencher endereço
+  if (pedido.tipoEntrega === "Retirada") {
+    document.getElementById('endereco-entrega').textContent = 'Retirada no balcão';
+  } else if (pedido.endereco) {
+    const { rua, numero, bairro, complemento } = pedido.endereco;
+    const enderecoCompleto = `${rua || ''}, ${numero || ''} - ${bairro || ''} ${complemento ? `(${complemento})` : ''}`;
+    document.getElementById('endereco-entrega').textContent = enderecoCompleto;
+  } else {
+    document.getElementById('endereco-entrega').textContent = 'Endereço não informado';
+  }
     } else {
       statusElement.textContent = "Pedido não encontrado.";
       horarioElement.textContent = '';
     }
+
   });
 } else {
   statusElement.textContent = "ID do pedido não encontrado.";

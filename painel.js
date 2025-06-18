@@ -34,13 +34,13 @@ const abaProdutos = document.getElementById('aba-produtos');
 
 let pedidos = {};
 
-let senhaTentada = prompt("Qual a senha do painel?");
+//let senhaTentada = prompt("Qual a senha do painel?");
 
-let senha = "1234"
+//let senha = "1234"
 
-if(senhaTentada !== senha ){
-  document.getElementById('tudoSome').classList.add("hidden")
-}
+//if(senhaTentada !== senha ){
+//  document.getElementById('tudoSome').classList.add("hidden")
+//}
 
 pedidosRef.on('value', (snapshot) => {
   pedidos = {};
@@ -399,3 +399,9 @@ function imprimirPedido(pedidoId) {
   });
 }
 
+function atualizarPromocao(){
+  statusRef.on('value', function(snapshot) {
+      var status = snapshot.val();
+      document.getElementById('pedido-status').innerText = status || 'Sem status ainda';
+}); 
+}
