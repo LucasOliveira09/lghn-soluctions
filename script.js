@@ -60,16 +60,15 @@ closeModalBtn.addEventListener("click", function(){
 })
 
 
-menu.addEventListener("click", function(event){
+document.addEventListener("click", function(event){
+  let parentButton = event.target.closest(".add-to-cart-btn")
 
-    let parentButton = event.target.closest(".add-to-cart-btn")
-
-    if(parentButton){
-        const name = parentButton.getAttribute('data-name')
-        const price = parseFloat(parentButton.getAttribute('data-price'))
-        
-        addToCart(name, price)
-    }
+  if(parentButton){
+      const name = parentButton.getAttribute('data-name')
+      const price = parseFloat(parentButton.getAttribute('data-price'))
+      
+      addToCart(name, price)
+  }
 })
 
 
@@ -208,49 +207,53 @@ if(isOpen){
 }
 
  function atualizarEntrega() {
-    const retirada = document.getElementById("retirada");
-    const entrega = document.getElementById("entrega");
-    const enderecoSection = document.getElementById("address-section");
-    const retiradaSection = document.getElementById('retirada-section')
+  const retirada = document.getElementById("retirada");
+  const entrega = document.getElementById("entrega");
+  const enderecoSection = document.getElementById("address-section");
+  const retiradaSection = document.getElementById("retirada-section");
 
+  // Permitir apenas um selecionado
+  if (retirada.checked) {
+    entrega.checked = false;
+    retiradaSection.classList.remove("hidden");
+    enderecoSection.classList.add("hidden");
+  } else if (entrega.checked) {
+    retirada.checked = false;
+    enderecoSection.classList.remove("hidden");
+    retiradaSection.classList.add("hidden");
+  } else {
+    // Nenhum selecionado
+    retiradaSection.classList.add("hidden");
+    enderecoSection.classList.add("hidden");
+  }
 
-    if (retirada.checked && entrega.checked) {
-      retirada.checked = false;
-      entrega.checked = true;
-    }
-
-    if (entrega.checked) {
-      enderecoSection.classList.remove("hidden");
-    } else {
-      enderecoSection.classList.add("hidden");
-    }
-
-    if (retirada.checked) {
-      retiradaSection.classList.remove("hidden");
-    } else {
-      retiradaSection.classList.add("hidden");
-    }
-
-     atualizarConfirmacao();
-  }
+  atualizarConfirmacao();
+}
 
   function atualizarPagamento() {
-    const pagPix = document.getElementById("pagPix");
-    const pagCartao = document.getElementById("pagCartao");
-    const pagDinheiro = document.getElementById("pagDinheiro");
-    const trocoSection = document.getElementById("trocoSection");
+  const pagPix = document.getElementById("pagPix");
+  const pagCartao = document.getElementById("pagCartao");
+  const pagDinheiro = document.getElementById("pagDinheiro");
+  const trocoSection = document.getElementById("trocoSection");
 
-    const pagamentos = [pagPix, pagCartao, pagDinheiro];
-    const ativo = pagamentos.find(p => p.checked);
-    pagamentos.forEach(p => { if (p !== ativo) p.checked = false; });
+  // Agrupa os pagamentos
+  const pagamentos = [pagPix, pagCartao, pagDinheiro];
+  const ativo = pagamentos.find(p => p.checked);
 
-    if (pagDinheiro.checked) {
-      trocoSection.classList.remove("hidden");
-    } else {
-      trocoSection.classList.add("hidden");
-    }
-  }
+  // Desmarca os outros
+  pagamentos.forEach(p => {
+    if (p !== ativo) p.checked = false;
+  });
 
+  // Exibe troco se dinheiro for selecionado
+  if (pagDinheiro.checked) {
+    trocoSection?.classList.remove("hidden");
+  } else {
+    trocoSection?.classList.add("hidden");
+  }
+
+  atualizarConfirmacao?.();
+}
 
   
 
@@ -350,6 +353,7 @@ document.getElementById('troco').addEventListener("input",  function(event){
 
 submitBtn.addEventListener("click", function(){
   //verificação de pedido:
+
   let verEnder = ""
   let tipoEntrega = "";
     if (document.getElementById("retirada").checked) tipoEntrega = "Retirada";
@@ -456,6 +460,21 @@ submitBtn.addEventListener("click", function(){
     }
   }
 
+
+  const clienteId = localStorage.getItem('clienteId') || gerarIdAleatorio();
+cart.forEach(item => {
+  let: totalPedido = item.price* item.quantity;
+});
+localStorage.setItem('clienteId', clienteId); // salvar se for primeira vez
+
+const pedido = {
+  clienteId: clienteId,
+  data: new Date().toISOString(),
+  itens: cart,
+  total: totalPedido,
+  status: 'Aguardando'
+};
+
    enviarPedido()
    const pedidoFormatado = montarPedido();
    enviarPedidoParaPainel(pedidoFormatado);
@@ -466,8 +485,7 @@ backBtn.addEventListener("click", function(){
     document.getElementById('confirm-modal').classList.add("hidden")
 })
 
-
-
+ 
 //-------------------------------------------------
 
 function zerarCarrinho(){
@@ -526,7 +544,9 @@ document.getElementById('confirm-pizza').addEventListener('click', () => {
   }
   nameFinal += ` (${selectedSize})`;
 
-  const priceMultiplier = selectedSize === "Broto" ? 0.6 : 1;
+  let priceMultiplier = selectedSize === "Broto" ? 0.6 : 1
+
+  priceMultiplier = selectedSize === "Media" ? 0.8 : 1
 
   const item = {
     name: nameFinal,
@@ -602,6 +622,8 @@ function enviarPedidoParaPainel(pedido) {
     pedido.status = 'Aguardando';
     pedido.timestamp = Date.now();
     
+  
+
     pedidosRef.push(pedido)
       .then((ref) => {
         const pedidoId = ref.key;
@@ -748,3 +770,49 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 });
+
+// Promoçoes --------------------------------
+
+const listaPromocoes = document.getElementById('lista-promocoes');
+
+  firebase.database().ref('promocoes').on('value', snapshot => {
+    listaPromocoes.innerHTML = ''; // limpa antes de popular
+    snapshot.forEach(promoSnap => {
+      const promo = promoSnap.val();
+      if (promo.ativo) {
+
+        document.getElementById('show-promocoes').classList.remove("hidden")
+        document.getElementById("btn-promocoes").classList.remove("hidden")
+
+        const card = `
+        <div class="flex gap-3 p-2 border border-gray-200 rounded-md shadow bg-white">
+          <img src="${promo.imagem}" alt="${promo.titulo}" class="w-20 h-20 rounded-md hover:scale-110 hover:-rotate-2 duration-300">
+
+          <div class="w-full">
+            <p class="font-bold">${promo.titulo}</p>
+            <p class="text-sm">${promo.descricao}</p>
+
+            <div class="flex items-center gap-2 justify-between mt-3">
+              <p class="font-bold text-lg">R$ ${promo.preco}</p>
+              <button 
+                class="bg-gray-900 px-5 rounded add-to-cart-btn"
+                data-name= "${promo.titulo}"
+                data-price= "${promo.preco}"
+              >
+                <i class="fa fa-cart-plus text-lg text-white"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        `;
+        listaPromocoes.innerHTML += card;
+      } else {
+        document.getElementById('show-promocoes').classList.add("hidden")
+        document.getElementById("btn-promocoes").classList.add("hidden")
+      }
+    });
+  });
+
+  function gerarIdAleatorio() {
+  return 'cliente-' + Math.random().toString(36).substring(2, 12);
+}

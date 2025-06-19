@@ -47,7 +47,7 @@
   <div id="scroll-container" class="w-full overflow-x-auto scrollbar-hide flex md:justify-center items-center ">
     <div class="flex flex-nowrap space-x-3 px-3 py-3">
 
-      <button onclick="showPromocoes()" class="min-w-max px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-full font-medium shadow-sm hover:bg-gray-100 active:bg-gray-200 transition-all hidden">
+      <button onclick="showPromocoes()" id="btn-promocoes" class="min-w-max px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-full font-medium shadow-sm hover:bg-gray-100 active:bg-gray-200 transition-all hidden">
         💰 Promoções
       </button>
 
@@ -135,11 +135,11 @@
       <h3 class="text-lg font-semibold mb-4">Tipo de Entrega</h3>
       <div class="flex flex-col gap-3 md:flex-row md:justify-center">
         <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
-          <input type="checkbox" id="retirada" onchange="atualizarEntrega()" class="w-5 h-5 text-green-500">
+          <input type="radio" name="entrega" id="retirada" onchange="atualizarEntrega()" class="w-5 h-5 text-green-500">
           Retirada no Local
         </label>
         <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
-          <input type="checkbox" id="entrega" onchange="atualizarEntrega()" class="w-5 h-5 text-green-500">
+          <input type="radio" name="entrega" id="entrega" onchange="atualizarEntrega()" class="w-5 h-5 text-green-500">
           Entrega em Casa
         </label>
       </div>
@@ -185,23 +185,28 @@
 
     <!-- Forma de Pagamento -->
     <div class="mb-6 border p-4 rounded-lg shadow-sm">
-      <h3 class="text-lg font-semibold mb-4">Forma de Pagamento</h3>
-      <div class="flex flex-col gap-3 md:flex-row md:justify-center">
-        <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
-          <input type="checkbox" id="pagPix" onchange="atualizarPagamento()" class="w-5 h-5 text-green-500">
-          Pix
-        </label>
-        <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
-          <input type="checkbox" id="pagCartao" onchange="atualizarPagamento()" class="w-5 h-5 text-green-500">
-          Cartão
-        </label>
-        <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
-          <input type="checkbox" id="pagDinheiro" onchange="atualizarPagamento()" class="w-5 h-5 text-green-500">
-          Dinheiro
-        </label>
-      </div>
+  <h3 class="text-lg font-semibold mb-4">Forma de Pagamento</h3>
+  <div class="flex flex-col gap-3 md:flex-row md:justify-center">
+    
+    <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
+      <input type="radio" name="pagamento" id="pagPix" onclick="atualizarPagamento()" class="w-5 h-5 text-green-500">
+      Pix
+    </label>
 
-      <div id="trocoSection" class="mt-4 hidden">
+    <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
+      <input type="radio" name="pagamento" id="pagCartao" onclick="atualizarPagamento()" class="w-5 h-5 text-green-500">
+      Cartão
+    </label>
+
+    <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
+      <input type="radio" name="pagamento" id="pagDinheiro" onclick="atualizarPagamento()" class="w-5 h-5 text-green-500">
+      Dinheiro
+    </label>
+
+  </div>
+</div>
+
+      <div id="trocoSection" class="my-4 hidden">
         <label for="troco" class="block font-medium mb-1">Troco para quanto?</label>
         <input type="number" id="troco" placeholder="Ex: 100.00" class="w-full border rounded-lg p-3">
         <p id="troco-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
@@ -224,13 +229,23 @@
   </div>
 </div>
 
-
+<div id="show-promocoes" class="mb-10">
+  <section id="promocoes" class="p-4">
+        <h2 class="text-2xl font-semibold mb-6 text-gray-700 border-b pb-2 border-gray-300">Promoções:</h2>
+  <div id="lista-promocoes" class="grid gap-4 md:grid-cols-2"></div>
+</section>
+</div>
 
     <!-- Pizzas ------------------------------------------------------------------- -->   
 
-<main id="menu">
-    <div id="show-pizza" class="grid grid-cols-1 gap-7 mx-auto max-w-7xl md:grid-cols-2 mt-9 mb-20">
-        
+<main id="menu" class="mb-12">
+    <div id="show-pizza" class=" grid grid-cols-1 gap-7 mx-auto max-w-7xl md:grid-cols-2 mt-9 mb-20">
+       
+        <div>
+          <h2 class="text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300 ">Pizzas</h2>
+        </div>
+        <div> </div>
+
         <div class="flex gap-3 p-2 border border-gray-200 rounded-md shadow bg-white">
             <img src="assets/pizza.png" alt="" class="w-20 h-20 rounded hover:scale-110 hover:-rotate-2 duration-300">
             
@@ -351,8 +366,13 @@
   
 
 
-<div id="show-bebida" class=" grid-cols-1 gap-7 mx-auto max-w-7xl md:grid-cols-2 mt-9" >
+<div id="show-bebida" class="grid grid-cols-1 gap-7 mx-auto max-w-7xl md:grid-cols-2 mt-9" >
             
+            <div>
+          <h2 class="text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300 ">Bebidas</h2>
+        </div>
+        <div> </div>
+
             <div class="flex gap-3 p-2 border border-gray-200 rounded-md shadow bg-white">
             <img src="assets/refri-1.png" alt="" class="w-20 h-20 rounded-md hover:scale-110 hover:-rotate-2 duration-300">
             
@@ -374,7 +394,7 @@
             </div>
             </div>
             
-            <div class="flex gap-3 p-2 border border-gray-200 rounded-md shadow bg-white">
+          <div class="flex gap-3 p-2 border border-gray-200 rounded-md shadow bg-white">
             <img src="assets/refri-2.png" alt="" class="w-20 h-20 rounded-md hover:scale-110 hover:-rotate-2 duration-300">
             
             <div class="w-full">
@@ -393,6 +413,12 @@
                     </button>
                 </div>
             </div>
+          </div>
+</div>
+
+
+
+            
 </main>
 
 <footer class="w-full bg-red-500 py-3 fixed bottom-0 z-50 flex items-center justify-center shadow-lg">
@@ -416,6 +442,9 @@
         <button class="size-btn bg-gray-200 text-gray-700 py-3 rounded-full font-semibold transition-all w-20" data-size="Broto">
           Broto
         </button>
+        <button class="size-btn bg-gray-200 text-gray-700 py-3 rounded-full font-semibold transition-all w-20" data-size="Media">
+          Media
+        </button>
         <button class="size-btn bg-gray-200 text-gray-700 px-2 py-3 rounded-full font-semibold transition-all w-20" data-size="Grande">
           Grande
         </button>
@@ -433,6 +462,10 @@
         <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" data-half="Bacon">Bacon</button>
         <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" data-half="Baiana">Baiana</button>
         <!-- Adicione mais sabores aqui -->
+
+        <!-- Promocoes -->
+
+        
       </div>
     </div>
 
@@ -444,6 +477,21 @@
 
   </div>
 </div>     
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 </body>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
@@ -462,6 +510,7 @@
         document.getElementById('show-bebida').style.display = "none"
         document.getElementById('show-esfirra').style.display = "none"
         document.getElementById('show-lanche').style.display = "none"
+        document.getElementById('show-promocoes').style.display = "none"
         
     }
 
@@ -470,6 +519,7 @@
         document.getElementById('show-bebida').style.display = "grid"
         document.getElementById('show-esfirra').style.display = "none"
         document.getElementById('show-lanche').style.display = "none"
+        document.getElementById('show-promocoes').style.display = "none"
     }
 
     function showEsfirra() {
@@ -477,6 +527,7 @@
         document.getElementById('show-bebida').style.display = "none"
         document.getElementById('show-esfirra').style.display = "grid"
         document.getElementById('show-lanche').style.display = "none"
+        document.getElementById('show-promocoes').style.display = "none"
     }
 
     function showLanche() {
@@ -484,6 +535,16 @@
         document.getElementById('show-bebida').style.display = "none"
         document.getElementById('show-esfirra').style.display = "grid"
         document.getElementById('show-lanche').style.display = "none"
+        document.getElementById('show-promocoes').style.display = "none"
+    }
+
+    function showPromocoes() {
+        document.getElementById('show-pizza').style.display = "none"
+        document.getElementById('show-bebida').style.display = "none"
+        document.getElementById('show-esfirra').style.display = "none"
+        document.getElementById('show-lanche').style.display = "none"
+        document.getElementById('show-promocoes').style.display = "grid"
+        
     }
 </script>
 </html>

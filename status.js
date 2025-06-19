@@ -122,3 +122,34 @@ if (pedidoId) {
   statusElement.textContent = "ID do pedido não encontrado.";
   horarioElement.textContent = '';
 }
+
+const clienteId = localStorage.getItem('clienteId');
+const historicoEl = document.getElementById('historico-pedidos');
+
+if (clienteId) {
+  firebase.database().ref('pedidos').orderByChild('clienteId').equalTo(clienteId).on('value', snapshot => {
+    historicoEl.innerHTML = '';
+
+    if (!snapshot.exists()) {
+      historicoEl.innerHTML = '<p class="text-gray-500">Você ainda não fez nenhum pedido.</p>';
+      return;
+    }
+
+    snapshot.forEach(pedidoSnap => {
+      const pedido = pedidoSnap.val();
+
+      const itensHTML = pedido.itens.map(item =>
+        `<li>${item.quantity}x ${item.name} - R$ ${(item.price * item.quantity).toFixed(2)}</li>`
+      ).join('');
+
+      historicoEl.innerHTML += `
+        <div class="border rounded p-4 bg-white shadow">
+          <p class="text-sm text-gray-500">Data: ${new Date(pedido.data).toLocaleString()}</p>
+          <ul class="list-disc ml-5 text-sm my-2">${itensHTML}</ul>
+          <p class="font-bold text-green-700">Total: R$ ${pedido.total.toFixed(2)}</p>
+          <p class="text-sm text-blue-600">Status: ${pedido.status}</p>
+        </div>
+      `;
+    });
+  });
+}

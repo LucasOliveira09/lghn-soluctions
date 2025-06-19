@@ -12,6 +12,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 const pedidosRef = database.ref('pedidos');
+const promocoesRef = firebase.database().ref('promocoes');
 
 const pedidosAtivosContainer = document.getElementById('pedidos-ativos-container');
 const pedidosFinalizadosContainer = document.getElementById('pedidos-finalizados-container');
@@ -31,6 +32,8 @@ const abaFinalizados = document.getElementById('aba-finalizados');
 const produtosRef = database.ref('produtos');
 const btnProdutos = document.getElementById('btn-produtos');
 const abaProdutos = document.getElementById('aba-produtos');
+const btnPromocoes = document.getElementById('btn-promocoes');
+const abaPromocoes = document.getElementById('promocoes');
 
 let pedidos = {};
 
@@ -187,13 +190,18 @@ function finalizarPedido(pedidoId) {
       return;
     }
 
-    database.ref('pedidos/' + pedidoId).update({ status: 'Finalizado' });
+    // ✅ Aqui está o fix: salvando também o timestamp
+    database.ref('pedidos/' + pedidoId).update({ 
+      status: 'Finalizado',
+      timestamp: Date.now()
+    });
 
     const mensagem = 
 `✅ *Pedido finalizado!*
 
 Muito obrigado, ${pedido.nomeCliente || ''}, por confiar em nosso serviço. 😄  
 Esperamos vê-lo novamente em breve! 🍽️🍕`;
+
     const telefoneLimpo = pedido.telefone.replace(/\D/g, '');
     const url = `https://wa.me/${telefoneLimpo}?text=${encodeURIComponent(mensagem)}`;
     window.open(url, '_blank');
@@ -206,7 +214,14 @@ function recusarPedido(pedidoId) {
   }
 }
 
+
 function gerarHtmlPedido(pedido, pedidoId) {
+  
+  if (!pedido || !pedido.cart || !Array.isArray(pedido.cart)) {
+  return `<div class="text-red-600 font-semibold">Erro: pedido inválido ou sem produtos.</div>`;
+}
+
+
   let enderecoTexto = pedido.tipoEntrega === 'Entrega' 
     ? `<p class="text-sm mb-1"><strong>Endereço:</strong> ${pedido.endereco.rua}, ${pedido.endereco.numero} - ${pedido.endereco.bairro}</p>`
     : `<p class="text-sm font-semibold text-blue-600 mb-1">Retirada no local</p>`;
@@ -298,27 +313,36 @@ function calcularTempoDecorrido(data) {
   return `${horas}h ${minutos % 60}min`;
 }
 
-function ativaAba(ativa, inativa) {
+function ativaAba(ativa, inativa, inativa2) {
   ativa.classList.remove('hidden');
   inativa.classList.add('hidden');
+  inativa2.classList.add('hidden');
 }
 
-function estilizaBotaoAtivo(botaoAtivo, botaoInativo) {
+function estilizaBotaoAtivo(botaoAtivo, botaoInativo, botaoInativo2) {
   botaoAtivo.classList.add('bg-blue-600', 'text-white');
   botaoAtivo.classList.remove('bg-white', 'text-blue-600');
 
   botaoInativo.classList.remove('bg-blue-600', 'text-white');
   botaoInativo.classList.add('bg-white', 'text-blue-600');
+
+  botaoInativo2.classList.remove('bg-blue-600', 'text-white');
+  botaoInativo2.classList.add('bg-white', 'text-blue-600');
 }
 
 btnAtivos.addEventListener('click', () => {
-  ativaAba(abaAtivos, abaFinalizados);
-  estilizaBotaoAtivo(btnAtivos, btnFinalizados);
+  ativaAba(abaAtivos, abaFinalizados, abaPromocoes);
+  estilizaBotaoAtivo(btnAtivos, btnFinalizados, btnPromocoes);
 });
 
 btnFinalizados.addEventListener('click', () => {
-  ativaAba(abaFinalizados, abaAtivos);
-  estilizaBotaoAtivo(btnFinalizados, btnAtivos);
+  ativaAba(abaFinalizados, abaAtivos, abaPromocoes);
+  estilizaBotaoAtivo(btnFinalizados, btnAtivos, btnPromocoes);
+});
+
+btnPromocoes.addEventListener('click', () => {
+  ativaAba(abaPromocoes, abaFinalizados, abaAtivos);
+  estilizaBotaoAtivo(btnPromocoes, btnAtivos, btnFinalizados);
 });
 
 btnAtivos.click();
@@ -400,8 +424,99 @@ function imprimirPedido(pedidoId) {
 }
 
 function atualizarPromocao(){
-  statusRef.on('value', function(snapshot) {
+  pedidosRef.on('value', function(snapshot) {
       var status = snapshot.val();
       document.getElementById('pedido-status').innerText = status || 'Sem status ainda';
 }); 
 }
+
+// ler promoçoes
+  const painelPromocoes = document.getElementById('painel-promocoes');
+
+  // Adiciona nova promoção
+  document.getElementById('promoForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const novaPromo = {
+      titulo: document.getElementById('titulo').value,
+      descricao: document.getElementById('descricao').value,
+      imagem: document.getElementById('imagem').value,
+      preco: document.getElementById('preco').value,
+      ativo: true
+    };
+
+    promocoesRef.push(novaPromo)
+      .then(() => {
+        alert('Promoção adicionada!');
+        document.getElementById('promoForm').reset();
+      })
+      .catch(error => alert('Erro ao adicionar: ' + error.message));
+  });
+
+  // Visualiza promoções
+  promocoesRef.on('value', snapshot => {
+    painelPromocoes.innerHTML = '';
+    snapshot.forEach(promoSnap => {
+      const promo = promoSnap.val();
+      const key = promoSnap.key;
+
+      if (promo.ativo) {
+        const html = `
+        <div class="p-3 border rounded shadow bg-white flex justify-between items-start">
+          <div>
+            <h3 class="font-bold text-lg">${promo.titulo}</h3>
+            <p class="text-sm text-gray-600">${promo.descricao}</p>
+            <p class="text-green-700 font-bold mt-1">R$ ${promo.preco}</p>
+          </div>
+          <div class="flex flex-col gap-2 items-end">
+            <button onclick="editarPromocao('${key}', ${JSON.stringify(promo).replace(/"/g, '&quot;')})" class="bg-yellow-500 text-white px-3 py-1 rounded">✏️ Editar</button>
+            <button onclick="desativarPromocao('${key}')" class="bg-red-600 text-white px-3 py-1 rounded">❌ Desativar</button>
+          </div>
+        </div>
+        `;
+        painelPromocoes.innerHTML += html;
+      }
+    });
+  });
+
+  // Desativa
+  function desativarPromocao(key) {
+    if (confirm("Deseja desativar essa promoção?")) {
+      promocoesRef.child(key).update({ ativo: false });
+    }
+  }
+
+  // Modal de edição
+  let keyEdicao = null;
+
+  function editarPromocao(key, promo) {
+    keyEdicao = key;
+    document.getElementById('edit-titulo').value = promo.titulo;
+    document.getElementById('edit-descricao').value = promo.descricao;
+    document.getElementById('edit-imagem').value = promo.imagem;
+    document.getElementById('edit-preco').value = promo.preco;
+    document.getElementById('modal-editar').classList.remove('hidden');
+  }
+
+  function fecharModal() {
+    document.getElementById('modal-editar').classList.add('hidden');
+    keyEdicao = null;
+  }
+
+  document.getElementById('form-editar').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!keyEdicao) return;
+
+    const titulo = document.getElementById('edit-titulo').value;
+    const descricao = document.getElementById('edit-descricao').value;
+    const imagem = document.getElementById('edit-imagem').value;
+    const preco = document.getElementById('edit-preco').value;
+
+    promocoesRef.child(keyEdicao).update({
+      titulo, descricao, imagem, preco
+    }).then(() => {
+      fecharModal();
+    }).catch(error => {
+      alert("Erro ao salvar: " + error.message);
+    });
+  });
