@@ -111,33 +111,36 @@ function aplicarFiltroDatas() {
 
 
 function aceitarPedido(pedidoId) {
-  database.ref('pedidos/' + pedidoId).once('value').then(snapshot => {
-    const pedido = snapshot.val();
-    if (!pedido.telefone) {
-      alert('Não foi possível encontrar o telefone do cliente.');
-      return;
-    }
+  database.ref('pedidos/' + pedidoId).once('value')
+    .then(snapshot => {
+      const pedido = snapshot.val();
 
-    // Atualiza o status
-    database.ref('pedidos/' + pedidoId).update({ status: 'Aceito' });
+      // Log para depuração
+      console.log('Pedido:', pedido); 
 
-    // Monta a mensagem para o cliente
-    const itensPedido = pedido.cart.map(item => 
-      `${item.quantity}x ${item.name} - R$ ${(item.price * item.quantity).toFixed(2)}`
-    ).join('\n');
+      if (!pedido.telefone) {
+        alert('Não foi possível encontrar o telefone do cliente.');
+        return;
+      }
 
-    const enderecoTexto = pedido.tipoEntrega === 'Entrega'
-      ? `${pedido.endereco.rua}, ${pedido.endereco.numero} - ${pedido.endereco.bairro}`
-      : 'Retirada no local';
+      // Atualiza o status antes de abrir o WhatsApp
+      database.ref('pedidos/' + pedidoId).update({ status: 'Aceito' });
 
-    const trocoTexto = pedido.dinheiroTotal 
-      ? `Troco para: R$ ${pedido.dinheiroTotal.toFixed(2)}`
-      : 'Sem troco';
+      const itensPedido = pedido.cart
+        .map(item => `${item.quantity}x ${item.name} - R$ ${(item.price * item.quantity).toFixed(2)}`)
+        .join('\n');
 
-    const obsTexto = pedido.observacao || 'Nenhuma';
+      const enderecoTexto = pedido.tipoEntrega === 'Entrega'
+        ? `${pedido.endereco.rua}, ${pedido.endereco.numero} - ${pedido.endereco.bairro}`
+        : 'Retirada no local';
 
-    const mensagem = 
-`✅ *Seu pedido foi aceito!*
+      const trocoTexto = pedido.dinheiroTotal
+        ? `Troco para: R$ ${pedido.dinheiroTotal.toFixed(2)}`
+        : 'Sem troco';
+
+      const obsTexto = pedido.observacao || 'Nenhuma';
+
+      const mensagem = `✅ *Seu pedido foi aceito!*
 
 🛒 *Itens:*
 ${itensPedido}
@@ -151,10 +154,17 @@ ${itensPedido}
 
 Aguarde que logo estará a caminho! 🍽️`;
 
-    const telefoneLimpo = pedido.telefone.replace(/\D/g, '');
-    const url = `https://wa.me/${telefoneLimpo}?text=${encodeURIComponent(mensagem)}`;
-    window.open(url, '_blank');
-  });
+      const telefoneLimpo = pedido.telefone.replace(/\D/g, '');
+      const url = `https://wa.me/${telefoneLimpo}?text=${encodeURIComponent(mensagem)}`;
+
+      // Abre a janela antes da promessa acabar, igual ao saiuParaEntrega
+      window.open(url, '_blank');
+      console.log('WhatsApp aberto com sucesso.');
+
+    })
+    .catch(err => {
+      console.error('Erro ao aceitar pedido:', err);
+    });
 }
 
 function saiuParaEntrega(pedidoId) {
@@ -353,37 +363,90 @@ btnAtivos.click();
   <head>
     <title>Nota do Pedido</title>
     <style>
-      body { font-family: Arial, sans-serif; padding: 20px; }
-      h1 { text-align: center; }
-      table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-      th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-      .total { font-size: 18px; font-weight: bold; margin-top: 20px; }
-      .section { margin-top: 20px; }
+      @page {
+        size: A4;
+        margin: 10mm;
+      }
+      html, body {
+        width: 100%;
+        height: 100%;
+        padding: 0;
+        margin: 0;
+        font-family: Arial, sans-serif;
+      }
+      body {
+        box-sizing: border-box;
+        padding: 10mm;
+        font-size: 14pt;
+      }
+      h1 {
+        text-align: center;
+        font-size: 24pt;
+        margin-bottom: 10mm;
+      }
+      hr {
+        border: none;
+        border-top: 2pt solid #000;
+        margin: 5mm 0;
+      }
+      .info {
+        font-size: 14pt;
+        margin: 2mm 0;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10mm;
+        font-size: 14pt;
+      }
+      th, td {
+        padding: 2mm 4mm;
+        border: 1pt solid #000;
+      }
+      th {
+        background: #eee;
+      }
+      .total {
+        font-size: 18pt;
+        font-weight: bold;
+        text-align: right;
+        margin-top: 10mm;
+      }
+      .obs {
+        font-size: 12pt;
+        margin-top: 5mm;
+      }
+      .footer {
+        text-align: center;
+        margin-top: auto;
+        padding-top: 10mm;
+        font-size: 12pt;
+      }
     </style>
   </head>
   <body>
-    <h1>Comanda de Produção</h1>
-
-    <div class="section">
-      <strong>Cliente:</strong> ${pedido.nomeCliente || '-'}<br/>
-      <strong>Telefone:</strong> ${pedido.telefone || '-'}<br/>
-      <strong>Tipo de Entrega:</strong> ${pedido.tipoEntrega}<br/>
-      ${pedido.tipoEntrega === 'Entrega' ? `
-        <strong>Endereço:</strong> ${pedido.endereco?.rua || ''}, ${pedido.endereco?.numero || ''} - ${pedido.endereco?.bairro || ''}, ${pedido.referencia || ''}<br/>
-      ` : '<strong>Retirada no Local</strong>'}
-    </div>
-
-    <div class="section">
-      <table>
-        <thead>
-          <tr>
-            <th>Qtd</th>
-            <th>Produto</th>
-            <th>Unitário</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody>`;
+    <h1>Nota do Pedido</h1>
+    <hr/>
+    <div class="info"><strong>Cliente:</strong> ${pedido.nomeCliente || '-'}</div>
+    <div class="info"><strong>Telefone:</strong> ${pedido.telefone || '-'}</div>
+    <div class="info"><strong>Entrega:</strong> ${pedido.tipoEntrega}</div>
+    ${
+      pedido.tipoEntrega === 'Entrega' ? `
+      <div class="info"><strong>Endereço:</strong> ${pedido.endereco?.rua}, ${pedido.endereco?.numero} - ${pedido.endereco?.bairro}</div>
+      <div class="info"><strong>Referência:</strong> ${pedido.referencia || '-'}</div>
+    ` : '<div class="info"><strong>Retirada no local</strong></div>'
+    }
+    <hr/>
+    <table>
+      <thead>
+        <tr>
+          <th>Qtd</th>
+          <th>Produto</th>
+          <th>Unitário</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>`;
 
   pedido.cart.forEach(item => {
     html += `
@@ -396,25 +459,23 @@ btnAtivos.click();
   });
 
   html += `
-        </tbody>
-      </table>
-    </div>
-
-    <div class="section">
-      <p><strong>Pagamento:</strong> ${pedido.pagamento} ${pedido.dinheiroTotal ? '(Troco para R$ ' + pedido.dinheiroTotal + ')' : ''}</p>
-      <p><strong>Observação:</strong> ${pedido.observacao || '-'}</p>
-      <p class="total">Total do Pedido: R$ ${pedido.totalPedido.toFixed(2)}</p>
-    </div>
-
+      </tbody>
+    </table>
+    <div class="info"><strong>Pagamento:</strong> ${pedido.pagamento} ${pedido.dinheiroTotal ? `(Troco p/ R$ ${pedido.dinheiroTotal})` : ''}</div>
+    <div class="obs"><strong>Observação:</strong> ${pedido.observacao || '-'}</div>
+    <div class="total">Total do pedido: R$ ${pedido.totalPedido.toFixed(2)}</div>
+    <div class="footer">Obrigado por comprar conosco! 🍽️</div>
   </body>
   </html>`;
 
-  const printWindow = window.open('', '', 'width=800,height=600');
+  const printWindow = window.open('', '', 'width=1024,height=768');
   printWindow.document.write(html);
   printWindow.document.close();
   printWindow.focus();
   printWindow.print();
 }
+
+
 
 function imprimirPedido(pedidoId) {
   database.ref('pedidos/' + pedidoId).once('value').then(snapshot => {
