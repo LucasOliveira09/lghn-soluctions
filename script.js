@@ -616,27 +616,31 @@ function atualizarConfirmacao() {
 let telefone = ""
 
 function enviarPedidoParaPainel(pedido) {
-    const pedidosRef = database.ref('pedidos');
-    
-    // Adicionar status e timestamp antes de enviar
+  const pedidosRef = database.ref('pedidos');
+  const configRef = database.ref('config/ultimoPedidoId');
+
+  configRef.transaction((current) => {
+    return (current || 1000) + 1; // começa em 1001 se estiver vazio
+  })
+  .then((result) => {
+    const novoId = result.snapshot.val(); // esse será o ID numérico
     pedido.status = 'Aguardando';
     pedido.timestamp = Date.now();
-    
-  
 
-    pedidosRef.push(pedido)
-      .then((ref) => {
-        const pedidoId = ref.key;
-        console.log("Pedido enviado com sucesso!");
-        mostrarPedidoSucessoComLogo()
-        
-        window.location.href = `status.html?pedidoId=${pedidoId}`;
-        
-      })
-      .catch((error) => {
-        console.error("Erro ao enviar pedido: ", error);
-      });
+    return pedidosRef.child(novoId).set(pedido)
+      .then(() => novoId); // retorna o novo ID
+  })
+  .then((pedidoId) => {
+    console.log('Pedido enviado com sucesso!', pedidoId);
+    mostrarPedidoSucessoComLogo();
+    window.location.href = `status.html?pedidoId=${pedidoId}`;
+  })
+  .catch((error) => {
+    console.error('Erro ao enviar pedido: ', error);
+  });
 }
+
+
 function montarPedido() {
     let tipoEntrega = document.getElementById("retirada").checked ? "Retirada" : "Entrega";
 

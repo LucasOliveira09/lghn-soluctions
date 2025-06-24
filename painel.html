@@ -29,6 +29,9 @@
           Adicionar Promoções
         </button>
       </div>
+
+      <audio id="notificacao-som" src="assets/notificacao.mp3" preload="auto"></audio>
+
     </div>
 
     <!-- Pedidos Ativos -->
@@ -36,6 +39,33 @@
       <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">Pedidos Ativos</h2>
       <div id="pedidos-ativos-container" class="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"></div>
     </div>
+
+    <!-- Modal Editar Pedido -->
+<div id="modal-editar-pedido" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+  <div class="bg-white rounded-lg shadow-lg w-full max-w-2xl p-6 relative mx-4 overflow-y-auto max-h-[90vh]">
+    <h2 class="text-xl font-bold mb-4">Editar Pedido <span id="modal-pedido-id"></span></h2>
+
+    <!-- Itens existentes -->
+    <div id="modal-itens" class="space-y-2 mb-4 border p-2 rounded"></div>
+
+    <!-- Novo item -->
+    <div class="bg-gray-100 p-3 rounded mt-4">
+      <h3 class="font-medium mb-2">Adicionar novo item</h3>
+      <div class="flex flex-col md:flex-row gap-2 mb-2">
+        <input id="novo-item-nome" type="text" placeholder="Nome do produto" class="flex-1 border p-2 rounded" />
+        <input id="novo-item-preco" type="number" min="0" step="0.01" placeholder="Preço unitário" class="w-28 border p-2 rounded" />
+        <input id="novo-item-quantidade" type="number" min="0" value="1" class="w-24 border p-2 rounded text-center" />
+      </div>
+      <button id="btn-adicionar-item" class="bg-blue-500 text-white px-4 py-2 rounded w-full mt-2">+ Adicionar Item</button>
+    </div>
+
+    <!-- Botões de ação -->
+    <div class="flex justify-end gap-2 mt-6">
+      <button type="button" onclick="fecharModalEditarPedido()" class="bg-gray-400 text-white px-4 py-2 rounded">Cancelar</button>
+      <button id="btn-salvar-pedido" class="bg-green-600 text-white px-4 py-2 rounded">Salvar Alterações</button>
+    </div>
+  </div>
+</div>
 
     <!-- Pedidos Finalizados -->
     <div id="aba-finalizados" class="hidden">

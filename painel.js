@@ -45,19 +45,33 @@ let pedidos = {};
 //  document.getElementById('tudoSome').classList.add("hidden")
 //}
 
+let totalPedidosAnteriores = 0;
+
 pedidosRef.on('value', (snapshot) => {
   pedidos = {};
-  snapshot.forEach(child => {
+  snapshot.forEach((child) => {
     pedidos[child.key] = child.val();
   });
+
   renderizarPedidos();
-  // Renderiza a lista finalizados padrão do dia atual (ou vazio se nenhuma data escolhida)
   aplicarFiltroDatas();
+
+  const totalPedidosAtual = Object.keys(pedidos).length;
+  if (totalPedidosAtual > totalPedidosAnteriores) {
+    tocarNotificacao();
+  }
+  totalPedidosAnteriores = totalPedidosAtual;
 });
 
-btnFiltrar.addEventListener('click', () => {
-  aplicarFiltroDatas();
-});
+function tocarNotificacao() {
+  const som = document.getElementById('notificacao-som');
+  if (som) {
+    som.currentTime = 0; // reinicia
+    som.play().catch((err) => {
+      console.warn('Não foi possível reproduzir o som:', err);
+    });
+  }
+}
 
 function renderizarPedidos() {
   pedidosAtivosContainer.innerHTML = '';
@@ -289,6 +303,9 @@ function gerarHtmlPedido(pedido, pedidoId) {
     <button onclick="finalizarPedido('${pedidoId}')" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">
       Finalizar Pedido
     </button>
+    <button onclick="editarPedido('${pedidoId}')" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600 transition">
+    ✏️ Editar
+    </button>
   </div>
 ` : pedido.status === 'Saiu para Entrega' ? `
   <div class="flex gap-2 mt-4">
@@ -300,6 +317,8 @@ function gerarHtmlPedido(pedido, pedidoId) {
     </div>
   </div>
   `;
+  
+  
 }
 
 function getStatusColor(status) {
@@ -581,3 +600,94 @@ function atualizarPromocao(){
       alert("Erro ao salvar: " + error.message);
     });
   });
+
+let pedidoEmEdicao = null;
+let pedidoOriginal = null;
+
+function editarPedido(pedidoId) {
+  pedidoEmEdicao = pedidoId;
+
+  database.ref('pedidos/' + pedidoId).once('value').then(snapshot => {
+    pedidoOriginal = snapshot.val() || {};
+    renderizarItensModal(pedidoOriginal.cart || []);
+    document.getElementById('modal-pedido-id').textContent = pedidoId;
+    document.getElementById('modal-editar-pedido').classList.remove('hidden');
+    document.getElementById('modal-editar-pedido').classList.add('flex');
+  });
+}
+
+function renderizarItensModal(itens) {
+  const container = document.getElementById('modal-itens');
+  container.innerHTML = '';
+
+  itens.forEach((item, index) => {
+    container.innerHTML += `
+      <div class="flex justify-between items-center gap-2 border p-2 rounded">
+        <input type="number" min="0" value="${item.quantity}"
+          class="w-16 border p-1 rounded text-center"
+          data-index="${index}"
+          data-name="${item.name}"
+          data-price="${item.price}"
+        />
+        <span class="flex-1 ml-2">${item.name}</span>
+        <span>R$ ${(item.price * item.quantity).toFixed(2)}</span>
+      </div>
+    `;
+  });
+  
+
+  // Atualizar listener
+  document.getElementById('btn-salvar-pedido').onclick = salvarPedidoEditado;
+}
+
+// Adicionar novo item
+document.getElementById('btn-adicionar-item').addEventListener('click', () => {
+  const nome = document.getElementById('novo-item-nome').value.trim();
+  const preco = parseFloat(document.getElementById('novo-item-preco').value);
+  const qtd = parseInt(document.getElementById('novo-item-quantidade').value, 10);
+
+  if (!nome || isNaN(preco) || isNaN(qtd)) {
+    return alert('Preencha todos os campos corretamente.');
+  }
+
+  pedidoOriginal.cart = pedidoOriginal.cart || [];
+  pedidoOriginal.cart.push({ name: nome, price: preco, quantity: qtd });
+
+  // Limpa campos
+  document.getElementById('novo-item-nome').value = '';
+  document.getElementById('novo-item-preco').value = '';
+  document.getElementById('novo-item-quantidade').value = '1';
+
+  renderizarItensModal(pedidoOriginal.cart);
+});
+
+function salvarPedidoEditado() {
+  const inputs = document.querySelectorAll('#modal-itens input[type="number"]');
+
+  const novosItens = [];
+  inputs.forEach(input => {
+    const nome = input.dataset.name;
+    const preco = parseFloat(input.dataset.price);
+    const qtd = parseInt(input.value, 10);
+
+    if (qtd > 0) {
+      novosItens.push({ name: nome, price: preco, quantity: qtd });
+    }
+  });
+
+  database.ref('pedidos/' + pedidoEmEdicao).update({ cart: novosItens })
+    .then(() => {
+      alert('Pedido atualizado com sucesso!');
+      fecharModalEditarPedido();
+    })
+    .catch(error => {
+      console.error('Erro ao salvar pedido:', error);
+      alert('Erro ao salvar o pedido.');
+    });
+}
+
+function fecharModalEditarPedido() {
+  document.getElementById('modal-editar-pedido').classList.add('hidden');
+  pedidoEmEdicao = null;
+  pedidoOriginal = null;
+}
