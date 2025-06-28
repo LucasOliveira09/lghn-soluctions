@@ -229,7 +229,7 @@
   </div>
 </div>
 
-<div id="show-promocoes" class="mb-12">
+<div id="show-promocoes" class="mb-12 hidden">
   <section id="promocoes" class="p-4">
         <h2 class="text-2xl font-semibold mb-6 text-gray-700 border-b pb-2 border-gray-300">Promoções:</h2>
   <div id="lista-promocoes" class="grid gap-4 md:grid-cols-2"></div>
@@ -356,6 +356,29 @@
             
         </div>
 
+
+        <div class="flex gap-3 p-2 border border-gray-200 rounded-md shadow bg-white">
+            <img src="assets/pizza.png" alt="" class="w-20 h-20 rounded-md hover:scale-110 hover:-rotate-2 duration-300">
+            
+            <div class="w-full">
+                <p class="font-bold">Pizza barata</p>
+                <p class="text-sm">Calabresa, ovo, cebola, mussarela e molho de pimenta</p>
+
+                <div class="flex items-center gap-2 justify-between mt-3 ">
+                   <p class="font-bold text-lg">R$ 42.00</p>
+                    <button 
+                        class="bg-gray-900 px-5 rounded open-modal-btn"
+                        data-name="Pizza Barata"
+                        data-price="42" 
+                    >
+                       
+                        <i class="fa fa-cart-plus text-lg text-white"></i>
+                    </button>
+                </div>
+            </div>
+            
+        </div>
+
     </div>
 
     
@@ -428,8 +451,7 @@
     </button>
 </footer>
     
-<!-- Escolher sabor ou meia a meia-->
-
+<!-- MODAL DE ESCOLHA DE PIZZA -->
 <div id="pizza-modal" class="fixed top-0 left-0 w-full h-full bg-black/60 z-[999] hidden items-center justify-center p-5">
   <div class="bg-white rounded-lg w-full max-w-md p-6 shadow-lg">
 
@@ -439,15 +461,8 @@
     <div class="mb-6">
       <h3 class="font-semibold mb-3 text-gray-700">Escolha o tamanho:</h3>
       <div class="flex justify-center gap-4">
-        <button class="size-btn bg-gray-200 text-gray-700 py-3 rounded-full font-semibold transition-all w-20" data-size="Broto">
-          Broto
-        </button>
-        <button class="size-btn bg-gray-200 text-gray-700 py-3 rounded-full font-semibold transition-all w-20" data-size="Media">
-          Media
-        </button>
-        <button class="size-btn bg-gray-200 text-gray-700 px-2 py-3 rounded-full font-semibold transition-all w-20" data-size="Grande">
-          Grande
-        </button>
+        <button class="size-btn bg-gray-200 text-gray-700 py-3 rounded-full font-semibold transition-all w-20" data-size="Broto">Broto</button>
+        <button class="size-btn bg-gray-200 text-gray-700 py-3 rounded-full font-semibold transition-all w-20" data-size="Grande">Grande</button>
       </div>
     </div>
 
@@ -455,28 +470,75 @@
     <div class="mb-6">
       <h3 class="font-semibold mb-3 text-gray-700">Deseja Meia-Meia?</h3>
       <div class="max-h-52 overflow-y-auto flex flex-col gap-3 px-2">
-        <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" data-half="">Não</button>
-        <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" data-half="Frango com Catupiry">Frango com Catupiry</button>
-        <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" data-half="Quatro queijos">Quatro queijos</button>
-        <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" data-half="Atum">Atum</button>
-        <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" data-half="Bacon">Bacon</button>
-        <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" data-half="Baiana">Baiana</button>
-        <!-- Adicione mais sabores aqui -->
 
-        <!-- Promocoes -->
+  <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" 
+  data-half="" 
+  data-price="0"
+  >Não</button>
 
-        
+  <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" 
+  data-half="Frango com Catupiry" 
+  data-price="52"
+  >Frango com Catupiry</button>
+
+  <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" 
+  data-half="Quatro queijos" 
+  data-price="52">
+  Quatro queijos</button>
+
+  <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" 
+  data-half="Atum" 
+  data-price="52">
+  Atum</button>
+
+  <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" 
+  data-half="Bacon" 
+  data-price="52">
+  Bacon</button>
+
+  <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" 
+  data-half="Baiana" 
+  data-price="52">
+  Baiana</button>
+
+  <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" 
+  data-half="Pizza Barata" 
+  data-price="42">
+  Pizza Barata</button>
+
+</div>
+    </div>
+
+    <!-- Borda -->
+    <div class="mb-6">
+      <h3 class="font-semibold mb-3 text-gray-700">Deseja adicionar borda?</h3>
+      <div class="flex gap-4 mb-4">
+        <button class="crust-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-full" data-crust="Não">Não</button>
+        <button class="crust-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-full" data-crust="Sim">Sim</button>
+      </div>
+
+      <div id="crust-flavor-section" class="hidden">
+        <h4 class="text-sm font-medium text-gray-700 mb-2">Escolha o sabor da borda:</h4>
+        <div class="flex flex-col gap-2">
+          <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-left" data-flavor="Cream cheese">Cream cheese (+R$10 ou R$12)</button>
+          <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-left" data-flavor="Mussarela">Mussarela (+R$10 ou R$12)</button>
+          <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-left" data-flavor="Chocolote">Chocolote (+R$10 ou R$12)</button>
+          <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-left" data-flavor="Cheddar">Cheddar (+R$10 ou R$12)</button>
+          <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-left" data-flavor="Catupiry">Catupiry (+R$10 ou R$12)</button>
+        </div>
       </div>
     </div>
+
+    <!-- Preço final -->
+    <p id="pizza-price-preview" class="text-lg font-semibold text-center text-gray-800 mt-4">Valor: R$ 0,00</p>
 
     <!-- Botões -->
     <div class="flex justify-between mt-8">
       <button id="cancel-pizza" class="px-5 py-3 border border-gray-400 rounded-full text-gray-700">Cancelar</button>
       <button id="confirm-pizza" class="bg-green-500 text-white px-5 py-3 rounded-full font-semibold shadow-md">Adicionar</button>
     </div>
-
   </div>
-</div>     
+</div>   
 
 
 

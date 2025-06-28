@@ -500,66 +500,160 @@ function zerarCarrinho(){
 let selectedPizza = null;
 let selectedSize = "Grande";
 let selectedHalf = "";
+let selectedHalfPrice = 0;
+let wantsCrust = "Não";
+let crustFlavor = "";
 
+function resetSelections() {
+  document.querySelectorAll('.size-btn, .half-btn, .crust-btn, .crust-flavor-btn')
+    .forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+  document.getElementById('crust-flavor-section').classList.add('hidden');
+}
+
+function updatePizzaPricePreview() {
+  if (!selectedPizza) return;
+
+  let basePrice = selectedPizza.price;
+
+  if (selectedHalf && selectedHalf !== selectedPizza.name) {
+    basePrice = Math.max(selectedPizza.price, selectedHalfPrice); // valor da mais cara
+  }
+
+  let priceMultiplier = selectedSize === "Broto" ? 0.6 : 1;
+  let finalPrice = basePrice * priceMultiplier;
+
+  if (wantsCrust === "Sim" && crustFlavor) {
+    finalPrice += selectedSize === "Broto" ? 10 : 12;
+  }
+
+  const preview = document.getElementById('pizza-price-preview');
+  preview.textContent = `Valor: R$ ${finalPrice.toFixed(2).replace('.', ',')}`;
+}
+
+// Abrir modal
 document.querySelectorAll('.open-modal-btn').forEach(button => {
   button.addEventListener('click', () => {
     selectedPizza = {
       name: button.dataset.name,
       price: parseFloat(button.dataset.price)
     };
-
     selectedSize = "Grande";
     selectedHalf = "";
-    resetSelections();
+    selectedHalfPrice = 0;
+    wantsCrust = "Não";
+    crustFlavor = "";
 
+    resetSelections();
     document.getElementById('modal-title').innerText = selectedPizza.name;
     document.getElementById('pizza-modal').style.display = 'flex';
+    updatePizzaPricePreview();
   });
 });
 
+// Cancelar
 document.getElementById('cancel-pizza').addEventListener('click', () => {
   document.getElementById('pizza-modal').style.display = 'none';
 });
 
+// Tamanho
 document.querySelectorAll('.size-btn').forEach(button => {
   button.addEventListener('click', () => {
     selectedSize = button.dataset.size;
     document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
     button.classList.add('bg-green-500', 'text-white');
+    updatePizzaPricePreview();
   });
 });
 
+// Meia-Meia
 document.querySelectorAll('.half-btn').forEach(button => {
   button.addEventListener('click', () => {
     selectedHalf = button.dataset.half;
+    selectedHalfPrice = parseFloat(button.dataset.price) || 0;
+
     document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
     button.classList.add('bg-green-500', 'text-white');
+
+    updatePizzaPricePreview();
   });
 });
 
+// Borda
+document.querySelectorAll('.crust-btn').forEach(button => {
+  button.addEventListener('click', () => {
+    wantsCrust = button.dataset.crust;
+    crustFlavor = "";
+    document.querySelectorAll('.crust-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+    button.classList.add('bg-green-500', 'text-white');
+
+    const section = document.getElementById('crust-flavor-section');
+    if (wantsCrust === "Sim") {
+      section.classList.remove('hidden');
+    } else {
+      section.classList.add('hidden');
+    }
+    updatePizzaPricePreview();
+  });
+});
+
+document.querySelectorAll('.crust-flavor-btn').forEach(button => {
+  button.addEventListener('click', () => {
+    crustFlavor = button.dataset.flavor;
+    document.querySelectorAll('.crust-flavor-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+    button.classList.add('bg-green-500', 'text-white');
+    updatePizzaPricePreview();
+  });
+});
+
+// Confirmar
 document.getElementById('confirm-pizza').addEventListener('click', () => {
   let nameFinal = selectedPizza.name;
+  let basePrice = selectedPizza.price;
+
   if (selectedHalf && selectedHalf !== selectedPizza.name) {
     nameFinal = `${selectedPizza.name} / ${selectedHalf}`;
+    basePrice = (selectedPizza.price + selectedHalfPrice) / 2;
   }
+
   nameFinal += ` (${selectedSize})`;
+  let priceMultiplier = selectedSize === "Broto" ? 0.6 : 1;
+  let finalPrice = basePrice * priceMultiplier;
 
-  let priceMultiplier = selectedSize === "Broto" ? 0.6 : 1
-
-  priceMultiplier = selectedSize === "Media" ? 0.8 : 1
+  if (wantsCrust === "Sim" && crustFlavor) {
+    nameFinal += ` + Borda de ${crustFlavor}`;
+    finalPrice += selectedSize === "Broto" ? 10 : 12;
+  }
 
   const item = {
     name: nameFinal,
-    price: selectedPizza.price * priceMultiplier,
+    price: finalPrice,
     quantity: 1
   };
 
   cart.push(item);
   document.getElementById('pizza-modal').style.display = 'none';
   updateCartModal();
-
-  
 });
+
+function updatePizzaPricePreview() {
+  if (!selectedPizza) return;
+
+  let basePrice = selectedPizza.price;
+
+  if (selectedHalf && selectedHalf !== selectedPizza.name) {
+    basePrice = (selectedPizza.price + selectedHalfPrice) / 2; // MÉDIA dos preços
+  }
+
+  let priceMultiplier = selectedSize === "Broto" ? 0.6 : 1;
+  let finalPrice = basePrice * priceMultiplier;
+
+  if (wantsCrust === "Sim" && crustFlavor) {
+    finalPrice += selectedSize === "Broto" ? 10 : 12;
+  }
+
+  const preview = document.getElementById('pizza-price-preview');
+  preview.textContent = `Valor: R$ ${finalPrice.toFixed(2).replace('.', ',')}`;
+}
 
 function resetSelections() {
   document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));

@@ -510,95 +510,45 @@ function atualizarPromocao(){
 }); 
 }
 
-// ler promoçoes
-  const painelPromocoes = document.getElementById('painel-promocoes');
+  const imagemUrlInput = document.getElementById('imagemUrl');
+  const imagemPreview = document.getElementById('imagemPreview');
 
-  // Adiciona nova promoção
+  imagemUrlInput.addEventListener('input', () => {
+    const url = imagemUrlInput.value.trim();
+    if (url.startsWith('http')) {
+      imagemPreview.src = url;
+      imagemPreview.classList.remove('hidden');
+    } else {
+      imagemPreview.src = '';
+      imagemPreview.classList.add('hidden');
+    }
+  });
+
   document.getElementById('promoForm').addEventListener('submit', function (e) {
     e.preventDefault();
 
-    const novaPromo = {
-      titulo: document.getElementById('titulo').value,
-      descricao: document.getElementById('descricao').value,
-      imagem: document.getElementById('imagem').value,
-      preco: document.getElementById('preco').value,
-      ativo: true
-    };
+    const titulo = document.getElementById('titulo').value.trim();
+    const descricao = document.getElementById('descricao').value.trim();
+    const imagem = imagemUrlInput.value.trim();
+    const preco = parseFloat(document.getElementById('preco').value);
+
+    if (!imagem.startsWith('http')) {
+      alert("Coloque uma URL de imagem válida.");
+      return;
+    }
+
+    const novaPromo = { titulo, descricao, imagem, preco, ativo: true };
 
     promocoesRef.push(novaPromo)
       .then(() => {
-        alert('Promoção adicionada!');
+        alert("Promoção adicionada com sucesso!");
         document.getElementById('promoForm').reset();
+        imagemPreview.src = '';
+        imagemPreview.classList.add('hidden');
       })
-      .catch(error => alert('Erro ao adicionar: ' + error.message));
-  });
-
-  // Visualiza promoções
-  promocoesRef.on('value', snapshot => {
-    painelPromocoes.innerHTML = '';
-    snapshot.forEach(promoSnap => {
-      const promo = promoSnap.val();
-      const key = promoSnap.key;
-
-      if (promo.ativo) {
-        const html = `
-        <div class="p-3 border rounded shadow bg-white flex justify-between items-start">
-          <div>
-            <h3 class="font-bold text-lg">${promo.titulo}</h3>
-            <p class="text-sm text-gray-600">${promo.descricao}</p>
-            <p class="text-green-700 font-bold mt-1">R$ ${promo.preco}</p>
-          </div>
-          <div class="flex flex-col gap-2 items-end">
-            <button onclick="editarPromocao('${key}', ${JSON.stringify(promo).replace(/"/g, '&quot;')})" class="bg-yellow-500 text-white px-3 py-1 rounded">✏️ Editar</button>
-            <button onclick="desativarPromocao('${key}')" class="bg-red-600 text-white px-3 py-1 rounded">❌ Desativar</button>
-          </div>
-        </div>
-        `;
-        painelPromocoes.innerHTML += html;
-      }
-    });
-  });
-
-  // Desativa
-  function desativarPromocao(key) {
-    if (confirm("Deseja desativar essa promoção?")) {
-      promocoesRef.child(key).update({ ativo: false });
-    }
-  }
-
-  // Modal de edição
-  let keyEdicao = null;
-
-  function editarPromocao(key, promo) {
-    keyEdicao = key;
-    document.getElementById('edit-titulo').value = promo.titulo;
-    document.getElementById('edit-descricao').value = promo.descricao;
-    document.getElementById('edit-imagem').value = promo.imagem;
-    document.getElementById('edit-preco').value = promo.preco;
-    document.getElementById('modal-editar').classList.remove('hidden');
-  }
-
-  function fecharModal() {
-    document.getElementById('modal-editar').classList.add('hidden');
-    keyEdicao = null;
-  }
-
-  document.getElementById('form-editar').addEventListener('submit', function (e) {
-    e.preventDefault();
-    if (!keyEdicao) return;
-
-    const titulo = document.getElementById('edit-titulo').value;
-    const descricao = document.getElementById('edit-descricao').value;
-    const imagem = document.getElementById('edit-imagem').value;
-    const preco = document.getElementById('edit-preco').value;
-
-    promocoesRef.child(keyEdicao).update({
-      titulo, descricao, imagem, preco
-    }).then(() => {
-      fecharModal();
-    }).catch(error => {
-      alert("Erro ao salvar: " + error.message);
-    });
+      .catch(error => {
+        alert("Erro ao adicionar promoção: " + error.message);
+      });
   });
 
 let pedidoEmEdicao = null;
