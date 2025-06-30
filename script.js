@@ -1,12 +1,12 @@
 const firebaseConfig = {
-    apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
-    authDomain: "cardapioweb-99e7b.firebaseapp.com",
-    databaseURL: "https://cardapioweb-99e7b-default-rtdb.firebaseio.com",
-    projectId: "cardapioweb-99e7b",
-    storageBucket: "cardapioweb-99e7b.firebasestorage.app",
-    messagingSenderId: "110849299422",
-    appId: "1:110849299422:web:44083feefdd967f4f9434f",
-    measurementId: "G-Y4KFGTHFP1"
+  apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
+  authDomain: "cardapioweb-99e7b.firebaseapp.com",
+  databaseURL: "https://cardapioweb-99e7b-default-rtdb.firebaseio.com",
+  projectId: "cardapioweb-99e7b",
+  storageBucket: "cardapioweb-99e7b.firebasestorage.app",
+  messagingSenderId: "110849299422",
+  appId: "1:110849299422:web:44083feefdd967f4f9434f",
+  measurementId: "G-Y4KFGTHFP1"
   };
 
 // Inicializar Firebase
@@ -43,6 +43,211 @@ const confirmTotal = document.getElementById('confirm-total');
 const FRETE_VALOR = 5.00; 
 
 let cart = [];
+
+carregarProdutos()
+
+function carregarProdutos() {
+    // Carregar pizzas
+    database.ref('produtos/pizzas').on('value', (snapshot) => {
+    const listaSalgadas = document.getElementById('lista-pizzas-salgadas');
+    const listaDoces = document.getElementById('lista-pizzas-doces');
+    listaSalgadas.innerHTML = '';
+    listaDoces.innerHTML = '';
+
+    snapshot.forEach((pizzaSnap) => {
+        const pizza = pizzaSnap.val();
+        if (pizza.ativo) {
+            const card = criarItemCardapio(pizza, 'pizza');
+            if (pizza.tipo === 'doce') {
+                listaDoces.innerHTML += card;
+            } else {
+                listaSalgadas.innerHTML += card;
+            }
+        }
+    });
+
+    atualizarOpcoesMeiaMeia(snapshot);
+    adicionarEventosBotoes();
+});
+
+    // Carregar bebidas
+    database.ref('produtos/bebidas').on('value', (snapshot) => {
+        const listaBebidas = document.getElementById('lista-bebidas');
+        listaBebidas.innerHTML = '';
+        
+        
+        snapshot.forEach((bebidaSnap) => {
+            const bebida = bebidaSnap.val();
+            if (bebida.ativo) {
+                listaBebidas.innerHTML += criarItemCardapio(bebida, 'bebida');
+            }
+        });
+        adicionarEventosBotoes();
+    });
+
+    // Carregar esfirras
+    database.ref('produtos/esfirras').on('value', (snapshot) => {
+        const listaSalgadas = document.getElementById('lista-esfirras-salgadas');
+        const listaDoces = document.getElementById('lista-esfirras-doces');
+        listaSalgadas.innerHTML = '';
+        listaDoces.innerHTML = '';
+
+        
+        snapshot.forEach((esfirraSnap) => {
+            const esfirra = esfirraSnap.val();
+            if (esfirra.ativo) {
+                const card = criarItemCardapio(esfirra, 'esfirra');
+                if (esfirra.tipo === 'doce') {
+                listaDoces.innerHTML += card;
+                } else {
+                listaSalgadas.innerHTML += card;
+            }
+            }
+        });
+        adicionarEventosBotoes();
+    });
+
+    // Carregar lanches
+    database.ref('produtos/lanches').on('value', (snapshot) => {
+        const listaLanches = document.getElementById('lista-lanches');
+        listaLanches.innerHTML = '';
+        
+        snapshot.forEach((lancheSnap) => {
+            const lanche = lancheSnap.val();
+            if (lanche.ativo) {
+                listaLanches.innerHTML += criarItemCardapio(lanche, 'lanche');
+            }
+        });
+        adicionarEventosBotoes();
+    });
+
+    // Carregar promoções
+    database.ref('produtos/promocoes').on('value', (snapshot) => {
+        const listaPromocoes = document.getElementById('lista-promocoes');
+        listaPromocoes.innerHTML = '';
+        
+        let temPromocaoAtiva = false;
+        
+        snapshot.forEach((promoSnap) => {
+            const promo = promoSnap.val();
+            if (promo.ativo) {
+                temPromocaoAtiva = true;
+                listaPromocoes.innerHTML += criarItemCardapio(promo, 'promocao');
+            }
+        });
+
+        // Mostrar/ocultar seção e botão de promoções
+        const secaoPromocoes = document.getElementById('show-promocoes');
+        const btnPromocoes = document.getElementById('btn-promocoes');
+        
+        if (temPromocaoAtiva) {
+            secaoPromocoes.classList.remove("hidden");
+            btnPromocoes.classList.remove("hidden");
+        } else {
+            secaoPromocoes.classList.add("hidden");
+            btnPromocoes.classList.add("hidden");
+        }
+    });
+}
+
+function criarItemCardapio(item, tipo) {
+    const botaoClass = tipo === 'pizza' ? 'open-modal-btn' : 'add-to-cart-btn';
+    const nome = item.nome || item.titulo;
+    const descricao = item.descricao || '';
+    const preco = item.preco.toFixed(2);
+    const imagem = item.imagem || 'assets/default.png';
+    
+    return `
+  <div class="flex gap-4 p-3 border border-[#3a3a3a] rounded-xl shadow bg-[#111] hover:shadow-md transition-shadow text-[#f5f0e6] font-[Cinzel]">
+    <img src="${imagem}" alt="${nome}" class="w-20 h-20 rounded-lg object-cover hover:scale-105 hover:rotate-1 transition-transform duration-300" />
+    <div class="flex-1">
+      <p class="font-bold text-lg">${nome}</p>
+      <p class="text-sm text-gray-400">${descricao}</p>
+      <div class="flex items-center justify-between mt-3">
+        <p class="text-lg font-bold text-[#f5f0e6]">R$ ${preco}</p>
+        <button
+          class="bg-green-700 hover:bg-green-600 transition-colors px-4 py-1 rounded-md ${botaoClass}"
+          data-name="${nome}"
+          data-price="${item.preco}">
+          <i class="fa fa-cart-plus text-white text-lg"></i>
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+
+
+function adicionarEventosBotoes() {
+    // Botões de pizza (abrem modal de personalização)
+    document.querySelectorAll('.open-modal-btn').forEach(button => {
+        button.removeEventListener('click', handleOpenPizzaModal); // Remove event listener antigo
+        button.addEventListener('click', handleOpenPizzaModal);
+    });
+}
+
+// Adicione esta função para atualizar as opções de meia-meia
+function atualizarOpcoesMeiaMeia(snapshot) {
+    const containerMeiaMeia = document.querySelector('#pizza-modal .half-btn[data-half=""]').parentNode;
+    
+    // Limpar opções exceto a primeira ("Não")
+    while (containerMeiaMeia.children.length > 1) {
+        containerMeiaMeia.removeChild(containerMeiaMeia.lastChild);
+    }
+    
+    // Adicionar opções de pizzas disponíveis
+    snapshot.forEach((pizzaSnap) => {
+        const pizza = pizzaSnap.val();
+        if (pizza.ativo) {
+            const botaoMeiaMeia = document.createElement('button');
+            botaoMeiaMeia.className = 'half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left';
+            botaoMeiaMeia.setAttribute('data-half', pizza.nome);
+            botaoMeiaMeia.setAttribute('data-price', pizza.preco);
+            botaoMeiaMeia.textContent = pizza.nome;
+            
+            botaoMeiaMeia.addEventListener('click', function() {
+                document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+                this.classList.add('bg-green-500', 'text-white');
+                selectedHalf = this.getAttribute('data-half');
+                selectedHalfPrice = parseFloat(this.getAttribute('data-price'));
+                updatePizzaPricePreview();
+            });
+            
+            containerMeiaMeia.appendChild(botaoMeiaMeia);
+        }
+    });
+}
+
+function handleAddToCart() {
+    const name = this.getAttribute('data-name');
+    const price = parseFloat(this.getAttribute('data-price'));
+    addToCart(name, price);
+}
+
+function handleOpenPizzaModal() {
+    const name = this.getAttribute('data-name');
+    const price = parseFloat(this.getAttribute('data-price'));
+    
+    selectedPizza = { name, price };
+    selectedSize = "Grande";
+    selectedHalf = "";
+    selectedHalfPrice = 0;
+    wantsCrust = "Não";
+    crustFlavor = "";
+
+    resetSelections();
+    document.getElementById('modal-title').textContent = selectedPizza.name;
+    document.getElementById('pizza-modal').style.display = 'flex';
+    updatePizzaPricePreview();
+}
+
+// Adicione este código no final do seu arquivo, após o DOM estar carregado
+document.addEventListener('DOMContentLoaded', function() {
+    // Adiciona eventos após um pequeno delay para garantir que o DOM esteja pronto
+    setTimeout(() => {
+        adicionarEventosBotoes();
+    }, 1000);
+});
+
 
 cartBtn.addEventListener("click", function() {
     updateCartModal()
@@ -98,19 +303,23 @@ function updateCartModal() {
         cartItemElement.classList.add("flex", "justify-between", "mb-4", "flex-col")
 
         cartItemElement.innerHTML = `
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="font-medium">${item.name}</p>
-                <p>Qtd: ${item.quantity}</p>
-                <p class="font-medium mt-2">R$ ${item.price.toFixed(2)}</p>
-            </div>
-            <div>
-                <button class="remove-btn" data-name="${item.name}">
-                    Remover
-                </button>
-            </div>
-        </div>
-    `
+  <div class="bg-gray-100 p-4 rounded-xl shadow flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div class="flex-1">
+      <p class="font-semibold text-base text-gray-900">${item.name}</p>
+      <div class="flex items-center gap-3 mt-2">
+        <button class="quantity-btn bg-red-500 text-white w-9 h-9 rounded-full text-lg hover:bg-red-600" data-name="${item.name}" data-action="decrease">
+          <i class="fa-solid fa-minus"></i>
+        </button>
+        <span class="text-lg font-bold">${item.quantity}</span>
+        <button class="quantity-btn bg-green-500 text-white w-9 h-9 rounded-full text-lg hover:bg-green-600" data-name="${item.name}" data-action="increase">
+          <i class="fa-solid fa-plus"></i>
+        </button>
+      </div>
+      <p class="text-sm text-gray-700 mt-2">Preço: R$ ${item.price.toFixed(2)}</p>
+    </div>
+  </div>
+`;
+
 
     total += item.price * item.quantity;
     cartItemsContainer.appendChild(cartItemElement)
@@ -129,6 +338,26 @@ cartItemsContainer.addEventListener("click", function(event){
         const name = event.target.getAttribute('data-name')
 
         removeItemCart(name);
+    }
+
+     if (event.target.classList.contains("quantity-btn") || event.target.closest(".quantity-btn")) {
+        const button = event.target.closest(".quantity-btn");
+        const name = button.getAttribute('data-name');
+        const action = button.getAttribute('data-action');
+
+        const item = cart.find(i => i.name === name);
+
+        if (item) {
+            if (action === "increase") {
+                item.quantity += 1;
+            } else if (action === "decrease" && item.quantity > 1) {
+                item.quantity -= 1;
+            } else if (action === "decrease" && item.quantity === 1) {
+                cart.splice(cart.indexOf(item), 1);
+            }
+        }
+
+        updateCartModal();
     }
 
     
@@ -868,48 +1097,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 });
-
-// Promoçoes --------------------------------
-
-const listaPromocoes = document.getElementById('lista-promocoes');
-
-  firebase.database().ref('promocoes').on('value', snapshot => {
-    listaPromocoes.innerHTML = ''; // limpa antes de popular
-    snapshot.forEach(promoSnap => {
-      const promo = promoSnap.val();
-      if (promo.ativo) {
-
-        document.getElementById('show-promocoes').classList.remove("hidden")
-        document.getElementById("btn-promocoes").classList.remove("hidden")
-
-        const card = `
-        <div class="flex gap-3 p-2 border border-gray-200 rounded-md shadow bg-white">
-          <img src="${promo.imagem}" alt="${promo.titulo}" class="w-20 h-20 rounded-md hover:scale-110 hover:-rotate-2 duration-300">
-
-          <div class="w-full">
-            <p class="font-bold">${promo.titulo}</p>
-            <p class="text-sm">${promo.descricao}</p>
-
-            <div class="flex items-center gap-2 justify-between mt-3">
-              <p class="font-bold text-lg">R$ ${promo.preco}</p>
-              <button 
-                class="bg-gray-900 px-5 rounded add-to-cart-btn"
-                data-name= "${promo.titulo}"
-                data-price= "${promo.preco}"
-              >
-                <i class="fa fa-cart-plus text-lg text-white"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-        `;
-        listaPromocoes.innerHTML += card;
-      } else {
-        document.getElementById('show-promocoes').classList.add("hidden")
-        document.getElementById("btn-promocoes").classList.add("hidden")
-      }
-    });
-  });
 
   function gerarIdAleatorio() {
   return 'cliente-' + Math.random().toString(36).substring(2, 12);

@@ -34,6 +34,8 @@ const btnProdutos = document.getElementById('btn-produtos');
 const abaProdutos = document.getElementById('aba-produtos');
 const btnPromocoes = document.getElementById('btn-promocoes');
 const abaPromocoes = document.getElementById('promocoes');
+const btnEditarCardapio = document.getElementById('btn-editar-cardapio')
+const EditarCardapio = document.getElementById('editar-cardapio')
 
 let pedidos = {};
 
@@ -360,19 +362,21 @@ function estilizaBotaoAtivo(botaoAtivo, botaoInativo, botaoInativo2) {
 }
 
 btnAtivos.addEventListener('click', () => {
-  ativaAba(abaAtivos, abaFinalizados, abaPromocoes);
-  estilizaBotaoAtivo(btnAtivos, btnFinalizados, btnPromocoes);
+  ativaAba(abaAtivos, abaFinalizados, EditarCardapio);
+  estilizaBotaoAtivo(btnAtivos, btnFinalizados, btnEditarCardapio);
 });
 
 btnFinalizados.addEventListener('click', () => {
-  ativaAba(abaFinalizados, abaAtivos, abaPromocoes);
-  estilizaBotaoAtivo(btnFinalizados, btnAtivos, btnPromocoes);
+  ativaAba(abaFinalizados, abaAtivos, EditarCardapio);
+  estilizaBotaoAtivo(btnFinalizados, btnAtivos, btnEditarCardapio);
 });
 
-btnPromocoes.addEventListener('click', () => {
-  ativaAba(abaPromocoes, abaFinalizados, abaAtivos);
-  estilizaBotaoAtivo(btnPromocoes, btnAtivos, btnFinalizados);
+btnEditarCardapio.addEventListener('click', () => {
+  ativaAba(EditarCardapio, abaFinalizados, abaAtivos);
+  estilizaBotaoAtivo(btnEditarCardapio , btnAtivos, btnFinalizados);
 });
+
+
 
 btnAtivos.click();
 
@@ -640,4 +644,198 @@ function fecharModalEditarPedido() {
   document.getElementById('modal-editar-pedido').classList.add('hidden');
   pedidoEmEdicao = null;
   pedidoOriginal = null;
+}
+
+
+document.getElementById("btn-editar-cardapio").addEventListener("click", () => {
+  // Oculta outras seções
+  document.getElementById("aba-ativos").classList.add("hidden");
+  document.getElementById("aba-finalizados").classList.add("hidden");
+  document.getElementById("promocoes").classList.add("hidden");
+  document.getElementById("editar-cardapio").classList.remove("hidden");
+
+  const categoria = document.getElementById("categoria-select").value;
+  carregarItensCardapio(categoria);
+});
+
+document.getElementById("categoria-select").addEventListener("change", (e) => {
+  carregarItensCardapio(e.target.value);
+});
+
+function carregarItensCardapio(categoria) {
+  const container = document.getElementById("itens-cardapio-container");
+  container.innerHTML = "Carregando...";
+
+  database.ref(`produtos/${categoria}`).once("value", function(snapshot) {
+    container.innerHTML = "";
+
+    snapshot.forEach(function(childSnapshot) {
+      const item = childSnapshot.val();
+      const key = childSnapshot.key;
+
+      const card = criarCardItem(item, key, categoria);
+      container.appendChild(card);
+    });
+  });
+}
+
+function criarCardItem(item, key, categoria) {
+  const card = document.createElement("div");
+
+  const destaquePromocao = categoria === "promocoes"
+    ? "border-yellow-500 border-2 shadow-lg"
+    : "border";
+
+  card.className = `bg-white p-4 rounded ${destaquePromocao} flex flex-col gap-2`;
+
+  // Parte fixa do conteúdo
+  card.innerHTML = `
+    ${categoria === "promocoes" ? '<span class="text-yellow-600 font-bold text-sm">🔥 Promoção</span>' : ''}
+    <input type="text" value="${item.nome || ''}" placeholder="Nome" class="p-2 border rounded nome">
+    <textarea placeholder="Descrição" class="p-2 border rounded descricao">${item.descricao || ''}</textarea>
+    <input type="number" value="${item.preco || 0}" step="0.01" class="p-2 border rounded preco">
+    <input type="text" value="${item.imagem || ''}" placeholder="URL da Imagem" class="p-2 border rounded imagem">
+    <img class="preview-img w-full h-32 object-cover rounded border ${item.imagem ? '' : 'hidden'}" src="${item.imagem || ''}">
+  `;
+
+  // Label e select do tipo (doce/salgado)
+  const tipoLabel = document.createElement("label");
+  tipoLabel.className = "text-sm text-gray-700";
+  tipoLabel.textContent = "Tipo (Doce ou Salgado)";
+  card.appendChild(tipoLabel);
+
+  const selectTipo = document.createElement("select");
+  selectTipo.className = "p-2 border rounded tipo";
+  selectTipo.innerHTML = `
+    <option value="salgado">Salgado</option>
+    <option value="doce">Doce</option>
+  `;
+  selectTipo.value = item.tipo || "salgado";
+  card.appendChild(selectTipo);
+
+  // Checkbox ativo e botões
+  card.innerHTML += `
+    <label class="flex items-center gap-2 text-sm text-gray-700 mt-2">
+      <input type="checkbox" class="ativo" ${item.ativo ? 'checked' : ''}> Ativo
+    </label>
+    <div class="flex justify-between gap-2 mt-2">
+      <button class="salvar bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700 w-full">Salvar</button>
+      <button class="excluir bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700 w-full">Excluir</button>
+    </div>
+  `;
+
+  // Preview da imagem
+  const inputImagem = card.querySelector(".imagem");
+  const previewImg = card.querySelector(".preview-img");
+
+  inputImagem.addEventListener("input", () => {
+    if (inputImagem.value.trim() !== "") {
+      previewImg.src = inputImagem.value;
+      previewImg.classList.remove("hidden");
+    } else {
+      previewImg.classList.add("hidden");
+    }
+  });
+
+  // Botão salvar
+  card.querySelector(".salvar").addEventListener("click", function () {
+    const nome = card.querySelector(".nome").value;
+    const descricao = card.querySelector(".descricao").value;
+    const preco = parseFloat(card.querySelector(".preco").value);
+    const imagem = inputImagem.value;
+    const ativo = card.querySelector(".ativo").checked;
+    const tipo = card.querySelector(".tipo").value;
+
+    database.ref(`produtos/${categoria}/${key}`).update({
+      nome,
+      descricao,
+      preco,
+      imagem,
+      ativo,
+      tipo
+    }, function (error) {
+      alert(error ? "Erro ao salvar!" : "Item atualizado com sucesso!");
+    });
+  });
+
+  // Botão excluir
+  card.querySelector(".excluir").addEventListener("click", function () {
+    if (confirm("Tem certeza que deseja excluir este item?")) {
+      database.ref(`produtos/${categoria}/${key}`).remove(() => {
+        card.remove();
+      });
+    }
+  });
+
+  return card;
+}
+
+// Mostra o modal
+function mostrarNovoitem() {
+  document.getElementById("modal-novo-item").classList.remove("hidden");
+  document.getElementById("modal-novo-item").classList.add("flex");
+
+}
+
+// Fecha o modal
+document.getElementById("btn-fechar-novo-item").addEventListener("click", () => {
+  document.getElementById("modal-novo-item").classList.add("hidden");
+});
+
+// Preview da imagem digitada
+document.getElementById("novo-imagem").addEventListener("input", () => {
+  const url = document.getElementById("novo-imagem").value.trim();
+  const preview = document.getElementById("preview-nova-imagem");
+
+  if (url) {
+    preview.src = url;
+    preview.classList.remove("hidden");
+  } else {
+    preview.classList.add("hidden");
+  }
+});
+
+// Salvar novo item no Firebase
+document.getElementById("btn-salvar-novo-item").addEventListener("click", () => {
+  const nome = document.getElementById("novo-nome").value.trim();
+  const descricao = document.getElementById("novo-descricao").value.trim();
+  const preco = parseFloat(document.getElementById("novo-preco").value);
+  const imagem = document.getElementById("novo-imagem").value.trim();
+  const ativo = document.getElementById("novo-ativo").checked;
+  const categoria = document.getElementById("categoria-select").value;
+  const tipo = document.getElementById("novo-tipo").value;
+
+  if (!categoria) {
+    alert("Selecione uma categoria para salvar o item.");
+    return;
+  }
+
+  if (!nome || isNaN(preco)) {
+    alert("Preencha o nome e o preço corretamente.");
+    return;
+  }
+
+  const novoItem = { nome, descricao, preco, imagem, ativo, tipo };
+
+  database.ref(`produtos/${categoria}`).push(novoItem, (error) => {
+    if (error) {
+      alert("Erro ao adicionar item!");
+    } else {
+      alert("Item adicionado com sucesso!");
+      document.getElementById("modal-novo-item").classList.add("hidden");
+      carregarItensCardapio(categoria);
+      limparFormularioNovoItem();
+    }
+  });
+});
+
+// Limpar campos após salvar
+function limparFormularioNovoItem() {
+  document.getElementById("novo-nome").value = "";
+  document.getElementById("novo-descricao").value = "";
+  document.getElementById("novo-preco").value = "";
+  document.getElementById("novo-imagem").value = "";
+  document.getElementById("preview-nova-imagem").classList.add("hidden");
+  document.getElementById("novo-ativo").checked = true;
+  document.getElementById("novo-tipo").value = "salgado"; // reseta para padrão
 }

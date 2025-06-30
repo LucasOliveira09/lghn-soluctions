@@ -25,9 +25,9 @@
         <button id="btn-finalizados" class="py-3 px-4 rounded-lg bg-white text-blue-600 font-semibold border border-blue-600 hover:bg-blue-50 transition w-full sm:w-auto">
           Pedidos Finalizados
         </button>
-        <button id="btn-promocoes" class="py-3 px-4 rounded-lg bg-white text-blue-600 font-semibold border border-blue-600 hover:bg-blue-50 transition w-full sm:w-auto">
-          Adicionar Promoções
-        </button>
+        <button id="btn-editar-cardapio" class="py-3 px-4 rounded-lg bg-white text-blue-600 font-semibold border border-blue-600 hover:bg-blue-50 transition w-full sm:w-auto">
+  Editar Cardápio
+</button>
       </div>
 
       <audio id="notificacao-som" src="assets/notificacao.mp3" preload="auto"></audio>
@@ -124,10 +124,6 @@
 </form>
 
 
-  <!-- Lista de Promoções -->
-  <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">Promoções Ativas</h2>
-  <div id="painel-promocoes" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-
   <!-- Modal de Edição -->
   <div id="modal-editar" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
     <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-4 sm:p-6 relative mx-4">
@@ -151,6 +147,88 @@
     </div>
   </div>
 </div>
+
+<!-- Área de edição do cardápio -->
+<div id="editar-cardapio" class="hidden">
+  <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2 border-gray-300">Edição de Itens do Cardápio</h2>
+
+  <!-- Barra de ações -->
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+    <button onclick="mostrarNovoitem()" id="btn-adicionar-item" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded font-semibold transition">
+      + Adicionar Novo Item
+    </button>
+
+    <div class="w-full sm:w-auto">
+      <label for="categoria-select" class="block text-sm font-medium text-gray-700 mb-1">Escolha a categoria:</label>
+      <select id="categoria-select" class="w-full sm:w-64 p-2 border rounded focus:ring-2 ring-blue-400 transition">
+        <option value="pizzas">Pizzas</option>
+        <option value="bebidas">Bebidas</option>
+        <option value="esfirras">Esfirras</option>
+        <option value="lanches">Lanches</option>
+        <option value="promocoes">🔥 Promoções</option>
+        <option value="novidades">🔥 Novidades</option>
+
+      </select>
+    </div>
+  </div>
+
+  <!-- Lista de itens -->
+  <div id="itens-cardapio-container" class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"></div>
+</div>
+
+<!-- Modal de novo item -->
+<div id="modal-novo-item" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+  <div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-md mx-4">
+    <h2 class="text-xl font-bold text-gray-800 mb-4">Adicionar Novo Item</h2>
+
+    <div class="space-y-4">
+      <div>
+        <label for="novo-nome" class="block font-medium text-sm text-gray-700 mb-1">Nome</label>
+        <input id="novo-nome" type="text" class="w-full border rounded p-2 focus:ring-2 ring-blue-500" placeholder="Nome do produto" />
+      </div>
+
+      <div>
+        <label for="novo-descricao" class="block font-medium text-sm text-gray-700 mb-1">Descrição</label>
+        <textarea id="novo-descricao" class="w-full border rounded p-2 focus:ring-2 ring-blue-500" rows="3" placeholder="Descrição do produto"></textarea>
+      </div>
+
+      <div>
+        <label for="novo-preco" class="block font-medium text-sm text-gray-700 mb-1">Preço</label>
+        <input id="novo-preco" type="number" step="0.01" min="0" class="w-full border rounded p-2 focus:ring-2 ring-blue-500" placeholder="0.00" />
+      </div>
+
+      <div>
+        <label for="novo-imagem" class="block font-medium text-sm text-gray-700 mb-1">URL da Imagem</label>
+        <input id="novo-imagem" type="text" class="w-full border rounded p-2 focus:ring-2 ring-blue-500" placeholder="https://..." />
+        <img id="preview-nova-imagem" class="w-full h-32 object-cover mt-2 rounded border hidden" />
+      </div>
+
+      <div>
+  <label for="novo-tipo" class="block font-medium text-sm text-gray-700 mb-1">Tipo</label>
+  <select id="novo-tipo" class="w-full border rounded p-2 focus:ring-2 ring-blue-500">
+    <option value="salgado">Salgado</option>
+    <option value="doce">Doce</option>
+  </select>
+</div>
+
+      <div class="flex items-center">
+        <input type="checkbox" id="novo-ativo" class="form-checkbox text-blue-600" checked />
+        <label for="novo-ativo" class="ml-2 text-sm text-gray-700">Ativo</label>
+      </div>
+
+      <div class="flex justify-between pt-4 border-t mt-4">
+        <button id="btn-fechar-novo-item" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded transition">
+          Fechar
+        </button>
+        <button id="btn-salvar-novo-item" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded font-semibold transition">
+          Salvar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+  
 
   </div>
 </body>

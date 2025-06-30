@@ -11,8 +11,15 @@
     <title>Central</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <style>
+
+  body {
+      font-family: 'Cinzel', serif;
+    }
+
  .input-ok {
   border-color: #22c55e !important; /* verde-500 do Tailwind */
   box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3);
@@ -23,19 +30,21 @@
   box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3);
 }
 </style>
-<body>
+<body class=" bg-[#0E0C0A] font-serif">
 
-    <header class="w-full h-[320px] shadow-sm bg-zinc-900 bg-home bg-cover bg-center flex flex-col justify-center items-center px-4">
-    <img src="assets/sua-logo.png" alt="" class="w-28 h-28 rounded-full shadow-lg hover:scale-110 duration-200">
-    <h1 class="text-3xl mt-3 mb-1 font-bold text-white">Nome lanchonete</h1>
-    <span class="text-white text-sm font-medium">Rua , Fartura - SP</span>
-    <div class="bg-green-600 px-4 py-1 rounded-lg mt-4" id="date-span">
-        <span class="text-white text-sm font-medium">Seg á Dom - 18:00 as 23:00</span>
-    </div>
+  <header class="w-full h-[320px] bg-cover bg-center shadow-sm flex flex-col justify-center items-center px-4 relative">
+  <div class="absolute inset-0 bg-[#0E0C0A] opacity-50"></div>
+  <img src="assets/sua-logo.png" alt="" class="relative w-28 h-28 rounded-full shadow-lg hover:scale-110 transition-transform duration-200 z-10">
+  <h1 class="relative text-3xl mt-3 font-bold text-yellow-50 z-10">Nome</h1>
+  <h1 class="relative text-3xl mb-1 font-bold text-orange-100 text-whitez-10">Lanchonete</h1>
+  <span class="relative text-sm font-medium text-orange-100 z-10">Rua, Fartura - SP</span>
+  <div class="relative bg-green-600 px-4 py-1 rounded-lg mt-4 z-10" id="date-span">
+    <span class="text-sm font-medium ttext-orange-100">Seg à Dom – 18:00 às 23:00</span>
+  </div>
 </header>
 
-  <!-- Botões de categorias com scroll horizontal responsivo -->
-<div class="relative w-full flex items-center">
+ <!-- Botões de categorias com scroll horizontal responsivo -->
+<div class="relative w-full flex items-center ">
   <!-- Indicador de scroll lateral -->
   <div id="scroll-indicator" class="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white to-transparent pointer-events-auto flex items-center justify-center z-10 cursor-pointer">
     <svg class="w-5 h-5 text-black/70 animate-bounce-right" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -45,25 +54,25 @@
 
   <!-- Container com rolagem -->
   <div id="scroll-container" class="w-full overflow-x-auto scrollbar-hide flex md:justify-center items-center ">
-    <div class="flex flex-nowrap space-x-3 px-3 py-3">
+    <div class="flex flex-nowrap space-x-3 px-3 py-2">
 
-      <button onclick="showPromocoes()" id="btn-promocoes" class="min-w-max px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-full font-medium shadow-sm hover:bg-gray-100 active:bg-gray-200 transition-all hidden">
+      <button onclick="showPromocoes()" id="btn-promocoes" class="min-w-max px-4 py-3 bg-white text-gray-700 border border-gray-300 rounded-full font-medium shadow-sm hover:bg-gray-100 active:bg-gray-200 transition-all hidden">
         💰 Promoções
       </button>
 
-      <button onclick="showPizza()" class="min-w-max px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-full font-medium shadow-sm hover:bg-gray-100 active:bg-gray-200 transition-all">
+      <button onclick="showPizza()" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
         🍕 Pizzas
       </button>
 
-      <button onclick="showEsfirra()" class="min-w-max px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-full font-medium shadow-sm hover:bg-gray-100 active:bg-gray-200 transition-all">
+      <button onclick="showEsfirra()" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
         🥟 Esfirras
       </button>
 
-      <button onclick="showLanche()" class="min-w-max px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-full font-medium shadow-sm hover:bg-gray-100 active:bg-gray-200 transition-all">
+      <button onclick="showLanche()" class="min-w-max px-3 py-1 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
         🍔 Lanches
       </button>
 
-      <button onclick="showBebida()" class="min-w-max px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-full font-medium shadow-sm hover:bg-gray-100 active:bg-gray-200 transition-all">
+      <button onclick="showBebida()" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
         🥤 Bebidas
       </button>
 
@@ -71,38 +80,50 @@
   </div>
 </div>
 
+<hr class="mt-4 text-green-500">
+
 
     <!-- carrinho -->
 
-    <div id="cart-modal" class="bg-black/50 w-full h-full fixed top-0 left-0 z-[99] hidden items-center justify-center">
+   <div id="cart-modal" class="bg-black/50 w-full h-full fixed top-0 left-0 z-[99] hidden items-center justify-center p-2 sm:p-4">
+  <div class="bg-white w-full max-w-md rounded-2xl shadow-xl p-5 max-h-[90vh] overflow-y-auto animate-fade-in scale-95">
+    
+    <!-- Título -->
+    <h2 class="text-center text-2xl font-bold mb-4 text-gray-800 flex items-center justify-center gap-2">
+      <i class="fa-solid fa-cart-shopping text-green-600"></i> Meu Carrinho
+    </h2>
 
-        <div class="bg-white p-5 rounded-md min-w-[90%] md:min-w-[600px]">
-            <h2 class="text-center font-bold text-2xl mb-2">Meu carrinho</h2>
+    <!-- Itens -->
+    <div id="cart-items" class="flex flex-col gap-4 mb-4"></div>
 
-            <div id="cart-items" class="flex justify-between mb-2 flex-col"></div>
+    <!-- Total -->
+    <p class="text-base sm:text-lg font-semibold text-gray-700 border-t pt-4">
+      Total: <span id="cart-total" class="text-green-600 font-bold">R$ 0,00</span>
+    </p>
 
-            <p class="font-bold">Total: <span id="cart-total">0.00</span></p>
+    <!-- Observação -->
+    <label for="observation" class="block font-semibold mt-4 text-gray-700 text-base">Observação:</label>
+    <input 
+      type="text"
+      id="observation"
+      placeholder="Ex: Tirar cebola"
+      class="w-full border border-gray-300 rounded-lg p-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm sm:text-base"
+    />
 
-            <p class="font-bold mt-4">Observação: </p>
-            <input 
-            type="text"
-            placeholder="Alguma observação? Ex: tirar cebola"
-            name="" 
-            id="observation"
-            class="w-full border-2 p-2 rounded my-1"
-            />
-            
-            <p class="text-red-500 hidden" id="address-warn">Digite seu endereço completo!</p>
+    <!-- Alerta de endereço -->
+    <p class="text-red-500 text-sm hidden mt-2" id="address-warn">Digite seu endereço completo!</p>
 
-            <div class="flex items-center justify-between mt-8 w-full">
-                <button id="cart-modal-btn">Fechar</button>
-                <button id="checkout-btn" class="bg-green-500 text-white px-4 py-1 rounded">Finalizar pedido</button>
-            </div>
-
-
-        </div>
-
+    <!-- Botões -->
+    <div class="flex flex-col sm:flex-row sm:justify-between gap-3 mt-6">
+      <button id="cart-modal-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-5 py-3 rounded-lg w-full text-base font-medium flex items-center justify-center gap-2">
+        <i class="fa-solid fa-xmark"></i> Fechar
+      </button>
+      <button id="checkout-btn" class="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-lg w-full text-base font-medium flex items-center justify-center gap-2">
+        <i class="fa-solid fa-check"></i> Finalizar Pedido
+      </button>
     </div>
+  </div>
+</div>
 
 
     <!-- Confirmação de Dados -->
@@ -239,292 +260,119 @@
     <!-- Pizzas ------------------------------------------------------------------- -->   
 
 <main id="menu" class="mb-12">
-    <div id="show-pizza" class=" grid grid-cols-1 gap-7 mx-auto max-w-7xl md:grid-cols-2 mt-9 mb-20 p-4">
-       
-        <div>
-          <h2 class="text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300 ">Pizzas</h2>
-        </div>
-        <div> </div>
-
-        <div class="flex gap-3 p-2 border border-gray-200 rounded-md shadow bg-white">
-            <img src="assets/pizza.png" alt="" class="w-20 h-20 rounded hover:scale-110 hover:-rotate-2 duration-300">
-            
-            <div class="w-full">
-                <p class="font-bold">Frango com catupiry</p>
-                <p class="text-sm">Frango e catupiry</p>
-
-                <div class="flex items-center gap-2 justify-between mt-3">
-                   <p class="font-bold text-lg">R$ 52.00</p>
-                    <button 
-                        class="bg-gray-900 px-5 rounded open-modal-btn"
-                        data-name="Pizza Frango com catupiry"
-                        data-price="52.00" 
-                    >
-                       
-                        <i class="fa fa-cart-plus text-lg text-white"></i>
-                    </button>
-                </div>
-            </div>
-            
-        </div>
-
-        <div class="flex gap-3 p-2 border border-gray-200 rounded-md shadow bg-white">
-            <img src="assets/pizza.png" alt="" class="w-20 h-20 rounded-md hover:scale-110 hover:-rotate-2 duration-300">
-            
-            <div class="w-full">
-                <p class="font-bold">Quatro queijos</p>
-                <p class="text-sm">Mussarela, parmesão, tomate e manjericão</p>
-
-                <div class="flex items-center gap-2 justify-between mt-3 ">
-                   <p class="font-bold text-lg">R$ 52.00</p>
-                    <button 
-                        class="bg-gray-900 px-5 rounded open-modal-btn"
-                        data-name="Pizza de Quatro queijos"
-                        data-price="52.00" 
-                    >
-                       
-                        <i class="fa fa-cart-plus text-lg text-white"></i>
-                    </button>
-                </div>
-            </div>
-            
-        </div>
-
-        <div class="flex gap-3 p-2 border border-gray-200 rounded-md shadow bg-white">
-            <img src="assets/pizza.png" alt="" class="w-20 h-20 rounded-md hover:scale-110 hover:-rotate-2 duration-300">
-            
-            <div class="w-full">
-                <p class="font-bold">Atum</p>
-                <p class="text-sm">Atum, cebola e mussarela</p>
-
-                <div class="flex items-center gap-2 justify-between mt-3 ">
-                   <p class="font-bold text-lg">R$ 52.00</p>
-                    <button 
-                        class="bg-gray-900 px-5 rounded open-modal-btn"
-                        data-name="Pizza Atum"
-                        data-price="52.00" 
-                    >
-                       
-                        <i class="fa fa-cart-plus text-lg text-white"></i>
-                    </button>
-                </div>
-            </div>
-            
-        </div>
-
-        <div class="flex gap-3 p-2 border border-gray-200 rounded-md shadow bg-white">
-            <img src="assets/pizza.png" alt="" class="w-20 h-20 rounded-md hover:scale-110 hover:-rotate-2 duration-300">
-            
-            <div class="w-full">
-                <p class="font-bold">Bacon</p>
-                <p class="text-sm">Bacon e mussarela</p>
-
-                <div class="flex items-center gap-2 justify-between mt-3 ">
-                   <p class="font-bold text-lg">R$ 52.00</p>
-                    <button 
-                        class="bg-gray-900 px-5 rounded open-modal-btn"
-                        data-name="Pizza Bacon"
-                        data-price="52.00" 
-                    >
-                       
-                        <i class="fa fa-cart-plus text-lg text-white"></i>
-                    </button>
-                </div>
-            </div>
-            
-        </div>
-
-        <div class="flex gap-3 p-2 border border-gray-200 rounded-md shadow bg-white">
-            <img src="assets/pizza.png" alt="" class="w-20 h-20 rounded-md hover:scale-110 hover:-rotate-2 duration-300">
-            
-            <div class="w-full">
-                <p class="font-bold">Baiana</p>
-                <p class="text-sm">Calabresa, ovo, cebola, mussarela e molho de pimenta</p>
-
-                <div class="flex items-center gap-2 justify-between mt-3 ">
-                   <p class="font-bold text-lg">R$ 52.00</p>
-                    <button 
-                        class="bg-gray-900 px-5 rounded open-modal-btn"
-                        data-name="Pizza Baiana"
-                        data-price="52.00" 
-                    >
-                       
-                        <i class="fa fa-cart-plus text-lg text-white"></i>
-                    </button>
-                </div>
-            </div>
-            
-        </div>
-
-
-        <div class="flex gap-3 p-2 border border-gray-200 rounded-md shadow bg-white">
-            <img src="assets/pizza.png" alt="" class="w-20 h-20 rounded-md hover:scale-110 hover:-rotate-2 duration-300">
-            
-            <div class="w-full">
-                <p class="font-bold">Pizza barata</p>
-                <p class="text-sm">Calabresa, ovo, cebola, mussarela e molho de pimenta</p>
-
-                <div class="flex items-center gap-2 justify-between mt-3 ">
-                   <p class="font-bold text-lg">R$ 42.00</p>
-                    <button 
-                        class="bg-gray-900 px-5 rounded open-modal-btn"
-                        data-name="Pizza Barata"
-                        data-price="42" 
-                    >
-                       
-                        <i class="fa fa-cart-plus text-lg text-white"></i>
-                    </button>
-                </div>
-            </div>
-            
-        </div>
-
-    </div>
-
     
-    
+    <!-- Pizzas -->
+        <!-- PIZZAS -->
+<div id="show-pizza">
+  <div class="w-full items-center justify-center flex mt-8">
+    <h2 class="text-5xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50">PIZZAS</h2>
+  </div>
 
+  <div class="text-yellow-50 mt-6 px-4 text-center">
+    <div id="lista-pizzas-salgadas" class="grid grid-cols-1 gap-7 md:grid-cols-2 mb-10"></div>
 
-<!-- BEBIDAS ------------------------------------------------------------------- -->
-  
-
-
-<div id="show-bebida" class="grid grid-cols-1 gap-7 mx-auto max-w-7xl md:grid-cols-2 mt-9 p-4" >
-            
-            <div>
-          <h2 class="text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300 ">Bebidas</h2>
-        </div>
-        <div> </div>
-
-            <div class="flex gap-3 p-2 border border-gray-200 rounded-md shadow bg-white">
-            <img src="assets/refri-1.png" alt="" class="w-20 h-20 rounded-md hover:scale-110 hover:-rotate-2 duration-300">
-            
-            <div class="w-full">
-                <p class="font-bold">Coca lata</p>
-                <p class="text-sm"></p>
-
-                <div class="flex items-center gap-2 justify-between mt-3 ">
-                   <p class="font-bold text-lg">R$ 6.00</p>
-                    <button 
-                        class="bg-gray-900 px-5 rounded add-to-cart-btn"
-                        data-name="Coca"
-                        data-price="6" 
-                    >
-                       
-                        <i class="fa fa-cart-plus text-lg text-white"></i>
-                    </button>
-                </div>
-            </div>
-            </div>
-            
-          <div class="flex gap-3 p-2 border border-gray-200 rounded-md shadow bg-white">
-            <img src="assets/refri-2.png" alt="" class="w-20 h-20 rounded-md hover:scale-110 hover:-rotate-2 duration-300">
-            
-            <div class="w-full">
-                <p class="font-bold">Guarana lata</p>
-                <p class="text-sm"></p>
-
-                <div class="flex items-center gap-2 justify-between mt-3 ">
-                   <p class="font-bold text-lg">R$ 6.00</p>
-                    <button 
-                        class="bg-gray-900 px-5 rounded add-to-cart-btn"
-                        data-name="Guarana"
-                        data-price="6" 
-                    >
-                       
-                        <i class="fa fa-cart-plus text-lg text-white"></i>
-                    </button>
-                </div>
-            </div>
-          </div>
+    <h2 class="text-3xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50 ">PIZZAS DOCE</h2>
+    <div id="lista-pizzas-doces" class="grid grid-cols-1 gap-7 md:grid-cols-2 mb-20 mt-6"></div>
+  </div>
 </div>
 
+<!-- Esfirras -->
+        <div id="show-esfirra">
+        <div class="w-full items-center justify-center flex mt-8">
+    <h2 class="text-5xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50">ESFIRRAS</h2>
+  </div>
 
+  <div class="text-yellow-50 mt-6 px-4 text-center">
+    <div id="lista-esfirras-salgadas" class="grid grid-cols-1 gap-7 md:grid-cols-2 mb-10"></div>
 
+    <h2 class="text-3xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50 ">ESFIRRAS DOCE</h2>
+    <div id="lista-esfirras-doces" class="grid grid-cols-1 gap-7 md:grid-cols-2 mb-20 mt-6"></div>
+  </div>
+</div>
+
+<!-- Lanches -->
+        <div id="show-lanche" >
+            <div class="w-full items-center justify-center flex mt-8">
+                <h2 class="text-yellow-50 text-5xl font-bold mb-2 border-b border-green-800 pb-2">LANCHES</h2>
+            </div>
             
+            <div class="grid grid-cols-1  gap-7 mx-auto max-w-7xl md:grid-cols-2 mt-9 mb-20 p-4">
+            <!-- Itens de pizza serão inseridos aqui via JS -->
+            <div id="lista-lanches" class="contents"></div>
+            </div>
+        </div>
+
+        <!-- Bebidas -->
+       <div id="show-bebida" >
+            <div class="w-full items-center justify-center flex mt-8">
+                <h2 class="text-5xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50">BEBIDAS</h2>
+            </div>
+            
+            <div class="grid grid-cols-1 gap-7 mx-auto max-w-7xl md:grid-cols-2 mt-9 mb-20 p-4">
+            <div id="lista-bebidas" class="contents"></div>
+            </div>
+        </div>
+
+        
+
+        
+
 </main>
 
-<footer class="w-full bg-red-500 py-3 fixed bottom-0 z-50 flex items-center justify-center shadow-lg">
-    <button class="flex items-center gap-2 text-white font-bold text-base px-8" id="cart-btn">
-        (<span id="cart-count">0</span>) Ver carrinho
-        <i class="fa fa-cart-plus text-lg"></i>
-    </button>
+<!-- Carrinho fixo inferior -->
+<footer class="fixed bottom-0 left-0 right-0 bg-black border-t border-gray-700 p-4 gap-2">
+  <button id="cart-btn" class="max-w-md mx-auto flex justify-center text-center text-white text-lg font-semibold">
+    (<span id="cart-count" class="text-green-600">0</span>) Ver carrinho
+    <i class="fa fa-cart-plus text-lg"></i>
+  </button>
 </footer>
     
 <!-- MODAL DE ESCOLHA DE PIZZA -->
-<div id="pizza-modal" class="fixed top-0 left-0 w-full h-full bg-black/60 z-[999] hidden items-center justify-center p-5">
-  <div class="bg-white rounded-lg w-full max-w-md p-6 shadow-lg">
+<div id="pizza-modal" class="fixed inset-0 z-[999] hidden items-center justify-center bg-black/60 p-4">
+  <div class="bg-white rounded-2xl w-full max-w-sm sm:max-w-md p-4 sm:p-6 shadow-xl overflow-y-auto max-h-[90vh]">
 
-    <h2 id="modal-title" class="text-2xl font-bold mb-6 text-center text-gray-800"></h2>
+    <!-- Título -->
+    <h2 id="modal-title" class="text-xl sm:text-2xl font-bold mb-5 text-center text-gray-800"></h2>
 
     <!-- Tamanho -->
-    <div class="mb-6">
-      <h3 class="font-semibold mb-3 text-gray-700">Escolha o tamanho:</h3>
-      <div class="flex justify-center gap-4">
-        <button class="size-btn bg-gray-200 text-gray-700 py-3 rounded-full font-semibold transition-all w-20" data-size="Broto">Broto</button>
-        <button class="size-btn bg-gray-200 text-gray-700 py-3 rounded-full font-semibold transition-all w-20" data-size="Grande">Grande</button>
+    <div class="mb-5">
+      <h3 class="font-semibold text-base sm:text-lg mb-3 text-gray-700">Escolha o tamanho:</h3>
+      <div class="flex justify-center gap-3 flex-wrap">
+        <button class="size-btn bg-gray-200 text-gray-700 py-2 sm:py-3 rounded-full font-medium w-24 transition-all" data-size="Broto">Broto</button>
+        <button class="size-btn bg-gray-200 text-gray-700 py-2 sm:py-3 rounded-full font-medium w-24 transition-all" data-size="Grande">Grande</button>
       </div>
     </div>
 
     <!-- Meia-Meia -->
-    <div class="mb-6">
-      <h3 class="font-semibold mb-3 text-gray-700">Deseja Meia-Meia?</h3>
-      <div class="max-h-52 overflow-y-auto flex flex-col gap-3 px-2">
-
-  <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" 
-  data-half="" 
-  data-price="0"
-  >Não</button>
-
-  <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" 
-  data-half="Frango com Catupiry" 
-  data-price="52"
-  >Frango com Catupiry</button>
-
-  <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" 
-  data-half="Quatro queijos" 
-  data-price="52">
-  Quatro queijos</button>
-
-  <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" 
-  data-half="Atum" 
-  data-price="52">
-  Atum</button>
-
-  <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" 
-  data-half="Bacon" 
-  data-price="52">
-  Bacon</button>
-
-  <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" 
-  data-half="Baiana" 
-  data-price="52">
-  Baiana</button>
-
-  <button class="half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left" 
-  data-half="Pizza Barata" 
-  data-price="42">
-  Pizza Barata</button>
-
-</div>
+    <div class="mb-5">
+      <h3 class="font-semibold text-base sm:text-lg mb-3 text-gray-700">Deseja Meia-Meia?</h3>
+      <div class="max-h-48 overflow-y-auto flex flex-col gap-2 px-1 sm:px-2">
+        <button class="half-btn bg-gray-200 text-gray-700 px-3 py-2 sm:py-3 rounded-md text-left" data-half="" data-price="0">Não</button>
+        <button class="half-btn bg-gray-200 text-gray-700 px-3 py-2 sm:py-3 rounded-md text-left" data-half="Frango com Catupiry" data-price="52">Frango com Catupiry</button>
+        <button class="half-btn bg-gray-200 text-gray-700 px-3 py-2 sm:py-3 rounded-md text-left" data-half="Quatro queijos" data-price="52">Quatro queijos</button>
+        <button class="half-btn bg-gray-200 text-gray-700 px-3 py-2 sm:py-3 rounded-md text-left" data-half="Atum" data-price="52">Atum</button>
+        <button class="half-btn bg-gray-200 text-gray-700 px-3 py-2 sm:py-3 rounded-md text-left" data-half="Bacon" data-price="52">Bacon</button>
+        <button class="half-btn bg-gray-200 text-gray-700 px-3 py-2 sm:py-3 rounded-md text-left" data-half="Baiana" data-price="52">Baiana</button>
+        <button class="half-btn bg-gray-200 text-gray-700 px-3 py-2 sm:py-3 rounded-md text-left" data-half="Pizza Barata" data-price="42">Pizza Barata</button>
+      </div>
     </div>
 
     <!-- Borda -->
-    <div class="mb-6">
-      <h3 class="font-semibold mb-3 text-gray-700">Deseja adicionar borda?</h3>
-      <div class="flex gap-4 mb-4">
-        <button class="crust-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-full" data-crust="Não">Não</button>
-        <button class="crust-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-full" data-crust="Sim">Sim</button>
+    <div class="mb-5">
+      <h3 class="font-semibold text-base sm:text-lg mb-3 text-gray-700">Deseja adicionar borda?</h3>
+      <div class="flex gap-3 mb-3 flex-wrap">
+        <button class="crust-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm" data-crust="Não">Não</button>
+        <button class="crust-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm" data-crust="Sim">Sim</button>
       </div>
 
       <div id="crust-flavor-section" class="hidden">
         <h4 class="text-sm font-medium text-gray-700 mb-2">Escolha o sabor da borda:</h4>
         <div class="flex flex-col gap-2">
-          <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-left" data-flavor="Cream cheese">Cream cheese (+R$10 ou R$12)</button>
-          <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-left" data-flavor="Mussarela">Mussarela (+R$10 ou R$12)</button>
-          <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-left" data-flavor="Chocolote">Chocolote (+R$10 ou R$12)</button>
-          <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-left" data-flavor="Cheddar">Cheddar (+R$10 ou R$12)</button>
-          <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-left" data-flavor="Catupiry">Catupiry (+R$10 ou R$12)</button>
+          <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-left" data-flavor="Cream cheese">Cream cheese (+R$10 ou R$12)</button>
+          <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-left" data-flavor="Mussarela">Mussarela (+R$10 ou R$12)</button>
+          <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-left" data-flavor="Chocolote">Chocolote (+R$10 ou R$12)</button>
+          <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-left" data-flavor="Cheddar">Cheddar (+R$10 ou R$12)</button>
+          <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-left" data-flavor="Catupiry">Catupiry (+R$10 ou R$12)</button>
         </div>
       </div>
     </div>
@@ -533,28 +381,12 @@
     <p id="pizza-price-preview" class="text-lg font-semibold text-center text-gray-800 mt-4">Valor: R$ 0,00</p>
 
     <!-- Botões -->
-    <div class="flex justify-between mt-8">
-      <button id="cancel-pizza" class="px-5 py-3 border border-gray-400 rounded-full text-gray-700">Cancelar</button>
-      <button id="confirm-pizza" class="bg-green-500 text-white px-5 py-3 rounded-full font-semibold shadow-md">Adicionar</button>
+    <div class="flex flex-col sm:flex-row justify-between gap-3 mt-6">
+      <button id="cancel-pizza" class="w-full sm:w-auto px-4 py-3 border border-gray-400 rounded-full text-gray-700 text-sm">Cancelar</button>
+      <button id="confirm-pizza" class="w-full sm:w-auto bg-green-500 text-white px-4 py-3 rounded-full font-semibold shadow-md text-sm">Adicionar</button>
     </div>
   </div>
-</div>   
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+</div>
 </body>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js"></script>
@@ -595,8 +427,8 @@
     function showLanche() {
         document.getElementById('show-pizza').style.display = "none"
         document.getElementById('show-bebida').style.display = "none"
-        document.getElementById('show-esfirra').style.display = "grid"
-        document.getElementById('show-lanche').style.display = "none"
+        document.getElementById('show-esfirra').style.display = "none"
+        document.getElementById('show-lanche').style.display = "grid"
         document.getElementById('show-promocoes').style.display = "none"
     }
 
