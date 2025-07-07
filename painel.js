@@ -8,21 +8,8 @@ const firebaseConfig = {
   appId: "1:110849299422:web:60285eb408825c3ff9434f",
   measurementId: "G-QP7K16G4NM"
 };
-firebase.initializeApp(firebaseConfig);
 
-firebase.auth().onAuthStateChanged((user) => {
-  if (user) {
-    firebase.database().ref("admins/" + user.uid).once("value")
-      .then((snapshot) => {
-        if (snapshot.exists()) {
-          // Mostrar a página
-        } else {
-          // Redirecionar ou esconder a página
-          window.location.href = "/nao-autorizado.html";
-        }
-      });
-  }
-});
+firebase.initializeApp(firebaseConfig);
 
 const database = firebase.database();
 const pedidosRef = database.ref('pedidos');
