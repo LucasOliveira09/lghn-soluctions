@@ -38,12 +38,16 @@ const backBtn = document.getElementById('back-cart')
 const confirmModal = document.getElementById('confirm-modal')
 const confirmCartItems = document.getElementById('confirm-cart-items');
 const confirmTotal = document.getElementById('confirm-total');
+const menuButton = document.getElementById('menu-button');
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('overlay');
 
 const FRETE_VALOR = 5.00; 
 
 let cart = [];
 
 carregarProdutos()
+
 
 function carregarProdutos() {
     // Carregar pizzas
@@ -1149,3 +1153,22 @@ document.addEventListener("DOMContentLoaded", () => {
   function gerarIdAleatorio() {
   return 'cliente-' + Math.random().toString(36).substring(2, 12);
 }
+
+const scrollbar = document.getElementById('scrollbar')
+
+// sidebar
+
+menuButton.addEventListener('click', () => {
+    sidebar.classList.remove('-translate-x-full');
+    overlay.classList.remove('hidden');
+    scrollbar.classList.remove('bg-[#0E0C0A]')
+    scrollbar.classList.add('bg-black')
+    scrollbar.classList.add('opacity-50')
+  });
+
+  overlay.addEventListener('click', () => {
+    sidebar.classList.add('-translate-x-full');
+    overlay.classList.add('hidden');
+    scrollbar.classList.remove('bg-black')
+    scrollbar.classList.remove('opacity-50')
+  });

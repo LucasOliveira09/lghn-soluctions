@@ -46,11 +46,19 @@ html {
 </style>
 <body class=" bg-[#0E0C0A] font-serif">
 
-  <header class="w-full h-[320px] bg-cover bg-center shadow-sm flex flex-col justify-center items-center px-4 relative">
+
+
+<header class="w-full h-[320px] bg-cover bg-center shadow-sm flex flex-col justify-center items-center px-4 relative bg-[url('/path/to/banner.jpg')]">
   <div class="absolute inset-0 bg-[#0E0C0A] opacity-50"></div>
+  <button id="menu-button" class="absolute top-4 right-4 z-20 text-yellow-50 hover:scale-110 transition-transform duration-200">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  </button>
+
   <img src="assets/sua-logo.png" alt="" class="relative w-28 h-28 rounded-full shadow-lg hover:scale-110 transition-transform duration-200 z-10">
   <h1 class="relative text-3xl mt-3 font-bold text-yellow-50 z-10">BONANZA</h1>
-  <h1 class="relative text-3xl mb-1 font-bold text-yellow-50 text-whitez-10">Pizzaria & Esfirraria</h1>
+  <h1 class="relative text-3xl mb-1 font-bold text-yellow-50 z-10">Pizzaria & Esfirraria</h1>
   <span class="relative text-sm font-medium text-yellow-50 z-10">Rua, Fartura - SP</span>
   <div class="relative bg-green-600 px-4 py-1 rounded-lg mt-4 z-10" id="date-span">
     <span class="text-sm font-medium text-yellow-50">Seg à Dom – 18:00 às 23:00</span>
@@ -58,11 +66,30 @@ html {
 </header>
 
 
- <div class="sticky top-0 pt-5 z-50 bg-[#0E0C0A]">
+
+<!-- Sidebar -->
+<div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-[#1a1a1a] shadow-lg transform -translate-x-full transition-transform duration-300 z-[999]">
+
+  <div class="p-4 text-yellow-50 font-bold text-xl border-b border-yellow-800">Menu</div>
+  <ul class="p-4 text-yellow-50 space-y-3">
+    <li><a href="#" class="hover:text-yellow-300">Início</a></li>
+    <li><a href="#" class="hover:text-yellow-300">Cardápio</a></li>
+    <li><a href="#" class="hover:text-yellow-300">Contato</a></li>
+    <li><a href="#" class="hover:text-yellow-300">Sobre</a></li>
+  </ul>
+</div>
+
+<!-- Overlay ao abrir a sidebar -->
+<div id="overlay" class="fixed inset-0 bg-black opacity-50 hidden z-40"></div>
+
+
+
+
+ <div id="scrollbar" class="sticky top-0 pt-5 z-50 bg-[#0E0C0A]">
  <!-- Botões de categorias com scroll horizontal responsivo -->
 <div class="relative flex items-center ">
   <!-- Indicador de scroll lateral -->
-  <div id="scroll-indicator" class="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white to-transparent pointer-events-auto flex items-center justify-center z-10 cursor-pointer">
+  <div id="scroll-indicator" class="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-black to-transparent pointer-events-auto flex items-center justify-center z-10 cursor-pointer">
     <svg class="w-5 h-5 text-black/70 animate-bounce-right" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
     </svg>
@@ -97,8 +124,9 @@ html {
 </div>
 </div>
 
-<hr class="mt-4 text-green-500">
 
+<hr class="mt-4 text-green-500">
+</div>
 
     <!-- carrinho -->
 
