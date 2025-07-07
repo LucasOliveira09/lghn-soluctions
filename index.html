@@ -7,14 +7,28 @@
     <link rel="stylesheet" href="./styles/output.css">
     <link rel="stylesheet" href="styles/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/k7ujTnHg4CGR2D7kSs0v4LLanw2qksYuRlEzO+tcaEPQogQ0KaoGN26/zrn20ImR1DfuLWnOo7aBA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/icon.jpg">
     
-    <title>Central</title>
+    <title>Bonanza Pizzaria</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <style>
+
+html {
+    scroll-behavior: smooth;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
 
   body {
       font-family: 'Cinzel', serif;
@@ -35,16 +49,18 @@
   <header class="w-full h-[320px] bg-cover bg-center shadow-sm flex flex-col justify-center items-center px-4 relative">
   <div class="absolute inset-0 bg-[#0E0C0A] opacity-50"></div>
   <img src="assets/sua-logo.png" alt="" class="relative w-28 h-28 rounded-full shadow-lg hover:scale-110 transition-transform duration-200 z-10">
-  <h1 class="relative text-3xl mt-3 font-bold text-yellow-50 z-10">Nome</h1>
-  <h1 class="relative text-3xl mb-1 font-bold text-orange-100 text-whitez-10">Lanchonete</h1>
-  <span class="relative text-sm font-medium text-orange-100 z-10">Rua, Fartura - SP</span>
+  <h1 class="relative text-3xl mt-3 font-bold text-yellow-50 z-10">BONANZA</h1>
+  <h1 class="relative text-3xl mb-1 font-bold text-yellow-50 text-whitez-10">Pizzaria & Esfirraria</h1>
+  <span class="relative text-sm font-medium text-yellow-50 z-10">Rua, Fartura - SP</span>
   <div class="relative bg-green-600 px-4 py-1 rounded-lg mt-4 z-10" id="date-span">
-    <span class="text-sm font-medium ttext-orange-100">Seg à Dom – 18:00 às 23:00</span>
+    <span class="text-sm font-medium text-yellow-50">Seg à Dom – 18:00 às 23:00</span>
   </div>
 </header>
 
+
+ <div class="sticky top-0 pt-5 z-50 bg-[#0E0C0A]">
  <!-- Botões de categorias com scroll horizontal responsivo -->
-<div class="relative w-full flex items-center ">
+<div class="relative flex items-center ">
   <!-- Indicador de scroll lateral -->
   <div id="scroll-indicator" class="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white to-transparent pointer-events-auto flex items-center justify-center z-10 cursor-pointer">
     <svg class="w-5 h-5 text-black/70 animate-bounce-right" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -52,32 +68,33 @@
     </svg>
   </div>
 
-  <!-- Container com rolagem -->
+
+ 
   <div id="scroll-container" class="w-full overflow-x-auto scrollbar-hide flex md:justify-center items-center ">
-    <div class="flex flex-nowrap space-x-3 px-3 py-2">
+  <div class="flex flex-nowrap space-x-3 px-3 py-2">
 
-      <button onclick="showPromocoes()" id="btn-promocoes" class="min-w-max px-4 py-3 bg-white text-gray-700 border border-gray-300 rounded-full font-medium shadow-sm hover:bg-gray-100 active:bg-gray-200 transition-all hidden">
-        💰 Promoções
-      </button>
+    <a href="#show-promocoes" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all hidden">
+      💰 Promoções
+    </a>
 
-      <button onclick="showPizza()" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
-        🍕 Pizzas
-      </button>
+    <a href="#show-pizza" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
+      🍕 Pizzas
+    </a>
 
-      <button onclick="showEsfirra()" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
-        🥟 Esfirras
-      </button>
+    <a href="#show-esfirra" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
+      🥟 Esfirras
+    </a>
 
-      <button onclick="showLanche()" class="min-w-max px-3 py-1 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
-        🍔 Lanches
-      </button>
+    <a href="#show-lanche" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
+      🥐 Calzones
+    </a>
 
-      <button onclick="showBebida()" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
-        🥤 Bebidas
-      </button>
+    <a href="#show-bebida" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
+      🥤 Bebidas
+    </a>
 
-    </div>
   </div>
+</div>
 </div>
 
 <hr class="mt-4 text-green-500">
@@ -252,14 +269,16 @@
 
 <div id="show-promocoes" class="mb-12 hidden">
   <section id="promocoes" class="p-4">
-        <h2 class="text-2xl font-semibold mb-6 text-gray-700 border-b pb-2 border-gray-300">Promoções:</h2>
+        <div class="w-full items-center justify-center flex mt-8 mb-6">
+    <h2 class="text-5xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50">PROMOÇÕES</h2>
+  </div>
   <div id="lista-promocoes" class="grid gap-4 md:grid-cols-2"></div>
 </section>
 </div>
 
     <!-- Pizzas ------------------------------------------------------------------- -->   
 
-<main id="menu" class="mb-12">
+<main id="menu" class="pt-20 space-y-24 mb-12">
     
     <!-- Pizzas -->
         <!-- PIZZAS -->
@@ -293,7 +312,7 @@
 <!-- Lanches -->
         <div id="show-lanche" >
             <div class="w-full items-center justify-center flex mt-8">
-                <h2 class="text-yellow-50 text-5xl font-bold mb-2 border-b border-green-800 pb-2">LANCHES</h2>
+                <h2 class="text-yellow-50 text-5xl font-bold mb-2 border-b border-green-800 pb-2">CALZONES</h2>
             </div>
             
             <div class="grid grid-cols-1  gap-7 mx-auto max-w-7xl md:grid-cols-2 mt-9 mb-20 p-4">

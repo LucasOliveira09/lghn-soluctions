@@ -2,14 +2,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebas
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
-  authDomain: "cardapioweb-99e7b.firebaseapp.com",
-  databaseURL: "https://cardapioweb-99e7b-default-rtdb.firebaseio.com",
-  projectId: "cardapioweb-99e7b",
-  storageBucket: "cardapioweb-99e7b.appspot.com",
-  messagingSenderId: "110849299422",
-  appId: "1:110849299422:web:44083feefdd967f4f9434f",
-  measurementId: "G-Y4KFGTHFP1"
+  apiKey: "AIzaSyCxpZd8Bu1IKzFHMUMzX1AAU1id8AcjCYw",
+  authDomain: "bonanzapizzaria-b2513.firebaseapp.com",
+  databaseURL: "https://bonanzapizzaria-b2513-default-rtdb.firebaseio.com",
+  projectId: "bonanzapizzaria-b2513",
+  storageBucket: "bonanzapizzaria-b2513.firebasestorage.app",
+  messagingSenderId: "7433511053",
+  appId: "1:7433511053:web:44414e66d7e601e23b82c4",
+  measurementId: "G-TZ9RC0E7WN"
 };
 
 const app = initializeApp(firebaseConfig);

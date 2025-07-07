@@ -2,11 +2,13 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
-  <title>Painel de Pedidos</title>
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/icon.jpg">
+  <title>Painel Bonanza</title>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <script src="painel.js" defer></script>
   <script src="https://cdn.tailwindcss.com"></script>
+
 </head>
 <body id="tudoSome" class="bg-gray-100 min-h-screen flex flex-col">
 
@@ -18,17 +20,25 @@
         Painel de Pedidos
       </h1>
 
-      <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-        <button id="btn-ativos" class="py-3 px-4 rounded-lg bg-white text-blue-600 font-semibold border border-blue-600 hover:bg-blue-50 transition w-full sm:w-auto">
-          Pedidos Ativos
-        </button>
-        <button id="btn-finalizados" class="py-3 px-4 rounded-lg bg-white text-blue-600 font-semibold border border-blue-600 hover:bg-blue-50 transition w-full sm:w-auto">
-          Pedidos Finalizados
-        </button>
-        <button id="btn-editar-cardapio" class="py-3 px-4 rounded-lg bg-white text-blue-600 font-semibold border border-blue-600 hover:bg-blue-50 transition w-full sm:w-auto">
-  Editar Cardápio
-</button>
-      </div>
+
+<!-- MENU DE BOTÕES -->
+<div id="menu-buttons" class="flex-col sm:flex sm:flex-row gap-3 w-full sm:w-auto px-4 sm:px-0 flex">
+  <button id="btn-ativos" class="py-3 px-4 rounded-lg bg-blue-600 text-white font-semibold border border-blue-600 hover:bg-blue-700 transition w-full sm:w-auto">
+    Pedidos Ativos
+  </button>
+
+  <button id="btn-finalizados" class="py-3 px-4 rounded-lg bg-white text-blue-600 font-semibold border border-blue-600 hover:bg-blue-50 transition w-full sm:w-auto">
+    Pedidos Finalizados
+  </button>
+
+  <button id="btn-editar-cardapio" class="py-3 px-4 rounded-lg bg-white text-blue-600 font-semibold border border-blue-600 hover:bg-blue-50 transition w-full sm:w-auto">
+    Editar Cardápio
+  </button>
+
+  <button id="btn-editar-horario" class="py-3 px-4 rounded-lg bg-white text-blue-600 font-semibold border border-blue-600 hover:bg-blue-50 transition w-full sm:w-auto">
+    Editar Horário
+  </button>
+</div>
 
       <audio id="notificacao-som" src="assets/notificacao.mp3" preload="auto"></audio>
 
@@ -88,7 +98,9 @@
         <p><strong>Total vendido:</strong> R$ <span id="total-vendido">0.00</span></p>
       </div>
 
-      <div id="pedidos-finalizados-container" class="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"></div>
+      <div id="pedidos-finalizados-container" class="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+
+      </div>
     </div>
 
     <!-- Promoções -->
@@ -164,7 +176,7 @@
         <option value="pizzas">Pizzas</option>
         <option value="bebidas">Bebidas</option>
         <option value="esfirras">Esfirras</option>
-        <option value="lanches">Lanches</option>
+        <option value="calzone">Calzones</option>
         <option value="promocoes">🔥 Promoções</option>
         <option value="novidades">🔥 Novidades</option>
 
@@ -172,9 +184,7 @@
     </div>
   </div>
 
-  <!-- Lista de itens -->
-  <div id="itens-cardapio-container" class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"></div>
-</div>
+  
 
 <!-- Modal de novo item -->
 <div id="modal-novo-item" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
@@ -228,8 +238,29 @@
   </div>
 </div>
 
+  <!-- Lista de itens -->
+  <div id="itens-cardapio-container" class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 "></div>
+
   
+</div>
 
   </div>
+
+  <div id="editar-horario" class="hidden">
+  <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2 border-gray-300">Edição de Horário de Funcionamento</h2>
+
+  <div class="max-w-2xl mx-auto mt-10 p-6 bg-white rounded shadow">
+    <h1 class="text-2xl font-bold mb-4">Configurar Horário de Funcionamento</h1>
+    <p class="mb-4 text-gray-700" id="status">Carregando status...</p>
+
+    <form id="horario-form" class="space-y-4">
+      <div id="dias-container" class="space-y-3"></div>
+
+      <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+        Salvar horários
+      </button>
+    </form>
+  </div>
+</div>
 </body>
 </html>

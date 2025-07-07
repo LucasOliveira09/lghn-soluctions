@@ -1,15 +1,30 @@
 const firebaseConfig = {
-  apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
-  authDomain: "cardapioweb-99e7b.firebaseapp.com",
-  databaseURL: "https://cardapioweb-99e7b-default-rtdb.firebaseio.com",
-  projectId: "cardapioweb-99e7b",
-  storageBucket: "cardapioweb-99e7b.firebasestorage.app",
-  messagingSenderId: "110849299422",
-  appId: "1:110849299422:web:44083feefdd967f4f9434f",
-  measurementId: "G-Y4KFGTHFP1"
+  apiKey: "AIzaSyCxpZd8Bu1IKzFHMUMzX1AAU1id8AcjCYw",
+  authDomain: "bonanzapizzaria-b2513.firebaseapp.com",
+  databaseURL: "https://bonanzapizzaria-b2513-default-rtdb.firebaseio.com",
+  projectId: "bonanzapizzaria-b2513",
+  storageBucket: "bonanzapizzaria-b2513.firebasestorage.app",
+  messagingSenderId: "7433511053",
+  appId: "1:7433511053:web:44414e66d7e601e23b82c4",
+  measurementId: "G-TZ9RC0E7WN"
 };
 
 firebase.initializeApp(firebaseConfig);
+
+firebase.auth().onAuthStateChanged((user) => {
+  if (user) {
+    firebase.database().ref("admins/" + user.uid).once("value")
+      .then((snapshot) => {
+        if (snapshot.exists()) {
+          // Mostrar a página
+        } else {
+          // Redirecionar ou esconder a página
+          window.location.href = "/nao-autorizado.html";
+        }
+      });
+  }
+});
+
 const database = firebase.database();
 const pedidosRef = database.ref('pedidos');
 const promocoesRef = firebase.database().ref('promocoes');
@@ -36,16 +51,16 @@ const btnPromocoes = document.getElementById('btn-promocoes');
 const abaPromocoes = document.getElementById('promocoes');
 const btnEditarCardapio = document.getElementById('btn-editar-cardapio')
 const EditarCardapio = document.getElementById('editar-cardapio')
+const btnEditarHorario = document.getElementById('btn-editar-horario')
+const editarHorario = document.getElementById('editar-horario')
 
 let pedidos = {};
 
-//let senhaTentada = prompt("Qual a senha do painel?");
 
-//let senha = "1234"
 
-//if(senhaTentada !== senha ){
-//  document.getElementById('tudoSome').classList.add("hidden")
-//}
+
+
+
 
 let totalPedidosAnteriores = 0;
 
@@ -171,7 +186,7 @@ ${itensPedido}
 Aguarde que logo estará a caminho! 🍽️`;
 
       const telefoneLimpo = pedido.telefone.replace(/\D/g, '');
-      const url = `https://wa.me/${telefoneLimpo}?text=${encodeURIComponent(mensagem)}`;
+      const url = `https://api.whatsapp.com/send?phone=${telefoneLimpo}&text=${encodeURIComponent(mensagem)}`;
 
       // Abre a janela antes da promessa acabar, igual ao saiuParaEntrega
       window.open(url, '_blank');
@@ -191,9 +206,26 @@ function saiuParaEntrega(pedidoId) {
       return;
     }
 
-    database.ref('pedidos/' + pedidoId).update({ status: 'Saiu para Entrega' });
+    // Atualiza status
+    database.ref('pedidos/' + pedidoId).update({ 
+      status: pedido.tipoEntrega === 'Retirada' ? 'Pronto para Retirada' : 'Saiu para Entrega' 
+    });
 
-    const mensagem = 
+    const telefoneLimpo = pedido.telefone.replace(/\D/g, '');
+
+    let mensagem = '';
+
+    if (pedido.tipoEntrega === 'Retirada') {
+      mensagem = 
+`✅ *Seu pedido está pronto para retirada!*
+
+👤 *Cliente:* ${pedido.nomeCliente || '-'}
+📦 *Pedido:* ${pedido.cart.map(item => `${item.quantity}x ${item.name}`).join(', ')}
+💵 *Total:* R$ ${pedido.totalPedido.toFixed(2)}
+
+Pode vir buscar quando quiser. Agradecemos pela preferência! 🙏`;
+    } else {
+      mensagem = 
 `🚚 *Seu pedido saiu para entrega!* 
 
 👤 *Cliente:* ${pedido.nomeCliente || '-'}
@@ -201,9 +233,9 @@ function saiuParaEntrega(pedidoId) {
 💵 *Total:* R$ ${pedido.totalPedido.toFixed(2)}
 
 Nosso entregador está a caminho. 🛵 Agradecemos pela preferência! 🙏`;
+    }
 
-    const telefoneLimpo = pedido.telefone.replace(/\D/g, '');
-    const url = `https://wa.me/${telefoneLimpo}?text=${encodeURIComponent(mensagem)}`;
+    const url = `https://api.whatsapp.com/send?phone=${telefoneLimpo}&text=${encodeURIComponent(mensagem)}`;
     window.open(url, '_blank');
   });
 }
@@ -218,9 +250,10 @@ function finalizarPedido(pedidoId) {
 
     // ✅ Aqui está o fix: salvando também o timestamp
     database.ref('pedidos/' + pedidoId).update({ 
-      status: 'Finalizado',
-      timestamp: Date.now()
-    });
+  status: 'Finalizado',
+  timestamp: Date.now() // <-- Esse campo é essencial
+});
+
 
     const mensagem = 
 `✅ *Pedido finalizado!*
@@ -229,7 +262,7 @@ Muito obrigado, ${pedido.nomeCliente || ''}, por confiar em nosso serviço. 😄
 Esperamos vê-lo novamente em breve! 🍽️🍕`;
 
     const telefoneLimpo = pedido.telefone.replace(/\D/g, '');
-    const url = `https://wa.me/${telefoneLimpo}?text=${encodeURIComponent(mensagem)}`;
+    const url = `https://api.whatsapp.com/send?phone=${telefoneLimpo}&text=${encodeURIComponent(mensagem)}`;
     window.open(url, '_blank');
   });
 }
@@ -309,7 +342,7 @@ function gerarHtmlPedido(pedido, pedidoId) {
     ✏️ Editar
     </button>
   </div>
-` : pedido.status === 'Saiu para Entrega' ? `
+` : pedido.status === 'Saiu para Entrega' || pedido.status === 'Pronto para Retirada' ? `
   <div class="flex gap-2 mt-4">
     <button onclick="finalizarPedido('${pedidoId}')" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">
       Finalizar Pedido
@@ -344,38 +377,51 @@ function calcularTempoDecorrido(data) {
   return `${horas}h ${minutos % 60}min`;
 }
 
-function ativaAba(ativa, inativa, inativa2) {
+function ativaAba(ativa, inativa1, inativa2, inativa3) {
   ativa.classList.remove('hidden');
-  inativa.classList.add('hidden');
+  inativa1.classList.add('hidden');
   inativa2.classList.add('hidden');
+  inativa3.classList.add('hidden');
 }
 
-function estilizaBotaoAtivo(botaoAtivo, botaoInativo, botaoInativo2) {
+function estilizaBotaoAtivo(botaoAtivo, inativo1, inativo2, inativo3) {
   botaoAtivo.classList.add('bg-blue-600', 'text-white');
   botaoAtivo.classList.remove('bg-white', 'text-blue-600');
 
-  botaoInativo.classList.remove('bg-blue-600', 'text-white');
-  botaoInativo.classList.add('bg-white', 'text-blue-600');
-
-  botaoInativo2.classList.remove('bg-blue-600', 'text-white');
-  botaoInativo2.classList.add('bg-white', 'text-blue-600');
+  [inativo1, inativo2, inativo3].forEach(botao => {
+    botao.classList.remove('bg-blue-600', 'text-white');
+    botao.classList.add('bg-white', 'text-blue-600');
+  });
 }
 
 btnAtivos.addEventListener('click', () => {
-  ativaAba(abaAtivos, abaFinalizados, EditarCardapio);
-  estilizaBotaoAtivo(btnAtivos, btnFinalizados, btnEditarCardapio);
+  ativaAba(abaAtivos, abaFinalizados, EditarCardapio, editarHorario);
+  estilizaBotaoAtivo(btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario);
 });
 
 btnFinalizados.addEventListener('click', () => {
-  ativaAba(abaFinalizados, abaAtivos, EditarCardapio);
-  estilizaBotaoAtivo(btnFinalizados, btnAtivos, btnEditarCardapio);
+  ativaAba(abaFinalizados, abaAtivos, EditarCardapio, editarHorario);
+  estilizaBotaoAtivo(btnFinalizados, btnAtivos, btnEditarCardapio, btnEditarHorario);
+
+  const hoje = new Date();
+  const seteDiasAtras = new Date(hoje);
+  seteDiasAtras.setDate(hoje.getDate() - 7);
+
+  inputDataInicio.value = seteDiasAtras.toISOString().split('T')[0];
+  inputDataFim.value = hoje.toISOString().split('T')[0];
+
+  aplicarFiltroDatas();
 });
 
 btnEditarCardapio.addEventListener('click', () => {
-  ativaAba(EditarCardapio, abaFinalizados, abaAtivos);
-  estilizaBotaoAtivo(btnEditarCardapio , btnAtivos, btnFinalizados);
+  ativaAba(EditarCardapio, abaFinalizados, abaAtivos, editarHorario);
+  estilizaBotaoAtivo(btnEditarCardapio, btnAtivos, btnFinalizados, btnEditarHorario);
 });
 
+btnEditarHorario.addEventListener('click', () => {
+  ativaAba(editarHorario, abaFinalizados, abaAtivos, EditarCardapio);
+  estilizaBotaoAtivo(btnEditarHorario, btnAtivos, btnFinalizados, btnEditarCardapio);
+});
 
 
 btnAtivos.click();
@@ -839,3 +885,78 @@ function limparFormularioNovoItem() {
   document.getElementById("novo-ativo").checked = true;
   document.getElementById("novo-tipo").value = "salgado"; // reseta para padrão
 }
+
+// Salva os horários no Realtime Database (versão compat)
+  function salvarHorariosNoFirebase(horarios) {
+    const db = firebase.database();
+    db.ref('config/horarios')
+      .set(horarios)
+      .then(() => console.log("Horários salvos com sucesso!"))
+      .catch((error) => console.error("Erro ao salvar horários:", error));
+  }
+
+  // Verifica se está aberto agora
+  function checkRestaurantOpen(horarios) {
+    const agora = new Date();
+    const diaSemana = agora.getDay(); // 0 = domingo
+    const horaAtual = agora.getHours();
+
+    const configDia = horarios[diaSemana];
+    if (!configDia || !configDia.aberto) return false;
+
+    return horaAtual >= configDia.inicio && horaAtual < configDia.fim;
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const db = firebase.database();
+
+    // Renderiza os campos de cada dia
+    const dias = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+    const container = document.getElementById("dias-container");
+
+    dias.forEach((dia, i) => {
+      const linha = document.createElement("div");
+      linha.className = "flex items-center gap-4 border-b pb-3";
+
+      linha.innerHTML = `
+        <label class="w-28 font-semibold">${dia}</label>
+        <label class="flex items-center gap-2">
+          <input type="checkbox" name="aberto-${i}" checked />
+          Aberto
+        </label>
+        <input type="number" name="inicio-${i}" min="0" max="23" value="18" class="border p-1 w-16" />
+        <span>às</span>
+        <input type="number" name="fim-${i}" min="0" max="23" value="23" class="border p-1 w-16" />
+      `;
+
+      container.appendChild(linha);
+    });
+
+    // Ao enviar o formulário
+    const form = document.getElementById("horario-form");
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      const horarios = {};
+      for (let i = 0; i <= 6; i++) {
+        const aberto = document.querySelector(`[name="aberto-${i}"]`).checked;
+        const inicio = parseInt(document.querySelector(`[name="inicio-${i}"]`).value);
+        const fim = parseInt(document.querySelector(`[name="fim-${i}"]`).value);
+        horarios[i] = { aberto, inicio, fim };
+      }
+
+      salvarHorariosNoFirebase(horarios);
+    });
+
+    // Verifica se está aberto agora e mostra status
+    db.ref('config/horarios').once('value')
+      .then(snapshot => {
+        if (snapshot.exists()) {
+          const horarios = snapshot.val();
+          const status = checkRestaurantOpen(horarios);
+          document.getElementById("status").innerText = status ? "✅ Aberto agora" : "❌ Fechado agora";
+        } else {
+          console.log("Nenhuma configuração encontrada.");
+        }
+      });
+  });

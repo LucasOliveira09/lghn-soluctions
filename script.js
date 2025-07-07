@@ -1,12 +1,12 @@
 const firebaseConfig = {
-  apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
-  authDomain: "cardapioweb-99e7b.firebaseapp.com",
-  databaseURL: "https://cardapioweb-99e7b-default-rtdb.firebaseio.com",
-  projectId: "cardapioweb-99e7b",
-  storageBucket: "cardapioweb-99e7b.firebasestorage.app",
-  messagingSenderId: "110849299422",
-  appId: "1:110849299422:web:44083feefdd967f4f9434f",
-  measurementId: "G-Y4KFGTHFP1"
+  apiKey: "AIzaSyCxpZd8Bu1IKzFHMUMzX1AAU1id8AcjCYw",
+  authDomain: "bonanzapizzaria-b2513.firebaseapp.com",
+  databaseURL: "https://bonanzapizzaria-b2513-default-rtdb.firebaseio.com",
+  projectId: "bonanzapizzaria-b2513",
+  storageBucket: "bonanzapizzaria-b2513.firebasestorage.app",
+  messagingSenderId: "7433511053",
+  appId: "1:7433511053:web:44414e66d7e601e23b82c4",
+  measurementId: "G-TZ9RC0E7WN"
   };
 
 // Inicializar Firebase
@@ -108,7 +108,7 @@ function carregarProdutos() {
     });
 
     // Carregar lanches
-    database.ref('produtos/lanches').on('value', (snapshot) => {
+    database.ref('produtos/calzone').on('value', (snapshot) => {
         const listaLanches = document.getElementById('lista-lanches');
         listaLanches.innerHTML = '';
         
@@ -380,60 +380,89 @@ function removeItemCart(name) {
     }
 }
 
-checkoutBtn.addEventListener("click", function(){
-
-    const isOpen = checkRestaurantOpen();
-    if(!isOpen){
+checkoutBtn.addEventListener("click", function () {
+ 
+    // Continua se estiver aberto
+    if (cart.length === 0) {
       Toastify({
-          text: "Restaurante fechado!",
-          duration: 3000,
-          close: true,
-          gravity: "top",
-          position: "left",
-          stopOnFocus: true,
-          style: {
+        text: "Carrinho está vazio!",
+        duration: 3000,
+        close: true,
+        gravity: "top",
+        position: "left",
+        stopOnFocus: true,
+        style: {
           background: "#ef4444",
-            },
-          }).showToast();
-        //return;
-    }
-
-    if(cart.length === 0){
-        Toastify({
-          text: "Carrinho está vazio!",
-          duration: 3000,
-          close: true,
-          gravity: "top",
-          position: "left",
-          stopOnFocus: true,
-          style: {
-          background: "#ef4444",
-            },
-          }).showToast();
-        return;
+        },
+      }).showToast();
+      return;
     } else {
-        atualizarConfirmacao()
-        confirmModal.classList.remove("hidden")
+      atualizarConfirmacao();
+      confirmModal.classList.remove("hidden");
     }
-    
-})
+  
+});
 
-function checkRestaurantOpen(){
-    const data = new Date();
-    const hora = data.getHours();
-   return hora >= 18 && hora < 23;
-}
+ function getStatusMessage(horarios) {
+    const agora = new Date();
+    const dia = agora.getDay(); // 0 = domingo, ..., 6 = sábado
+    const hora = agora.getHours();
+    const diaConfig = horarios[dia];
 
-const spanItem = document.getElementById("date-span")
-const isOpen = checkRestaurantOpen();
+    if (!diaConfig || !diaConfig.aberto) {
+      return {
+        aberto: false,
+        mensagem: "Fechado hoje"
+      };
+    }
 
-if(isOpen){
-    spanItem.classList.remove("bg-red-500")
-    spanItem.classList.add("bg-green-600");
-} else {
-   spanItem.classList.remove("bg-green-500")
-   spanItem.classList.add("bg-red-600");
-}
+    if (hora >= diaConfig.inicio && hora < diaConfig.fim) {
+      return {
+        aberto: true,
+        mensagem: `Aberto agora (fecha às ${diaConfig.fim}h)`
+      };
+    } else {
+      return {
+        aberto: false,
+        mensagem: `Fechado agora (abre às ${diaConfig.inicio}h)`
+      };
+    }
+  }
+
+  // ✅ Atualiza visual do span com cores e texto
+  function atualizarStatusVisual() {
+    const spanItem = document.getElementById("date-span");
+
+    firebase.database().ref("config/horarios").once("value")
+      .then(snapshot => {
+        if (snapshot.exists()) {
+          const horarios = snapshot.val();
+          const status = getStatusMessage(horarios);
+
+          if (status.aberto) {
+            spanItem.classList.remove("bg-red-500", "bg-red-600");
+            spanItem.classList.add("bg-green-600");
+          } else {
+            spanItem.classList.remove("bg-green-500", "bg-green-600");
+            spanItem.classList.add("bg-red-600");
+          }
+
+          spanItem.textContent = status.mensagem;
+        } else {
+          spanItem.textContent = "Horários não configurados.";
+        }
+      })
+      .catch(error => {
+        console.error("Erro ao buscar horários:", error);
+        spanItem.textContent = "Erro ao carregar status.";
+      });
+  }
+
+  // ✅ Executa ao carregar e a cada minuto
+  document.addEventListener("DOMContentLoaded", () => {
+    atualizarStatusVisual();
+    setInterval(atualizarStatusVisual, 60000); // atualiza a cada minuto
+  });
 
  function atualizarEntrega() {
   const retirada = document.getElementById("retirada");
@@ -845,8 +874,16 @@ document.getElementById('confirm-pizza').addEventListener('click', () => {
   }
 
   nameFinal += ` (${selectedSize})`;
-  let priceMultiplier = selectedSize === "Broto" ? 0.6 : 1;
-  let finalPrice = basePrice * priceMultiplier;
+
+  if(selectedSize === "Broto") {
+    if(selectedHalf === "Costela" || selectedHalf === "Costela turbinada" || selectedPizza.name === "Costela" || selectedPizza.name === "Costela turbinada" ){
+      basePrice = 35
+    } else {
+      basePrice = 30
+    }
+  }
+  let finalPrice = basePrice
+
 
   if (wantsCrust === "Sim" && crustFlavor) {
     nameFinal += ` + Borda de ${crustFlavor}`;
@@ -873,8 +910,14 @@ function updatePizzaPricePreview() {
     basePrice = (selectedPizza.price + selectedHalfPrice) / 2; // MÉDIA dos preços
   }
 
-  let priceMultiplier = selectedSize === "Broto" ? 0.6 : 1;
-  let finalPrice = basePrice * priceMultiplier;
+  if(selectedSize === "Broto") {
+    if(selectedHalf === "Costela" || selectedHalf === "Costela turbinada" || selectedPizza.name === "Costela" || selectedPizza.name === "Costela turbinada" ){
+      basePrice = 35
+    } else {
+      basePrice = 30
+    }
+  }
+  let finalPrice = basePrice
 
   if (wantsCrust === "Sim" && crustFlavor) {
     finalPrice += selectedSize === "Broto" ? 10 : 12;
@@ -1034,27 +1077,33 @@ function mostrarPedidoSucessoComLogo() {
 const scrollContainer = document.getElementById('scroll-container');
 const scrollIndicator = document.getElementById('scroll-indicator');
 
+// Ao clicar no indicador, rola para a direita
 scrollIndicator.addEventListener('click', () => {
   scrollContainer.scrollBy({
     left: 300, 
     behavior: 'smooth'
   });
 });
+
+// Verifica se chegou ao fim do scroll horizontal
 function checkScrollEnd() {
   const scrollLeft = scrollContainer.scrollLeft;
   const scrollWidth = scrollContainer.scrollWidth;
   const clientWidth = scrollContainer.clientWidth;
 
-  if (scrollLeft + clientWidth >= scrollWidth - 5) {
-    scrollIndicator.style.display = 'none';
-  } else {
-    scrollIndicator.style.display = 'flex';
-  }
+  const chegouNoFim = scrollLeft + clientWidth >= scrollWidth - 10;
+
+  scrollIndicator.style.opacity = chegouNoFim ? '0' : '1';
+  scrollIndicator.style.pointerEvents = chegouNoFim ? 'none' : 'auto';
 }
 
+// Atualiza o indicador ao fazer scroll e redimensionar a tela
 scrollContainer.addEventListener('scroll', checkScrollEnd);
-
+window.addEventListener('resize', checkScrollEnd);
 window.addEventListener('load', checkScrollEnd);
+
+// Se estiver usando frameworks que montam DOM depois (ex: Vue/React), também pode usar:
+document.addEventListener('DOMContentLoaded', checkScrollEnd);
 
 document.addEventListener("DOMContentLoaded", () => {
   const camposOrdem = [
