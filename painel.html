@@ -1,267 +1,368 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
-  <meta charset="UTF-8">
-  <link rel="icon" type="image/png" sizes="16x16" href="assets/icon.jpg">
-  <title>Painel Bonanza</title>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-  <script src="painel.js" defer></script>
-  <script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/icon.jpg">
+    <title>Painel Bonanza</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="painel.js" defer></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Adicione estilos para a transição da sidebar */
+        .sidebar {
+            transition: transform 0.3s ease-out;
+        }
 
+        .overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+        }
+    </style>
 </head>
-<body id="tudoSome" class="bg-gray-100 min-h-screen flex flex-col">
 
-  <div class="max-w-7xl w-full mx-auto p-4 sm:p-6">
+<body id="tudoSome" class="bg-gray-100 min-h-screen flex">
+    <div id="overlay" class="fixed inset-0 bg-black-200 z-40 hidden"></div>
 
-    <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8 gap-4">
-      <h1 class="text-3xl sm:text-4xl font-bold text-blue-700 text-center sm:text-left">
-        Painel de Pedidos
-      </h1>
-
-
-<!-- MENU DE BOTÕES -->
-<div id="menu-buttons" class="flex-col sm:flex sm:flex-row gap-3 w-full sm:w-auto px-4 sm:px-0 flex">
-  <button id="btn-ativos" class="py-3 px-4 rounded-lg bg-blue-600 text-white font-semibold border border-blue-600 hover:bg-blue-700 transition w-full sm:w-auto">
-    Pedidos Ativos
-  </button>
-
-  <button id="btn-finalizados" class="py-3 px-4 rounded-lg bg-white text-blue-600 font-semibold border border-blue-600 hover:bg-blue-50 transition w-full sm:w-auto">
-    Pedidos Finalizados
-  </button>
-
-  <button id="btn-editar-cardapio" class="py-3 px-4 rounded-lg bg-white text-blue-600 font-semibold border border-blue-600 hover:bg-blue-50 transition w-full sm:w-auto">
-    Editar Cardápio
-  </button>
-
-  <button id="btn-editar-horario" class="py-3 px-4 rounded-lg bg-white text-blue-600 font-semibold border border-blue-600 hover:bg-blue-50 transition w-full sm:w-auto">
-    Editar Horário
-  </button>
-</div>
-
-      <audio id="notificacao-som" src="assets/notificacao.mp3" preload="auto"></audio>
-
-    </div>
-
-    <!-- Pedidos Ativos -->
-    <div id="aba-ativos">
-      <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">Pedidos Ativos</h2>
-      <div id="pedidos-ativos-container" class="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"></div>
-    </div>
-
-    <!-- Modal Editar Pedido -->
-<div id="modal-editar-pedido" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-  <div class="bg-white rounded-lg shadow-lg w-full max-w-2xl p-6 relative mx-4 overflow-y-auto max-h-[90vh]">
-    <h2 class="text-xl font-bold mb-4">Editar Pedido <span id="modal-pedido-id"></span></h2>
-
-    <!-- Itens existentes -->
-    <div id="modal-itens" class="space-y-2 mb-4 border p-2 rounded"></div>
-
-    <!-- Novo item -->
-    <div class="bg-gray-100 p-3 rounded mt-4">
-      <h3 class="font-medium mb-2">Adicionar novo item</h3>
-      <div class="flex flex-col md:flex-row gap-2 mb-2">
-        <input id="novo-item-nome" type="text" placeholder="Nome do produto" class="flex-1 border p-2 rounded" />
-        <input id="novo-item-preco" type="number" min="0" step="0.01" placeholder="Preço unitário" class="w-28 border p-2 rounded" />
-        <input id="novo-item-quantidade" type="number" min="0" value="1" class="w-24 border p-2 rounded text-center" />
-      </div>
-      <button id="btn-adicionar-item" class="bg-blue-500 text-white px-4 py-2 rounded w-full mt-2">+ Adicionar Item</button>
-    </div>
-
-    <!-- Botões de ação -->
-    <div class="flex justify-end gap-2 mt-6">
-      <button type="button" onclick="fecharModalEditarPedido()" class="bg-gray-400 text-white px-4 py-2 rounded">Cancelar</button>
-      <button id="btn-salvar-pedido" class="bg-green-600 text-white px-4 py-2 rounded">Salvar Alterações</button>
-    </div>
-  </div>
-</div>
-
-    <!-- Pedidos Finalizados -->
-    <div id="aba-finalizados" class="hidden">
-      <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">Relatório de Pedidos Finalizados</h2>
-
-      <div class="flex flex-col sm:flex-row gap-4 mb-6">
-        <div class="flex flex-col flex-1">
-          <span class="font-medium text-sm mb-1">De:</span>
-          <input type="date" id="data-inicio" class="border rounded px-4 py-2 focus:ring-2 ring-blue-400 w-full" />
+    <div id="sidebar"
+        class="fixed top-0 left-0 w-64 h-full bg-blue-800 text-white z-50 transform -translate-x-full lg:translate-x-0 overflow-y-auto shadow-lg p-4 flex flex-col">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold">Menu</h2>
+            <button id="close-sidebar-button" class="lg:hidden text-white text-xl">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
-        <div class="flex flex-col flex-1">
-          <span class="font-medium text-sm mb-1">Até:</span>
-          <input type="date" id="data-fim" class="border rounded px-4 py-2 focus:ring-2 ring-blue-400 w-full" />
+
+        <div id="menu-buttons" class="flex flex-col gap-3">
+            <button id="btn-ativos"
+                class="py-3 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition w-full text-left">
+                <i class="fas fa-clipboard-list mr-2"></i> Pedidos Ativos
+            </button>
+
+            <button id="btn-finalizados"
+                class="py-3 px-4 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-600 transition w-full text-left">
+                <i class="fas fa-check-circle mr-2"></i> Pedidos Finalizados
+            </button>
+
+            <button id="btn-editar-cardapio"
+                class="py-3 px-4 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-600 transition w-full text-left">
+                <i class="fas fa-edit mr-2"></i> Editar Cardápio
+            </button>
+
+            <button id="btn-editar-horario"
+                class="py-3 px-4 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-600 transition w-full text-left">
+                <i class="fas fa-clock mr-2"></i> Editar Horário
+            </button>
+
+            <button id="btn-gerenciar-usuarios"
+                class="py-3 px-4 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-600 transition w-full text-left">
+                <i class="fas fa-users mr-2"></i> Gerenciar Usuários
+            </button>
+
+            <button id="btn-configuracoes-gerais"
+                class="py-3 px-4 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-600 transition w-full text-left">
+                <i class="fas fa-cog mr-2"></i> Configurações Gerais
+            </button>
+
+            <button id="btn-relatorios"
+                class="py-3 px-4 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-600 transition w-full text-left">
+                <i class="fas fa-chart-line mr-2"></i> Relatórios
+            </button>
         </div>
-        <button id="btn-filtrar" class="bg-blue-600 text-white px-6 py-2 mt-2 sm:mt-0 rounded-lg font-semibold hover:bg-blue-700 w-full sm:w-auto">Filtrar</button>
-      </div>
-
-      <div class="bg-white p-4 rounded-lg shadow-md flex flex-col sm:flex-row justify-between text-lg font-medium mb-6">
-        <p><strong>Total de pedidos:</strong> <span id="total-pedidos">0</span></p>
-        <p><strong>Total vendido:</strong> R$ <span id="total-vendido">0.00</span></p>
-      </div>
-
-      <div id="pedidos-finalizados-container" class="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
-
-      </div>
     </div>
 
-    <!-- Promoções -->
-<div id="promocoes" class="hidden">
-  <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">Adicionar Promoções</h2>
-
-  <!-- Formulário -->
-  <form id="promoForm" class="bg-white shadow-md rounded-xl p-4 space-y-4 border border-gray-200 mb-8">
-  <h2 class="text-lg font-bold text-gray-800 mb-2">Adicionar Nova Promoção</h2>
-
-  <div>
-    <label for="titulo">Título</label>
-    <input type="text" id="titulo" class="w-full p-3 border rounded" required>
-  </div>
-
-  <div>
-    <label for="descricao">Descrição</label>
-    <textarea id="descricao" class="w-full p-3 border rounded" required></textarea>
-  </div>
-
-  <div>
-    <label for="imagemUrl">URL da Imagem</label>
-    <input type="text" id="imagemUrl" class="w-full p-2 border rounded" placeholder="https://exemplo.com/imagem.jpg" required>
-    <img id="imagemPreview" class="mt-2 max-h-40 rounded border hidden" />
-  </div>
-
-  <div>
-    <label for="preco">Preço</label>
-    <input type="" id="preco" class="w-full p-3 border rounded" required>
-  </div>
-
-  <button type="submit" class="bg-green-600 text-white py-2 px-4 rounded">Salvar Promoção</button>
-</form>
-
-
-  <!-- Modal de Edição -->
-  <div id="modal-editar" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-4 sm:p-6 relative mx-4">
-      <h2 class="text-lg font-bold mb-4">Editar Promoção</h2>
-      <form id="form-editar" class="space-y-3">
-        <input type="text" id="edit-titulo" class="w-full border p-2 rounded" placeholder="Título" required>
-        <textarea id="edit-descricao" class="w-full border p-2 rounded" placeholder="Descrição" required></textarea>
-        <div>
-  <label for="imagemUrl" class="block text-sm font-medium mb-1">URL da Imagem</label>
-  <input type="text" id="imagemUrl" class="w-full p-2 border rounded" placeholder="https://exemplo.com/imagem.jpg" required>
-  <img id="imagemPreview" class="mt-2 max-h-40 rounded border hidden" alt="Preview da imagem" />
-</div>
-        <input type="file" id="edit-imagemUpload" accept="image/*" class="w-full p-2 border rounded focus:ring-2 ring-green-500">
-        <img id="preview-edit-imagem" src="" class="max-h-32 mt-2 rounded hidden" alt="Preview da imagem" />
-        <input type="number" id="edit-preco" class="w-full border p-2 rounded" placeholder="Preço" required>
-        <div class="flex justify-end gap-2 mt-4">
-          <button type="button" onclick="fecharModal()" class="bg-gray-400 text-white px-4 py-2 rounded">Cancelar</button>
-          <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded">Salvar</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<!-- Área de edição do cardápio -->
-<div id="editar-cardapio" class="hidden bg-gray-100 p-6 rounded-lg shadow-md">
-    <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2 border-gray-300">Edição de Itens do Cardápio</h2>
-
-    <!-- Barra de ações -->
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <button onclick="mostrarNovoitem()" id="btn-adicionar-item" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded font-semibold transition">
-            + Adicionar Novo Item
-        </button>
-
-        <div class="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-            <div class="w-full sm:w-auto">
-                <label for="categoria-select" class="block text-sm font-medium text-gray-700 mb-1">Escolha a categoria:</label>
-                <select id="categoria-select" class="w-full sm:w-64 p-2 border rounded focus:ring-2 ring-blue-400 transition">
-                    <option value="pizzas">Pizzas</option>
-                    <option value="bebidas">Bebidas</option>
-                    <option value="esfirras">Esfirras</option>
-                    <option value="calzone">Calzones</option>
-                    <option value="promocoes">🔥 Promoções</option>
-                    <option value="novidades">✨ Novidades</option>
-                </select>
+    <div class="flex-1 lg:ml-64 p-4 sm:p-6 flex flex-col">
+        <div class="max-w-7xl w-full mx-auto">
+            <div class="flex items-center justify-between mb-8 gap-4">
+                <button id="menu-button" class="lg:hidden text-blue-700 text-3xl">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 class="text-3xl sm:text-4xl font-bold text-blue-700 text-center sm:text-left flex-1">
+                    Painel de Pedidos
+                </h1>
+                <audio id="notificacao-som" src="assets/notificacao.mp3" preload="auto"></audio>
             </div>
-            <div class="w-full sm:w-auto">
-                <label for="search-input" class="block text-sm font-medium text-gray-700 mb-1">Pesquisar item:</label>
-                <input type="text" id="search-input" placeholder="Buscar por nome ou descrição..." class="w-full sm:w-64 p-2 border rounded focus:ring-2 ring-blue-400 transition" />
+
+            <div id="aba-ativos">
+                <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">Pedidos
+                    Ativos</h2>
+                <div id="pedidos-ativos-container" class="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"></div>
             </div>
-        </div>
-    </div>
 
-    <!-- Modal de novo item (mantido como está) -->
-    <div id="modal-novo-item" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-md mx-4">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">Adicionar Novo Item</h2>
+            <div id="modal-editar-pedido"
+                class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+                <div class="bg-white rounded-lg shadow-lg w-full max-w-2xl p-6 relative mx-4 overflow-y-auto max-h-[90vh]">
+                    <h2 class="text-xl font-bold mb-4">Editar Pedido <span id="modal-pedido-id"></span></h2>
 
-            <div class="space-y-4">
-                <div>
-                    <label for="novo-nome" class="block font-medium text-sm text-gray-700 mb-1">Nome</label>
-                    <input id="novo-nome" type="text" class="w-full border rounded p-2 focus:ring-2 ring-blue-500" placeholder="Nome do produto" />
+                    <div id="modal-itens" class="space-y-2 mb-4 border p-2 rounded"></div>
+
+                    <div class="bg-gray-100 p-3 rounded mt-4">
+                        <h3 class="font-medium mb-2">Adicionar novo item</h3>
+                        <div class="flex flex-col md:flex-row gap-2 mb-2">
+                            <input id="novo-item-nome" type="text" placeholder="Nome do produto"
+                                class="flex-1 border p-2 rounded" />
+                            <input id="novo-item-preco" type="number" min="0" step="0.01"
+                                placeholder="Preço unitário" class="w-28 border p-2 rounded" />
+                            <input id="novo-item-quantidade" type="number" min="0" value="1"
+                                class="w-24 border p-2 rounded text-center" />
+                        </div>
+                        <button id="btn-adicionar-item"
+                            class="bg-blue-500 text-white px-4 py-2 rounded w-full mt-2">+ Adicionar Item</button>
+                    </div>
+
+                    <div class="flex justify-end gap-2 mt-6">
+                        <button type="button" onclick="fecharModalEditarPedido()"
+                            class="bg-gray-400 text-white px-4 py-2 rounded">Cancelar</button>
+                        <button id="btn-salvar-pedido" class="bg-green-600 text-white px-4 py-2 rounded">Salvar
+                            Alterações</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="aba-finalizados" class="hidden">
+                <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">
+                    Relatório de Pedidos Finalizados</h2>
+
+                <div class="flex flex-col sm:flex-row gap-4 mb-6">
+                    <div class="flex flex-col flex-1">
+                        <span class="font-medium text-sm mb-1">De:</span>
+                        <input type="date" id="data-inicio"
+                            class="border rounded px-4 py-2 focus:ring-2 ring-blue-400 w-full" />
+                    </div>
+                    <div class="flex flex-col flex-1">
+                        <span class="font-medium text-sm mb-1">Até:</span>
+                        <input type="date" id="data-fim"
+                            class="border rounded px-4 py-2 focus:ring-2 ring-blue-400 w-full" />
+                    </div>
+                    <button id="btn-filtrar"
+                        class="bg-blue-600 text-white px-6 py-2 mt-2 sm:mt-0 rounded-lg font-semibold hover:bg-blue-700 w-full sm:w-auto">Filtrar</button>
                 </div>
 
-                <div>
-                    <label for="novo-descricao" class="block font-medium text-sm text-gray-700 mb-1">Descrição</label>
-                    <textarea id="novo-descricao" class="w-full border rounded p-2 focus:ring-2 ring-blue-500" rows="3" placeholder="Descrição do produto"></textarea>
+                <div
+                    class="bg-white p-4 rounded-lg shadow-md flex flex-col sm:flex-row justify-between text-lg font-medium mb-6">
+                    <p><strong>Total de pedidos:</strong> <span id="total-pedidos">0</span></p>
+                    <p><strong>Total vendido:</strong> R$ <span id="total-vendido">0.00</span></p>
                 </div>
 
-                <div>
-                    <label for="novo-preco" class="block font-medium text-sm text-gray-700 mb-1">Preço</label>
-                    <input id="novo-preco" type="number" step="0.01" min="0" class="w-full border rounded p-2 focus:ring-2 ring-blue-500" placeholder="0.00" />
-                </div>
+                <div id="pedidos-finalizados-container"
+                    class="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
 
-                <div>
-                    <label for="novo-imagem" class="block font-medium text-sm text-gray-700 mb-1">URL da Imagem</label>
-                    <input id="novo-imagem" type="text" class="w-full border rounded p-2 focus:ring-2 ring-blue-500" placeholder="https://..." />
-                    <img id="preview-nova-imagem" class="w-full h-32 object-cover mt-2 rounded border hidden" />
                 </div>
+            </div>
 
-                <div>
-                    <label for="novo-tipo" class="block font-medium text-sm text-gray-700 mb-1">Tipo</label>
-                    <select id="novo-tipo" class="w-full border rounded p-2 focus:ring-2 ring-blue-500">
-                        <option value="salgado">Salgado</option>
-                        <option value="doce">Doce</option>
-                    </select>
+            <div id="promocoes" class="hidden">
+                <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">
+                    Adicionar Promoções</h2>
+
+                <form id="promoForm" class="bg-white shadow-md rounded-xl p-4 space-y-4 border border-gray-200 mb-8">
+                    <h2 class="text-lg font-bold text-gray-800 mb-2">Adicionar Nova Promoção</h2>
+
+                    <div>
+                        <label for="titulo">Título</label>
+                        <input type="text" id="titulo" class="w-full p-3 border rounded" required>
+                    </div>
+
+                    <div>
+                        <label for="descricao">Descrição</label>
+                        <textarea id="descricao" class="w-full p-3 border rounded" required></textarea>
+                    </div>
+
+                    <div>
+                        <label for="imagemUrl">URL da Imagem</label>
+                        <input type="text" id="imagemUrl" class="w-full p-2 border rounded"
+                            placeholder="https://exemplo.com/imagem.jpg" required>
+                        <img id="imagemPreview" class="mt-2 max-h-40 rounded border hidden" />
+                    </div>
+
+                    <div>
+                        <label for="preco">Preço</label>
+                        <input type="" id="preco" class="w-full p-3 border rounded" required>
+                    </div>
+
+                    <button type="submit" class="bg-green-600 text-white py-2 px-4 rounded">Salvar Promoção</button>
+                </form>
+
+
+                <div id="modal-editar"
+                    class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+                    <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-4 sm:p-6 relative mx-4">
+                        <h2 class="text-lg font-bold mb-4">Editar Promoção</h2>
+                        <form id="form-editar" class="space-y-3">
+                            <input type="text" id="edit-titulo" class="w-full border p-2 rounded" placeholder="Título"
+                                required>
+                            <textarea id="edit-descricao" class="w-full border p-2 rounded" placeholder="Descrição"
+                                required></textarea>
+                            <div>
+                                <label for="imagemUrl" class="block text-sm font-medium mb-1">URL da Imagem</label>
+                                <input type="text" id="imagemUrl" class="w-full p-2 border rounded"
+                                    placeholder="https://exemplo.com/imagem.jpg" required>
+                                <img id="imagemPreview" class="mt-2 max-h-40 rounded border hidden"
+                                    alt="Preview da imagem" />
+                            </div>
+                            <input type="file" id="edit-imagemUpload" accept="image/*"
+                                class="w-full p-2 border rounded focus:ring-2 ring-green-500">
+                            <img id="preview-edit-imagem" src="" class="max-h-32 mt-2 rounded hidden"
+                                alt="Preview da imagem" />
+                            <input type="number" id="edit-preco" class="w-full border p-2 rounded" placeholder="Preço"
+                                required>
+                            <div class="flex justify-end gap-2 mt-4">
+                                <button type="button" onclick="fecharModal()"
+                                    class="bg-gray-400 text-white px-4 py-2 rounded">Cancelar</button>
+                                <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded">Salvar</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
+            </div>
 
-                <div class="flex items-center">
-                    <input type="checkbox" id="novo-ativo" class="form-checkbox text-blue-600" checked />
-                    <label for="novo-ativo" class="ml-2 text-sm text-gray-700">Ativo</label>
-                </div>
+            <div id="editar-cardapio" class="hidden bg-gray-100 p-6 rounded-lg shadow-md">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2 border-gray-300">Edição de Itens do
+                    Cardápio</h2>
 
-                <div class="flex justify-between pt-4 border-t mt-4">
-                    <button id="btn-fechar-novo-item" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded transition">
-                        Fechar
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                    <button onclick="mostrarNovoitem()" id="btn-adicionar-item-cardapio"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded font-semibold transition">
+                        + Adicionar Novo Item
                     </button>
-                    <button id="btn-salvar-novo-item" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded font-semibold transition">
-                        Salvar
-                    </button>
+
+                    <div class="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+                        <div class="w-full sm:w-auto">
+                            <label for="categoria-select" class="block text-sm font-medium text-gray-700 mb-1">Escolha
+                                a categoria:</label>
+                            <select id="categoria-select"
+                                class="w-full sm:w-64 p-2 border rounded focus:ring-2 ring-blue-400 transition">
+                                <option value="pizzas">Pizzas</option>
+                                <option value="bebidas">Bebidas</option>
+                                <option value="esfirras">Esfirras</option>
+                                <option value="calzone">Calzones</option>
+                                <option value="promocoes">🔥 Promoções</option>
+                                <option value="novidades">✨ Novidades</option>
+                            </select>
+                        </div>
+                        <div class="w-full sm:w-auto">
+                            <label for="search-input" class="block text-sm font-medium text-gray-700 mb-1">Pesquisar
+                                item:</label>
+                            <input type="text" id="search-input" placeholder="Buscar por nome ou descrição..."
+                                class="w-full sm:w-64 p-2 border rounded focus:ring-2 ring-blue-400 transition" />
+                        </div>
+                    </div>
+                </div>
+
+                <div id="modal-novo-item"
+                    class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+                    <div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-md mx-4">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4">Adicionar Novo Item</h2>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label for="novo-nome" class="block font-medium text-sm text-gray-700 mb-1">Nome</label>
+                                <input id="novo-nome" type="text"
+                                    class="w-full border rounded p-2 focus:ring-2 ring-blue-500"
+                                    placeholder="Nome do produto" />
+                            </div>
+
+                            <div>
+                                <label for="novo-descricao"
+                                    class="block font-medium text-sm text-gray-700 mb-1">Descrição</label>
+                                <textarea id="novo-descricao"
+                                    class="w-full border rounded p-2 focus:ring-2 ring-blue-500" rows="3"
+                                    placeholder="Descrição do produto"></textarea>
+                            </div>
+
+                            <div>
+                                <label for="novo-preco"
+                                    class="block font-medium text-sm text-gray-700 mb-1">Preço</label>
+                                <input id="novo-preco" type="number" step="0.01" min="0"
+                                    class="w-full border rounded p-2 focus:ring-2 ring-blue-500" placeholder="0.00" />
+                            </div>
+
+                            <div>
+                                <label for="novo-imagem" class="block font-medium text-sm text-gray-700 mb-1">URL da
+                                    Imagem</label>
+                                <input id="novo-imagem" type="text"
+                                    class="w-full border rounded p-2 focus:ring-2 ring-blue-500"
+                                    placeholder="https://..." />
+                                <img id="preview-nova-imagem" class="w-full h-32 object-cover mt-2 rounded border hidden" />
+                            </div>
+
+                            <div>
+                                <label for="novo-tipo"
+                                    class="block font-medium text-sm text-gray-700 mb-1">Tipo</label>
+                                <select id="novo-tipo"
+                                    class="w-full border rounded p-2 focus:ring-2 ring-blue-500">
+                                    <option value="salgado">Salgado</option>
+                                    <option value="doce">Doce</option>
+                                </select>
+                            </div>
+
+                            <div class="flex items-center">
+                                <input type="checkbox" id="novo-ativo" class="form-checkbox text-blue-600" checked />
+                                <label for="novo-ativo" class="ml-2 text-sm text-gray-700">Ativo</label>
+                            </div>
+
+                            <div class="flex justify-between pt-4 border-t mt-4">
+                                <button id="btn-fechar-novo-item"
+                                    class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded transition">
+                                    Fechar
+                                </button>
+                                <button id="btn-salvar-novo-item"
+                                    class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded font-semibold transition">
+                                    Salvar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="itens-cardapio-container" class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 "></div>
+            </div>
+
+            <div id="editar-horario" class="hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2 border-gray-300">Edição de Horário de
+                    Funcionamento</h2>
+
+                <div class="max-w-2xl mx-auto mt-10 p-6 bg-white rounded shadow">
+                    <h1 class="text-2xl font-bold mb-4">Configurar Horário de Funcionamento</h1>
+                    <p class="mb-4 text-gray-700" id="status">Carregando status...</p>
+
+                    <form id="horario-form" class="space-y-4">
+                        <div id="dias-container" class="space-y-3"></div>
+
+                        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                            Salvar horários
+                        </button>
+                    </form>
                 </div>
             </div>
+
+            <div id="aba-gerenciar-usuarios" class="hidden">
+                <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">
+                    Gerenciar Usuários</h2>
+                <div class="bg-white p-6 rounded shadow-md">
+                    <p class="text-gray-600">Conteúdo para gerenciamento de usuários...</p>
+                </div>
+            </div>
+
+            <div id="aba-configuracoes-gerais" class="hidden">
+                <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">
+                    Configurações Gerais</h2>
+                <div class="bg-white p-6 rounded shadow-md">
+                    <p class="text-gray-600">Conteúdo para configurações gerais do sistema...</p>
+                </div>
+            </div>
+
+            <div id="aba-relatorios" class="hidden">
+                <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">
+                    Relatórios</h2>
+                <div class="bg-white p-6 rounded shadow-md">
+                    <p class="text-gray-600">Conteúdo para relatórios e estatísticas...</p>
+                </div>
+            </div>
+
         </div>
     </div>
-
-    <!-- Lista de itens -->
-    <div id="itens-cardapio-container" class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 "></div>
-</div>
-
-  </div>
-
-  <div id="editar-horario" class="hidden">
-  <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2 border-gray-300">Edição de Horário de Funcionamento</h2>
-
-  <div class="max-w-2xl mx-auto mt-10 p-6 bg-white rounded shadow">
-    <h1 class="text-2xl font-bold mb-4">Configurar Horário de Funcionamento</h1>
-    <p class="mb-4 text-gray-700" id="status">Carregando status...</p>
-
-    <form id="horario-form" class="space-y-4">
-      <div id="dias-container" class="space-y-3"></div>
-
-      <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-        Salvar horários
-      </button>
-    </form>
-  </div>
-</div>
 </body>
+
 </html>

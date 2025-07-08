@@ -1,4 +1,4 @@
-// Configuração do Firebase
+// Configuração do Firebase (mantido como está)
 const firebaseConfig = {
     apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
     authDomain: "cardapioweb-99e7b.firebaseapp.com",
@@ -14,7 +14,7 @@ firebase.initializeApp(firebaseConfig);
 
 const database = firebase.database();
 const pedidosRef = database.ref('pedidos');
-const promocoesRef = firebase.database().ref('promocoes'); // Ref para promoções (ainda existe no seu código)
+const promocoesRef = firebase.database().ref('promocoes');
 
 const pedidosAtivosContainer = document.getElementById('pedidos-ativos-container');
 const pedidosFinalizadosContainer = document.getElementById('pedidos-finalizados-container');
@@ -26,25 +26,34 @@ const btnFiltrar = document.getElementById('btn-filtrar');
 const totalPedidosEl = document.getElementById('total-pedidos');
 const totalVendidoEl = document.getElementById('total-vendido');
 
+// Botões do menu
 const btnAtivos = document.getElementById('btn-ativos');
 const btnFinalizados = document.getElementById('btn-finalizados');
+const btnEditarCardapio = document.getElementById('btn-editar-cardapio');
+const btnEditarHorario = document.getElementById('btn-editar-horario');
+const btnGerenciarUsuarios = document.getElementById('btn-gerenciar-usuarios'); // Novo
+const btnConfiguracoesGerais = document.getElementById('btn-configuracoes-gerais'); // Novo
+const btnRelatorios = document.getElementById('btn-relatorios'); // Novo
+
+// Abas (seções)
 const abaAtivos = document.getElementById('aba-ativos');
 const abaFinalizados = document.getElementById('aba-finalizados');
+const EditarCardapio = document.getElementById('editar-cardapio');
+const editarHorario = document.getElementById('editar-horario');
+const abaGerenciarUsuarios = document.getElementById('aba-gerenciar-usuarios'); // Novo
+const abaConfiguracoesGerais = document.getElementById('aba-configuracoes-gerais'); // Novo
+const abaRelatorios = document.getElementById('aba-relatorios'); // Novo
 
-const produtosRef = database.ref('produtos'); // Referência geral para 'produtos'
-const btnProdutos = document.getElementById('btn-produtos'); // Não vi esse botão no seu HTML, mas mantive a ref
-const abaProdutos = document.getElementById('aba-produtos'); // Não vi essa aba no seu HTML, mas mantive a ref
-const btnPromocoes = document.getElementById('btn-promocoes'); // Não vi esse botão no seu HTML, mas mantive a ref
-const abaPromocoes = document.getElementById('promocoes'); // ID da aba de promoções
-
-const btnEditarCardapio = document.getElementById('btn-editar-cardapio')
-const EditarCardapio = document.getElementById('editar-cardapio') // A seção de edição do cardápio
-const btnEditarHorario = document.getElementById('btn-editar-horario')
-const editarHorario = document.getElementById('editar-horario')
-
-// Novos elementos para pesquisa no cardápio
+const produtosRef = database.ref('produtos');
 const searchInput = document.getElementById('search-input');
 const categoriaSelect = document.getElementById('categoria-select');
+
+// Elementos do menu hamburguer
+const menuButton = document.getElementById('menu-button');
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('overlay');
+const closeSidebarButton = document.getElementById('close-sidebar-button');
+
 
 let pedidos = {};
 let totalPedidosAnteriores = 0;
@@ -92,7 +101,7 @@ function aplicarFiltroDatas() {
     pedidosFinalizadosContainer.innerHTML = '';
 
     let dataInicioTimestamp = inputDataInicio.value ? new Date(inputDataInicio.value).getTime() : null;
-    let dataFimTimestamp = inputDataFim.value ? new Date(inputDataFim.value).getTime() + (24*60*60*1000) - 1 : null;
+    let dataFimTimestamp = inputDataFim.value ? new Date(inputDataFim.value).getTime() + (24 * 60 * 60 * 1000) - 1 : null;
 
     let pedidosFiltrados = Object.entries(pedidos).filter(([id, pedido]) => {
         if (pedido.status !== 'Finalizado' || !pedido.timestamp) return false;
@@ -112,7 +121,7 @@ function aplicarFiltroDatas() {
     totalPedidosEl.textContent = totalPedidos;
     totalVendidoEl.textContent = totalVendido.toFixed(2);
 
-    if(totalPedidos === 0){
+    if (totalPedidos === 0) {
         pedidosFinalizadosContainer.innerHTML = `<p class="text-center text-gray-500">Nenhum pedido finalizado no período selecionado.</p>`;
         return;
     }
@@ -131,7 +140,7 @@ function aceitarPedido(pedidoId) {
         .then(snapshot => {
             const pedido = snapshot.val();
 
-            console.log('Pedido completo recuperado:', pedido); 
+            console.log('Pedido completo recuperado:', pedido);
 
             if (!pedido.telefone) {
                 alert('Não foi possível encontrar o telefone do cliente.');
@@ -145,14 +154,14 @@ function aceitarPedido(pedidoId) {
                 .map(item => `${item.quantity}x ${item.name} - R$ ${(item.price * item.quantity).toFixed(2)}`)
                 .join('\n');
 
-            const enderecoTexto = pedido.tipoEntrega === 'Entrega'
-                ? `${pedido.endereco.rua}, ${pedido.endereco.numero} - ${pedido.endereco.bairro}`
-                : 'Retirada no local';
+            const enderecoTexto = pedido.tipoEntrega === 'Entrega' ?
+                `${pedido.endereco.rua}, ${pedido.endereco.numero} - ${pedido.endereco.bairro}` :
+                'Retirada no local';
 
             const trocoPara = pedido.dinheiroTotal ? parseFloat(pedido.dinheiroTotal) : 0;
-            const trocoTexto = trocoPara > 0
-                ? `Troco para: R$ ${trocoPara.toFixed(2)}`
-                : 'Sem troco';
+            const trocoTexto = trocoPara > 0 ?
+                `Troco para: R$ ${trocoPara.toFixed(2)}` :
+                'Sem troco';
 
             const obsTexto = pedido.observacao || 'Nenhuma';
 
@@ -171,10 +180,10 @@ ${itensPedido}
 Aguarde que logo estará a caminho! 🍽️`;
 
             const telefoneLimpo = pedido.telefone.replace(/\D/g, '');
-            console.log('Telefone limpo para WhatsApp:', telefoneLimpo); 
+            console.log('Telefone limpo para WhatsApp:', telefoneLimpo);
 
             const url = `https://api.whatsapp.com/send?phone=${telefoneLimpo}&text=${encodeURIComponent(mensagem)}`;
-            console.log('URL gerada para WhatsApp:', url); 
+            console.log('URL gerada para WhatsApp:', url);
 
             window.open(url, '_blank');
             console.log('Tentativa de abrir WhatsApp.');
@@ -194,8 +203,8 @@ function saiuParaEntrega(pedidoId) {
             return;
         }
 
-        database.ref('pedidos/' + pedidoId).update({ 
-            status: pedido.tipoEntrega === 'Retirada' ? 'Pronto para Retirada' : 'Saiu para Entrega' 
+        database.ref('pedidos/' + pedidoId).update({
+            status: pedido.tipoEntrega === 'Retirada' ? 'Pronto para Retirada' : 'Saiu para Entrega'
         });
 
         const telefoneLimpo = pedido.telefone.replace(/\D/g, '');
@@ -203,8 +212,8 @@ function saiuParaEntrega(pedidoId) {
         let mensagem = '';
 
         if (pedido.tipoEntrega === 'Retirada') {
-            mensagem = 
-`✅ *Seu pedido está pronto para retirada!*
+            mensagem =
+                `✅ *Seu pedido está pronto para retirada!*
 
 👤 *Cliente:* ${pedido.nomeCliente || '-'}
 📦 *Pedido:* ${pedido.cart.map(item => `${item.quantity}x ${item.name}`).join(', ')}
@@ -212,8 +221,8 @@ function saiuParaEntrega(pedidoId) {
 
 Pode vir buscar quando quiser. Agradecemos pela preferência! 🙏`;
         } else {
-            mensagem = 
-`🚚 *Seu pedido saiu para entrega!* 👤 *Cliente:* ${pedido.nomeCliente || '-'}
+            mensagem =
+                `🚚 *Seu pedido saiu para entrega!* 👤 *Cliente:* ${pedido.nomeCliente || '-'}
 📦 *Pedido:* ${pedido.cart.map(item => `${item.quantity}x ${item.name}`).join(', ')}
 💵 *Total:* R$ ${pedido.totalPedido.toFixed(2)}
 
@@ -233,16 +242,16 @@ function finalizarPedido(pedidoId) {
             return;
         }
 
-        database.ref('pedidos/' + pedidoId).update({ 
+        database.ref('pedidos/' + pedidoId).update({
             status: 'Finalizado',
-            timestamp: Date.now() 
+            timestamp: Date.now()
         });
 
 
-        const mensagem = 
-`✅ *Pedido finalizado!*
+        const mensagem =
+            `✅ *Pedido finalizado!*
 
-Muito obrigado, ${pedido.nomeCliente || ''}, por confiar em nosso serviço. 😄  
+Muito obrigado, ${pedido.nomeCliente || ''}, por confiar em nosso serviço. 😄
 Esperamos vê-lo novamente em breve! 🍽️🍕`;
 
         const telefoneLimpo = pedido.telefone.replace(/\D/g, '');
@@ -259,15 +268,15 @@ function recusarPedido(pedidoId) {
 
 
 function gerarHtmlPedido(pedido, pedidoId) {
-    
+
     if (!pedido || !pedido.cart || !Array.isArray(pedido.cart)) {
         return `<div class="text-red-600 font-semibold">Erro: pedido inválido ou sem produtos.</div>`;
     }
 
 
-    let enderecoTexto = pedido.tipoEntrega === 'Entrega' 
-        ? `<p class="text-sm mb-1"><strong>Endereço:</strong> ${pedido.endereco.rua}, ${pedido.endereco.numero} - ${pedido.endereco.bairro}</p>`
-        : `<p class="text-sm font-semibold text-blue-600 mb-1">Retirada no local</p>`;
+    let enderecoTexto = pedido.tipoEntrega === 'Entrega' ?
+        `<p class="text-sm mb-1"><strong>Endereço:</strong> ${pedido.endereco.rua}, ${pedido.endereco.numero} - ${pedido.endereco.bairro}</p>` :
+        `<p class="text-sm font-semibold text-blue-600 mb-1">Retirada no local</p>`;
 
     let produtos = pedido.cart.map(item => `
         <li class="flex justify-between text-sm">
@@ -275,9 +284,9 @@ function gerarHtmlPedido(pedido, pedidoId) {
             <span>R$ ${(item.price * item.quantity).toFixed(2)}</span>
         </li>`).join('');
 
-    let horario = pedido.timestamp 
-        ? new Date(pedido.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-        : 'Sem horário';
+    let horario = pedido.timestamp ?
+        new Date(pedido.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) :
+        'Sem horário';
 
     let clienteInfo = `
         <p class="text-sm mb-1"><strong>Cliente:</strong> ${pedido.nomeCliente || '-'}</p>
@@ -298,11 +307,11 @@ function gerarHtmlPedido(pedido, pedidoId) {
         </div>
 
         <div>
-            <p class="mt-2 font-medium">Status: 
+            <p class="mt-2 font-medium">Status:
                 <span class="${getStatusColor(pedido.status)}">${pedido.status}</span>
             </p>
 
-            ${pedido.status === 'Aguardando' ? ` 
+            ${pedido.status === 'Aguardando' ? `
             <div class="flex gap-2 mt-4">
                 <button onclick="aceitarPedido('${pedidoId}')" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition">
                     Aceitar
@@ -336,19 +345,25 @@ function gerarHtmlPedido(pedido, pedidoId) {
         </div>
     </div>
     `;
-    
-    
+
+
 }
 
 function getStatusColor(status) {
     switch (status) {
-        case 'Aguardando': return 'text-yellow-500';
-        case 'Aceito': return 'text-green-500';
-        case 'Recusado': return 'text-red-500';
-        case 'Finalizado': return 'text-blue-500';
-        case 'Saiu para Entrega': 
-        case 'Pronto para Retirada': return 'text-purple-500'; 
-        default: return 'text-gray-500';
+        case 'Aguardando':
+            return 'text-yellow-500';
+        case 'Aceito':
+            return 'text-green-500';
+        case 'Recusado':
+            return 'text-red-500';
+        case 'Finalizado':
+            return 'text-blue-500';
+        case 'Saiu para Entrega':
+        case 'Pronto para Retirada':
+            return 'text-purple-500';
+        default:
+            return 'text-gray-500';
     }
 }
 
@@ -362,31 +377,34 @@ function calcularTempoDecorrido(data) {
     return `${horas}h ${minutos % 60}min`;
 }
 
-function ativaAba(ativa, inativa1, inativa2, inativa3) {
+// Atualizada para incluir as novas abas
+function ativaAba(ativa, ...inativas) {
     ativa.classList.remove('hidden');
-    inativa1.classList.add('hidden');
-    inativa2.classList.add('hidden');
-    inativa3.classList.add('hidden');
+    inativas.forEach(aba => aba.classList.add('hidden'));
 }
 
-function estilizaBotaoAtivo(botaoAtivo, inativo1, inativo2, inativo3) {
+// Atualizada para incluir os novos botões
+function estilizaBotaoAtivo(botaoAtivo, ...inativos) {
     botaoAtivo.classList.add('bg-blue-600', 'text-white');
-    botaoAtivo.classList.remove('bg-white', 'text-blue-600');
+    botaoAtivo.classList.remove('bg-blue-700'); // Cor padrão da sidebar
 
-    [inativo1, inativo2, inativo3].forEach(botao => {
+    inativos.forEach(botao => {
         botao.classList.remove('bg-blue-600', 'text-white');
-        botao.classList.add('bg-white', 'text-blue-600');
+        botao.classList.add('bg-blue-700'); // Cor padrão da sidebar
     });
 }
 
+// Event Listeners para os botões do menu hamburguer
 btnAtivos.addEventListener('click', () => {
-    ativaAba(abaAtivos, abaFinalizados, EditarCardapio, editarHorario);
-    estilizaBotaoAtivo(btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario);
+    ativaAba(abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarUsuarios, abaConfiguracoesGerais, abaRelatorios);
+    estilizaBotaoAtivo(btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarUsuarios, btnConfiguracoesGerais, btnRelatorios);
+    sidebar.classList.add('-translate-x-full');
+    overlay.classList.add('hidden');
 });
 
 btnFinalizados.addEventListener('click', () => {
-    ativaAba(abaFinalizados, abaAtivos, EditarCardapio, editarHorario);
-    estilizaBotaoAtivo(btnFinalizados, btnAtivos, btnEditarCardapio, btnEditarHorario);
+    ativaAba(abaFinalizados, abaAtivos, EditarCardapio, editarHorario, abaGerenciarUsuarios, abaConfiguracoesGerais, abaRelatorios);
+    estilizaBotaoAtivo(btnFinalizados, btnAtivos, btnEditarCardapio, btnEditarHorario, btnGerenciarUsuarios, btnConfiguracoesGerais, btnRelatorios);
 
     const hoje = new Date();
     const seteDiasAtras = new Date(hoje);
@@ -396,21 +414,49 @@ btnFinalizados.addEventListener('click', () => {
     inputDataFim.value = hoje.toISOString().split('T')[0];
 
     aplicarFiltroDatas();
+    sidebar.classList.add('-translate-x-full');
+    overlay.classList.add('hidden');
 });
 
 btnEditarCardapio.addEventListener('click', () => {
-    ativaAba(EditarCardapio, abaFinalizados, abaAtivos, editarHorario);
-    estilizaBotaoAtivo(btnEditarCardapio, btnAtivos, btnFinalizados, btnEditarHorario);
-    // Carrega os itens do cardápio ao ativar a aba de edição
+    ativaAba(EditarCardapio, abaFinalizados, abaAtivos, editarHorario, abaGerenciarUsuarios, abaConfiguracoesGerais, abaRelatorios);
+    estilizaBotaoAtivo(btnEditarCardapio, btnAtivos, btnFinalizados, btnEditarHorario, btnGerenciarUsuarios, btnConfiguracoesGerais, btnRelatorios);
     carregarItensCardapio(categoriaSelect.value, searchInput.value);
+    sidebar.classList.add('-translate-x-full');
+    overlay.classList.add('hidden');
 });
 
 btnEditarHorario.addEventListener('click', () => {
-    ativaAba(editarHorario, abaFinalizados, abaAtivos, EditarCardapio);
-    estilizaBotaoAtivo(btnEditarHorario, btnAtivos, btnFinalizados, btnEditarCardapio);
+    ativaAba(editarHorario, abaFinalizados, abaAtivos, EditarCardapio, abaGerenciarUsuarios, abaConfiguracoesGerais, abaRelatorios);
+    estilizaBotaoAtivo(btnEditarHorario, btnAtivos, btnFinalizados, btnEditarCardapio, btnGerenciarUsuarios, btnConfiguracoesGerais, btnRelatorios);
+    sidebar.classList.add('-translate-x-full');
+    overlay.classList.add('hidden');
+});
+
+// Novos Event Listeners para os novos botões
+btnGerenciarUsuarios.addEventListener('click', () => {
+    ativaAba(abaGerenciarUsuarios, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaConfiguracoesGerais, abaRelatorios);
+    estilizaBotaoAtivo(btnGerenciarUsuarios, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnConfiguracoesGerais, btnRelatorios);
+    sidebar.classList.add('-translate-x-full');
+    overlay.classList.add('hidden');
+});
+
+btnConfiguracoesGerais.addEventListener('click', () => {
+    ativaAba(abaConfiguracoesGerais, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarUsuarios, abaRelatorios);
+    estilizaBotaoAtivo(btnConfiguracoesGerais, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarUsuarios, btnRelatorios);
+    sidebar.classList.add('-translate-x-full');
+    overlay.classList.add('hidden');
+});
+
+btnRelatorios.addEventListener('click', () => {
+    ativaAba(abaRelatorios, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarUsuarios, abaConfiguracoesGerais);
+    estilizaBotaoAtivo(btnRelatorios, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarUsuarios, btnConfiguracoesGerais);
+    sidebar.classList.add('-translate-x-full');
+    overlay.classList.add('hidden');
 });
 
 
+// Função para inicializar a aba ativa e o estilo do botão
 btnAtivos.click();
 
 function gerarNota(pedido) {
@@ -540,7 +586,7 @@ function imprimirPedido(pedidoId) {
     });
 }
 
-function atualizarPromocao(){
+function atualizarPromocao() {
     // Esta função parece estar buscando o status de 'pedidosRef' e colocando em 'pedido-status'.
     // Se 'pedido-status' é um elemento no painel, e você quer o status de um pedido específico,
     // precisaria de um pedidoId aqui. Se for um status geral, ok.
@@ -548,7 +594,7 @@ function atualizarPromocao(){
     pedidosRef.on('value', function(snapshot) {
         var status = snapshot.val(); // Isso pegaria todos os pedidos, não um status específico.
         // document.getElementById('pedido-status').innerText = status || 'Sem status ainda'; // Provavelmente não é o que você quer aqui.
-    }); 
+    });
 }
 
 const imagemUrlInput = document.getElementById('imagemUrl');
@@ -568,7 +614,7 @@ if (imagemUrlInput && imagemPreview) { // Verifica se os elementos existem antes
 }
 
 
-document.getElementById('promoForm')?.addEventListener('submit', function (e) { // Adicionado '?' para null check
+document.getElementById('promoForm')?.addEventListener('submit', function(e) { // Adicionado '?' para null check
     e.preventDefault();
 
     const titulo = document.getElementById('titulo').value.trim();
@@ -628,7 +674,7 @@ function renderizarItensModal(itens) {
             </div>
         `;
     });
-    
+
 
     // Atualizar listener
     document.getElementById('btn-salvar-pedido').onclick = salvarPedidoEditado;
@@ -755,9 +801,9 @@ function carregarItensCardapio(categoria, searchQuery = '') {
 function criarCardItem(item, key, categoriaAtual) {
     const card = document.createElement("div");
 
-    const destaquePromocao = categoriaAtual === "promocoes"
-        ? "border-yellow-500 border-2 shadow-lg"
-        : "border";
+    const destaquePromocao = categoriaAtual === "promocoes" ?
+        "border-yellow-500 border-2 shadow-lg" :
+        "border";
 
     card.className = `bg-white p-4 rounded ${destaquePromocao} flex flex-col gap-2`;
 
@@ -831,7 +877,7 @@ function criarCardItem(item, key, categoriaAtual) {
     });
 
     // Botão salvar
-    card.querySelector(".salvar").addEventListener("click", function () {
+    card.querySelector(".salvar").addEventListener("click", function() {
         const nome = card.querySelector(".nome").value;
         const descricao = card.querySelector(".descricao").value;
         const preco = parseFloat(card.querySelector(".preco").value);
@@ -846,13 +892,13 @@ function criarCardItem(item, key, categoriaAtual) {
             imagem,
             ativo,
             tipo
-        }, function (error) {
+        }, function(error) {
             alert(error ? "Erro ao salvar!" : "Item atualizado com sucesso!");
         });
     });
 
     // Botão excluir
-    card.querySelector(".excluir").addEventListener("click", function () {
+    card.querySelector(".excluir").addEventListener("click", function() {
         if (confirm("Tem certeza que deseja excluir este item?")) {
             database.ref(`produtos/${categoriaAtual}/${key}`).remove(() => {
                 card.remove();
@@ -862,7 +908,7 @@ function criarCardItem(item, key, categoriaAtual) {
     });
 
     // Event listener para o botão Mover Item
-    card.querySelector(".move-item-btn").addEventListener("click", function () {
+    card.querySelector(".move-item-btn").addEventListener("click", function() {
         const targetCategorySelect = card.querySelector(".move-category-select");
         const targetCategory = targetCategorySelect.value;
 
@@ -910,7 +956,7 @@ function moverItemParaCategoria(itemKey, categoriaOrigem, categoriaDestino, item
         .then(() => {
             alert(`Item "${itemData.nome || itemData.titulo}" movido com sucesso de "${categoriaOrigem}" para "${categoriaDestino}"!`);
             // Recarregar a lista de itens na categoria atual para refletir a mudança
-            carregarItensCardapio(categoriaOrigem, searchInput.value); 
+            carregarItensCardapio(categoriaOrigem, searchInput.value);
         })
         .catch(error => {
             console.error('Erro ao mover item:', error);
@@ -1025,7 +1071,7 @@ document.addEventListener("DOMContentLoaded", () => {
             linha.innerHTML = `
                 <label class="w-28 font-semibold">${dia}</label>
                 <label class="flex items-center gap-2">
-                    <input type="checkbox" name="aberto-${i}" checked />
+                    <input type="checkbox" name="aberto-${i}" />
                     Aberto
                 </label>
                 <input type="number" name="inicio-${i}" min="0" max="23" value="18" class="border p-1 w-16" />
@@ -1036,6 +1082,23 @@ document.addEventListener("DOMContentLoaded", () => {
             container.appendChild(linha);
         });
     }
+
+    // Carrega os horários salvos do Firebase e preenche o formulário
+    db.ref('config/horarios').once('value')
+        .then(snapshot => {
+            if (snapshot.exists()) {
+                const horariosSalvos = snapshot.val();
+                for (let i = 0; i <= 6; i++) {
+                    const diaConfig = horariosSalvos[i];
+                    if (diaConfig) {
+                        document.querySelector(`[name="aberto-${i}"]`).checked = diaConfig.aberto;
+                        document.querySelector(`[name="inicio-${i}"]`).value = diaConfig.inicio;
+                        document.querySelector(`[name="fim-${i}"]`).value = diaConfig.fim;
+                    }
+                }
+            }
+        })
+        .catch(error => console.error("Erro ao carregar horários do Firebase:", error));
 
 
     // Ao enviar o formulário
@@ -1049,6 +1112,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 const aberto = document.querySelector(`[name="aberto-${i}"]`).checked;
                 const inicio = parseInt(document.querySelector(`[name="inicio-${i}"]`).value);
                 const fim = parseInt(document.querySelector(`[name="fim-${i}"]`).value);
+
+                // Validação básica de horários
+                if (aberto && (isNaN(inicio) || isNaN(fim) || inicio < 0 || inicio > 23 || fim < 0 || fim > 23 || inicio >= fim)) {
+                    alert(`Por favor, verifique os horários de ${dias[i]}.`);
+                    return; // Impede o salvamento se houver erro
+                }
                 horarios[i] = { aberto, inicio, fim };
             }
 
@@ -1057,8 +1126,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Verifica se está aberto agora e mostra status
-    db.ref('config/horarios').once('value')
-        .then(snapshot => {
+    db.ref('config/horarios').on('value', // Use 'on' para atualização em tempo real
+        snapshot => {
             const statusElement = document.getElementById("status");
             if (snapshot.exists()) {
                 const horarios = snapshot.val();
@@ -1072,12 +1141,21 @@ document.addEventListener("DOMContentLoaded", () => {
                     statusElement.innerText = "Horários não configurados.";
                 }
             }
-        })
-        .catch(error => {
-            console.error("Erro ao buscar horários:", error);
-            const statusElement = document.getElementById("status");
-            if (statusElement) {
-                statusElement.innerText = "Erro ao carregar status.";
-            }
         });
+});
+
+// Hamburguer menu functionality
+menuButton.addEventListener('click', () => {
+    sidebar.classList.remove('-translate-x-full');
+    overlay.classList.remove('hidden');
+});
+
+closeSidebarButton.addEventListener('click', () => {
+    sidebar.classList.add('-translate-x-full');
+    overlay.classList.add('hidden');
+});
+
+overlay.addEventListener('click', () => {
+    sidebar.classList.add('-translate-x-full');
+    overlay.classList.add('hidden');
 });
