@@ -96,7 +96,7 @@ function carregarProdutos() {
         listaDoces.innerHTML = '';
 
         
-        
+
 
         snapshot.forEach((esfirraSnap) => {
             const esfirra = esfirraSnap.val();
@@ -1031,9 +1031,10 @@ function enviarPedidoParaPainel(pedido) {
   .then((pedidoId) => {
     console.log('Pedido enviado com sucesso!', pedidoId);
     mostrarPedidoSucessoComLogo();
-    window.location.href = `status.html?pedidoId=${pedidoId}`;
     setCookie('clienteId', telefoneInput.value, 60); 
     localStorage.setItem('clienteId', telefoneInput.value);
+    window.location.href = `status.html?pedidoId=${pedidoId}`;
+    
   })
   .catch((error) => {
     console.error('Erro ao enviar pedido: ', error);
