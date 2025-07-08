@@ -31,7 +31,7 @@ function setCookie(name, value, days) {
         expires = "; expires=" + date.toUTCString();
     }
     document.cookie = name + "=" + (value || "") + expires + "; path=/";
-    console.log(`Cookie '${name}' definido com valor: '${value}' e expira em ${days} dias.`);
+    console.log(`[Cookies] Cookie '${name}' definido com valor: '${value}' e expira em ${days} dias.`);
 }
 
 /**
@@ -47,11 +47,11 @@ function getCookie(name) {
         while (c.charAt(0) === ' ') c = c.substring(1, c.length); // Remove espaços em branco
         if (c.indexOf(nameEQ) === 0) {
             const value = c.substring(nameEQ.length, c.length);
-            console.log(`Cookie '${name}' encontrado com valor: '${value}'.`);
+            console.log(`[Cookies] Cookie '${name}' encontrado com valor: '${value}'.`);
             return value;
         }
     }
-    console.log(`Cookie '${name}' não encontrado.`);
+    console.log(`[Cookies] Cookie '${name}' não encontrado.`);
     return null;
 }
 
@@ -61,7 +61,7 @@ function getCookie(name) {
  */
 // function eraseCookie(name) { // Comentei para evitar conflito se já estiver em main.js
 //     document.cookie = name + '=; Max-Age=-99999999; path=/'; // Define uma data de expiração no passado
-//     console.log(`Cookie '${name}' apagado.`);
+//     console.log(`[Cookies] Cookie '${name}' apagado.`);
 // }
 
 // --- ELEMENTOS DO DOM ---
@@ -74,6 +74,7 @@ const phoneModal = document.getElementById('phone-modal');
 const phoneInput = document.getElementById('phone-input');
 const submitPhoneBtn = document.getElementById('submit-phone');
 const phoneError = document.getElementById('phone-error');
+const entregaStatusText = document.getElementById('entrega-status-text'); // Novo elemento para texto dinâmico
 
 // Elementos da Sidebar
 const menuButton = document.getElementById('menu-button');
@@ -114,17 +115,17 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!clienteId) {
         clienteId = localStorage.getItem('clienteId');
         if (clienteId) {
-            console.log("clienteId encontrado no localStorage. Migrando para cookie.");
+            console.log("[Init] clienteId encontrado no localStorage. Migrando para cookie.");
             setCookie('clienteId', clienteId, 30); // Migra para cookie
         }
     }
 
     // Se o clienteId ainda não existe, mostra o modal para pedir o número
     if (!clienteId) {
-        console.log("clienteId não encontrado. Exibindo modal de telefone.");
+        console.log("[Init] clienteId não encontrado. Exibindo modal de telefone.");
         phoneModal.style.display = 'flex'; // Exibe o modal
     } else {
-        console.log(`clienteId encontrado: ${clienteId}. Escondendo modal de telefone.`);
+        console.log(`[Init] clienteId encontrado: ${clienteId}. Escondendo modal de telefone.`);
         phoneModal.style.display = 'none'; // Garante que o modal esteja escondido
         
         // Carrega o pedido atual se houver um ID na URL
@@ -146,7 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Validação: apenas números e um comprimento mínimo (ex: 10 ou 11 dígitos para DDD + número)
         // Você pode ajustar a regex para ser mais específica (ex: (XX) XXXXX-XXXX)
         if (phoneNumber && /^\d{10,11}$/.test(phoneNumber)) {
-            console.log(`Número de telefone válido: ${phoneNumber}.`);
+            console.log(`[Modal] Número de telefone válido: ${phoneNumber}.`);
             phoneError.classList.add('hidden'); // Esconde mensagem de erro
             setCookie('clienteId', phoneNumber, 30); // Salva no cookie por 30 dias
             localStorage.setItem('clienteId', phoneNumber); // Salva no localStorage também (para redundância)
@@ -164,7 +165,7 @@ document.addEventListener("DOMContentLoaded", () => {
             carregarHistorico(phoneNumber, currentPedidoId);
 
         } else {
-            console.log(`Número de telefone inválido: ${phoneNumber}.`);
+            console.log(`[Modal] Número de telefone inválido: ${phoneNumber}.`);
             phoneError.classList.remove('hidden'); // Mostra mensagem de erro
         }
     });
@@ -173,28 +174,29 @@ document.addEventListener("DOMContentLoaded", () => {
 // Carrega e monitora o status do pedido atual em tempo real
 function carregarStatusPedido(pedidoId) {
     const pedidoRef = database.ref(`pedidos/${pedidoId}`);
-    console.log(`Carregando status para o pedido ID: ${pedidoId}`);
+    console.log(`[Status Pedido] Carregando status para o pedido ID: ${pedidoId}`);
 
     pedidoRef.on('value', (snapshot) => {
         if (snapshot.exists()) {
             const pedido = snapshot.val();
-            console.log("Dados do pedido atual:", pedido);
+            console.log("[Status Pedido] Dados do pedido atual:", pedido);
+            console.log(`[Status Pedido] Status recebido do Firebase: "${pedido.status}"`); // Log do status recebido
             exibirDetalhesPedido(pedido);
-            atualizarVisualStatus(pedido.status);
+            atualizarVisualStatus(pedido); // MUDANÇA AQUI: Passa o objeto pedido completo
         } else {
-            console.warn(`Pedido #${pedidoId} não encontrado no Firebase.`);
+            console.warn(`[Status Pedido] Pedido #${pedidoId} não encontrado no Firebase.`);
             orderDetailsContainer.innerHTML = `<p class="text-red-400 font-semibold">Pedido #${pedidoId} não encontrado.</p>`;
             statusTracker.style.display = 'none'; // Esconde o tracker se o pedido não existir
         }
     }, (error) => {
-        console.error("Erro ao carregar status do pedido:", error);
+        console.error("[Status Pedido] Erro ao carregar status do pedido:", error);
         orderDetailsContainer.innerHTML = `<p class="text-red-400 font-semibold">Erro ao carregar o status do pedido.</p>`;
     });
 }
 
 // Carrega todos os pedidos do banco de dados e filtra localmente
 function carregarHistorico(clienteId, currentPedidoId) {
-    console.log(`Carregando TODOS os pedidos do banco para filtrar histórico para cliente ID: ${clienteId}`);
+    console.log(`[Histórico] Carregando TODOS os pedidos do banco para filtrar histórico para cliente ID: ${clienteId}`);
     // Busca TODOS os pedidos do nó 'pedidos'
     const pedidosRef = database.ref('pedidos');
 
@@ -202,7 +204,7 @@ function carregarHistorico(clienteId, currentPedidoId) {
         historyLoading.style.display = 'none'; // Esconde a mensagem de carregamento
 
         if (!snapshot.exists()) {
-            console.log("Nenhum pedido encontrado no banco de dados.");
+            console.log("[Histórico] Nenhum pedido encontrado no banco de dados.");
             historyContainer.innerHTML = '<p class="text-gray-400">Você ainda não tem pedidos anteriores.</p>';
             return;
         }
@@ -219,7 +221,7 @@ function carregarHistorico(clienteId, currentPedidoId) {
                 }
             }
         });
-        console.log("Pedidos históricos filtrados localmente:", todosPedidos);
+        console.log("[Histórico] Pedidos históricos filtrados localmente:", todosPedidos);
 
         // Ordena para mostrar os mais recentes primeiro (do maior timestamp para o menor)
         todosPedidos.sort((a, b) => b.timestamp - a.timestamp);
@@ -231,7 +233,7 @@ function carregarHistorico(clienteId, currentPedidoId) {
         
         renderizarHistorico(todosPedidos); // Renderiza os pedidos no histórico
     }, (error) => {
-        console.error("Erro ao carregar todos os pedidos para histórico:", error);
+        console.error("[Histórico] Erro ao carregar todos os pedidos para histórico:", error);
         historyLoading.textContent = 'Erro ao carregar seu histórico de pedidos.';
     });
 }
@@ -313,50 +315,81 @@ function exibirDetalhesPedido(pedido) {
 }
 
 /**
- * Atualiza visualmente a barra de status do pedido com base no status atual.
- * @param {string} status O status atual do pedido (Ex: 'Aguardando', 'Em Preparo').
+ * Atualiza visualmente a barra de status do pedido com base no status atual e tipo de entrega.
+ * @param {Object} pedido O objeto do pedido com seus detalhes (status, tipoEntrega).
  */
-function atualizarVisualStatus(status) {
-    // Mapeia os IDs dos elementos de status
+function atualizarVisualStatus(pedido) {
+    const status = pedido.status;
+    const tipoEntrega = pedido.tipoEntrega;
+
+    // Normaliza o status para comparação
+    const normalizedStatus = status.trim(); 
+
+    console.log(`[Atualizar Visual Status] Status recebido para atualização (limpo): "${normalizedStatus}"`); 
+    console.log(`[Atualizar Visual Status] Tipo de Entrega: "${tipoEntrega}"`);
+
     const steps = {
         'Aguardando': document.getElementById('status-aguardando'),
-        'Em Preparo': document.getElementById('status-preparo'),
-        'Saiu para Entrega': document.getElementById('status-entrega'),
+        'Aceito': document.getElementById('status-preparo'), 
+        'EntregaOuRetirada': document.getElementById('status-entrega'), // Representa o passo visual de entrega/retirada
         'Finalizado': document.getElementById('status-finalizado'),
     };
 
     // Reseta todos os estilos para o estado padrão
     Object.values(steps).forEach(step => {
-        step.classList.remove('active'); // Remove a classe 'active'
+        step.classList.remove('active'); 
         step.classList.remove('bg-green-500', 'border-green-400');
         step.classList.add('bg-gray-700', 'border-gray-600');
         
-        // Reseta as linhas de conexão também
         const nextLine = step.parentElement.nextElementSibling;
         if (nextLine && nextLine.classList.contains('status-line')) {
-            nextLine.classList.remove('active'); // Remove a classe 'active'
+            nextLine.classList.remove('active'); 
             nextLine.classList.remove('bg-green-500');
             nextLine.classList.add('bg-gray-600');
         }
     });
 
-    // Define a ordem dos status
-    const statusOrder = ['Aguardando', 'Em Preparo', 'Saiu para Entrega', 'Finalizado'];
-    const currentIndex = statusOrder.indexOf(status); // Encontra o índice do status atual
+    // Define a ordem dos status visuais
+    const visualStatusOrder = ['Aguardando', 'Aceito', 'EntregaOuRetirada', 'Finalizado'];
+    let currentIndex = -1;
 
-    // Ativa todos os passos até o status atual
+    // Mapeia o status do Firebase para o índice visual
+    if (normalizedStatus === 'Aguardando') {
+        currentIndex = 0;
+    } else if (normalizedStatus === 'Aceito') {
+        currentIndex = 1;
+    } else if (normalizedStatus === 'Saiu para Entrega' || normalizedStatus === 'Pronto para Retirada') {
+        currentIndex = 2; // Ambos os status de "entrega/retirada" ativam o mesmo passo visual
+    } else if (normalizedStatus === 'Finalizado') {
+        currentIndex = 3;
+    }
+
+    console.log(`[Atualizar Visual Status] Mapped currentIndex: ${currentIndex}`);
+
+    // Atualiza o texto do passo de "Entrega/Retirada" dinamicamente
+    if (entregaStatusText) { // Verifica se o elemento existe
+        if (tipoEntrega === 'Retirada') {
+            entregaStatusText.textContent = 'Pronto para Retirada';
+        } else { // Assume 'Entrega' ou qualquer outro caso
+            entregaStatusText.textContent = 'A Caminho';
+        }
+    }
+
+
+    // Ativa todos os passos até o índice atual
     for (let i = 0; i <= currentIndex; i++) {
-        const currentStepName = statusOrder[i];
-        const stepElement = steps[currentStepName];
+        const currentVisualStepKey = visualStatusOrder[i]; // Obtém a chave do passo visual (ex: 'Aceito', 'EntregaOuRetirada')
+        const stepElement = steps[currentVisualStepKey]; // Obtém o elemento DOM correspondente
+        
+        console.log(`[Atualizar Visual Status] Processando passo visual: "${currentVisualStepKey}". Elemento existe: ${!!stepElement}`);
         if (stepElement) {
-            stepElement.classList.add('active'); // Adiciona a classe 'active'
+            stepElement.classList.add('active'); 
             stepElement.classList.add('bg-green-500', 'border-green-400');
             stepElement.classList.remove('bg-gray-700', 'border-gray-600');
             
-            // Ativa a linha de conexão para o próximo passo (se houver)
             const nextLine = stepElement.parentElement.nextElementSibling;
             if (nextLine && nextLine.classList.contains('status-line')) {
-                nextLine.classList.add('active'); // Adiciona a classe 'active'
+                nextLine.classList.add('active'); 
                 nextLine.classList.add('bg-green-500');
                 nextLine.classList.remove('bg-gray-600');
             }
@@ -372,8 +405,9 @@ function atualizarVisualStatus(status) {
 function getStatusColor(status) {
     switch (status) {
         case 'Aguardando': return 'bg-yellow-500 text-black';
-        case 'Em Preparo': return 'bg-blue-500 text-white';
-        case 'Saiu para Entrega': return 'bg-indigo-500 text-white';
+        case 'Aceito': return 'bg-blue-500 text-white'; // MUDANÇA AQUI: "Aceito"
+        case 'Saiu para Entrega': 
+        case 'Pronto para Retirada': return 'bg-indigo-500 text-white'; // MUDANÇA AQUI: ambos usam a mesma cor
         case 'Finalizado': return 'bg-green-600 text-white';
         case 'Cancelado': return 'bg-red-600 text-white';
         default: return 'bg-gray-500 text-white';

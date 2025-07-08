@@ -127,6 +127,7 @@
 </head>
 <body class="bg-[#0E0C0A] text-white font-sans">
 
+    <!-- Botão de Menu (Hamburger) -->
     <button id="menu-button" class="absolute top-4 right-4 z-20 text-yellow-50 hover:scale-110 transition-transform duration-200">
     <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
@@ -191,7 +192,7 @@
                     <div id="status-preparo" class="status-step w-12 h-12 rounded-full flex items-center justify-center border-2 border-gray-600 bg-gray-700">
                         <i class="fa-solid fa-pizza-slice text-2xl"></i>
                     </div>
-                    <p class="text-xs mt-2">Em Preparo</p>
+                    <p class="text-xs mt-2">Aceito</p> <!-- MUDANÇA AQUI: de "Em Preparo" para "Aceito" -->
                 </div>
                 
                 <div class="status-line flex-1 h-1 bg-gray-600"></div>
@@ -200,7 +201,7 @@
                     <div id="status-entrega" class="status-step w-12 h-12 rounded-full flex items-center justify-center border-2 border-gray-600 bg-gray-700">
                         <i class="fa-solid fa-motorcycle text-2xl"></i>
                     </div>
-                    <p class="text-xs mt-2">A Caminho</p>
+                    <p id="entrega-status-text" class="text-xs mt-2">A Caminho</p> <!-- MUDANÇA AQUI: Adicionado id="entrega-status-text" -->
                 </div>
 
                 <div class="status-line flex-1 h-1 bg-gray-600"></div>

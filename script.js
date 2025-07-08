@@ -1002,9 +1002,9 @@ function enviarPedidoParaPainel(pedido) {
   .then((pedidoId) => {
     console.log('Pedido enviado com sucesso!', pedidoId);
     mostrarPedidoSucessoComLogo();
-    setCookie('clienteId', telefoneInput.value, 60); 
-    localStorage.setItem('clienteId', telefoneInput.value); // Salva no localStorage também para consistência
     window.location.href = `status.html?pedidoId=${pedidoId}`;
+    setCookie('clienteId', telefoneInput.value, 60); 
+    localStorage.setItem('clienteId', telefoneInput.value);
   })
   .catch((error) => {
     console.error('Erro ao enviar pedido: ', error);
