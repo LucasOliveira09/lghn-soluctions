@@ -1,113 +1,253 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/png" sizes="16x16" href="assets/icon.jpg">
-  <title>Status Bonanza</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Substitua pelo seu ícone real -->
+    <link rel="icon" type="image/png" sizes="16x16" href="https://placehold.co/16x16/1f1f1f/ffffff?text=ICON">
+    <title>Status Bonanza</title>
 
-  <link rel="stylesheet" href="styles/style.css">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" xintegrity="sha512-Fo3rlrZj/k7ujTnHg4CGR2D7kSs0v4LLanw2qksYuRlEzO+tcaEPQogQ0KaoGN26/zrn20ImR1DfuLWnOo7aBA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- Phosphor Icons (se ainda for usar) -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
-  <script type="module" src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <!-- Seus estilos customizados (se existirem, certifique-se de que não conflitem com Tailwind) -->
+    <!-- <link rel="stylesheet" href="styles/style.css"> -->
+    <!-- <link rel="stylesheet" href="./styles/output.css"> -->
 
-  <script type="module" src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <!-- Firebase SDK v8.10.0 (carregado como scripts normais para expor 'firebase' globalmente) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/k7ujTnHg4CGR2D7kSs0v4LLanw2qksYuRlEzO+tcaEPQogQ0KaoGN26/zrn20ImR1DfuLWnOo7aBA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* Define a fonte Inter para todo o corpo */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Estilos para os passos de status ativos */
+        .status-step.active {
+            background-color: #10B981; /* Tailwind green-500 */
+            border-color: #34D399; /* Tailwind green-400 */
+        }
+        /* Estilos para as linhas de conexão ativas */
+        .status-line.active {
+            background-color: #10B981; /* Tailwind green-500 */
+        }
+        /* Estilos do Modal */
+        .modal {
+            display: none; /* Escondido por padrão */
+            position: fixed; /* Fica no lugar */
+            z-index: 1000; /* Fica por cima de tudo */
+            left: 0;
+            top: 0;
+            width: 100%; /* Largura total */
+            height: 100%; /* Altura total */
+            overflow: auto; /* Permite rolagem se o conteúdo for muito grande */
+            background-color: rgba(0,0,0,0.8); /* Fundo preto com opacidade */
+            backdrop-filter: blur(5px); /* Efeito de desfoque no fundo */
+            -webkit-backdrop-filter: blur(5px); /* Suporte para Safari */
+            display: flex; /* Usa flexbox para centralizar o conteúdo */
+            align-items: center; /* Centraliza verticalmente */
+            justify-content: center; /* Centraliza horizontalmente */
+        }
+        .modal-content {
+            background-color: #1f1f1f;
+            margin: auto;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            width: 90%;
+            max-width: 450px;
+            text-align: center;
+            position: relative;
+        }
+        .modal-input {
+            width: calc(100% - 20px); /* Largura total menos padding */
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background-color: #0E0C0A;
+            color: white;
+            font-size: 1rem;
+            box-sizing: border-box; /* Inclui padding e borda na largura */
+        }
+        .modal-button {
+            background-color: #10B981; /* green-500 */
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        .modal-button:hover {
+            background-color: #059669; /* green-600 */
+        }
 
-  <link rel="stylesheet" href="./styles/output.css">
-
-  <script src="https://unpkg.com/@phosphor-icons/web"></script>
-
+        /* Estilos para a Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 280px; /* Largura da sidebar */
+            background-color: #1f1f1f;
+            z-index: 1050; /* Acima do overlay */
+            transform: translateX(-100%); /* Escondida por padrão */
+            transition: transform 0.3s ease-in-out;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar.active {
+            transform: translateX(0); /* Visível */
+        }
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            z-index: 1040; /* Abaixo da sidebar, acima do conteúdo */
+            display: none; /* Escondido por padrão */
+            transition: opacity 0.3s ease-in-out;
+        }
+        .overlay.active {
+            display: block;
+        }
+    </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+<body class="bg-[#0E0C0A] text-white font-sans">
 
-  <div class="bg-white rounded-2xl shadow-lg p-6 w-full max-w-md text-center">
+    <button id="menu-button" class="absolute top-4 right-4 z-20 text-yellow-50 hover:scale-110 transition-transform duration-200">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  </button>
 
-    <h2 class="text-2xl font-bold text-gray-800 mb-6">Status do Pedido</h2>
+    <!-- Overlay para fechar a sidebar ao clicar fora -->
+    <div id="overlay" class="overlay hidden"></div>
 
-    <!-- Barra de Progresso -->
-    <div class="flex justify-between items-center mb-6">
-      <div class="flex flex-col items-center">
-        <i id="icon-pendente" class="ph ph-hourglass text-2xl text-gray-400"></i>
-        <p class="text-xs mt-1">Recebido</p>
-      </div>
-      <div id="bar0" class="w-6 h-1 bg-gray-300 rounded mx-1"></div>
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar -translate-x-full">
+        <div class="flex items-center justify-between mb-8">
+            <h2 class="text-2xl font-bold text-white">Navegação</h2>
+            <button id="close-sidebar-button" class="text-gray-400 hover:text-white transition-colors">
+                <i class="fa-solid fa-times text-2xl"></i>
+            </button>
+        </div>
+        <nav class="flex flex-col space-y-4">
+            <a href="index.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                <i class="fa-solid fa-pizza-slice"></i>
+                <span>Cardápio</span>
+            </a>
+            <a href="status.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>Meus Pedidos</span>
+            </a>
+            <!-- Adicione mais links conforme necessário -->
+            <a href="#" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                <i class="fa-solid fa-info-circle"></i>
+                <span>Sobre Nós</span>
+            </a>
+            <a href="#" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                <i class="fa-solid fa-phone"></i>
+                <span>Contato</span>
+            </a>
+        </nav>
+    </aside>
 
-      <div class="flex flex-col items-center">
-        <i id="icon-aceito" class="ph ph-cooking-pot text-2xl text-gray-400"></i>
-        <p class="text-xs mt-1">Preparando</p>
-      </div>
-      <div id="bar1" class="w-6 h-1 bg-gray-300 rounded mx-1"></div>
+    <div class="container mx-auto px-4 py-8 max-w-3xl">
 
-      <div class="flex flex-col items-center">
-        <i id="icon-em-entrega" class="ph ph-motorcycle text-2xl text-gray-400"></i>
-        <p class="text-xs mt-1">Entregando</p>
-      </div>
-      <div id="bar2" class="w-6 h-1 bg-gray-300 rounded mx-1"></div>
+        <!-- Seção do Pedido Atual -->
+        <div class="bg-[#1f1f1f] p-6 rounded-2xl shadow-lg mb-8">
+            <div class="text-center mb-6">
+                <!-- Substitua pelo seu logo real. Use um placeholder para visualização. -->
+                <img src="https://placehold.co/128x128/1f1f1f/ffffff?text=LOGO" alt="Logo da Pizzaria" class="w-32 h-32 mx-auto mb-4 rounded-full">
+                <h1 class="text-3xl font-bold font-[Cinzel]">Acompanhe seu Pedido</h1>
+                <p class="text-gray-400">Pedido #<span id="order-id">--</span></p>
+            </div>
 
-      <div class="flex flex-col items-center">
-        <i id="icon-finalizado" class="ph ph-check-circle text-2xl text-gray-400"></i>
-        <p class="text-xs mt-1">Entregue</p>
-      </div>
+            <!-- Barra de Status Visual -->
+            <div id="status-tracker" class="flex items-center justify-between mb-8">
+                <div class="status-step-container flex flex-col items-center">
+                    <div id="status-aguardando" class="status-step w-12 h-12 rounded-full flex items-center justify-center border-2 border-gray-600 bg-gray-700">
+                        <i class="fa-solid fa-receipt text-2xl"></i>
+                    </div>
+                    <p class="text-xs mt-2">Aguardando</p>
+                </div>
+
+                <div class="status-line flex-1 h-1 bg-gray-600"></div>
+
+                <div class="status-step-container flex flex-col items-center">
+                    <div id="status-preparo" class="status-step w-12 h-12 rounded-full flex items-center justify-center border-2 border-gray-600 bg-gray-700">
+                        <i class="fa-solid fa-pizza-slice text-2xl"></i>
+                    </div>
+                    <p class="text-xs mt-2">Em Preparo</p>
+                </div>
+                
+                <div class="status-line flex-1 h-1 bg-gray-600"></div>
+
+                <div class="status-step-container flex flex-col items-center">
+                    <div id="status-entrega" class="status-step w-12 h-12 rounded-full flex items-center justify-center border-2 border-gray-600 bg-gray-700">
+                        <i class="fa-solid fa-motorcycle text-2xl"></i>
+                    </div>
+                    <p class="text-xs mt-2">A Caminho</p>
+                </div>
+
+                <div class="status-line flex-1 h-1 bg-gray-600"></div>
+
+                <div class="status-step-container flex flex-col items-center">
+                    <div id="status-finalizado" class="status-step w-12 h-12 rounded-full flex items-center justify-center border-2 border-gray-600 bg-gray-700">
+                        <i class="fa-solid fa-check-double text-2xl"></i>
+                    </div>
+                    <p class="text-xs mt-2">Finalizado</p>
+                </div>
+            </div>
+
+            <!-- Detalhes do Pedido Atual -->
+            <div id="order-details-container">
+                <h3 class="text-xl font-semibold mb-4 border-b border-gray-700 pb-2">Detalhes do Pedido</h3>
+                <div id="order-details" class="text-gray-300">
+                    <p>Carregando detalhes...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Seção do Histórico de Pedidos -->
+        <div class="bg-[#1f1f1f] p-6 rounded-2xl shadow-lg">
+             <h2 class="text-2xl font-bold font-[Cinzel] mb-4">Seu Histórico de Pedidos</h2>
+             <div id="order-history" class="space-y-4">
+                <!-- Pedidos anteriores serão inseridos aqui -->
+                <p id="history-loading" class="text-gray-400">Carregando histórico...</p>
+             </div>
+        </div>
+
     </div>
 
-    <!-- Horários -->
-    <div id="info-horarios" class="flex justify-center gap-4 mt-3 text-sm text-gray-600 font-medium">
-      <span id="horario-pedido" class="flex items-center gap-2">
-        <i class="fas fa-clock text-xs"></i>
-        <span id="hora-pedido-texto">--:--</span>
-      </span>
-      <span id="previsao-entrega" class="flex items-center gap-2">
-        <i class="fas fa-box text-xs"></i>
-        <span id="hora-previsao-texto">--:--</span>
-      </span>
+    <!-- Modal para o número de telefone -->
+    <div id="phone-modal" class="modal">
+        <div class="modal-content">
+            <!-- Ícone de telefone placeholder -->
+            <img src="https://placehold.co/80x80/1f1f1f/ffffff?text=📞" alt="Ícone de Telefone" class="w-20 h-20 mx-auto mb-4">
+            <h2 class="text-2xl font-bold mb-4">Bem-vindo!</h2>
+            <p class="text-gray-300 mb-6">Para ver o status e seu histórico de pedidos, por favor, insira seu número de telefone (apenas números).</p>
+            <input type="tel" id="phone-input" class="modal-input" placeholder="Ex: 11987654321" pattern="[0-9]*" inputmode="numeric">
+            <button id="submit-phone" class="modal-button">Continuar</button>
+            <p id="phone-error" class="text-red-400 mt-3 hidden">Por favor, insira um número de telefone válido.</p>
+        </div>
     </div>
 
-    <!-- Status -->
-    <p id="status" class="text-lg font-medium text-gray-700 mt-4">Carregando status...</p>
+    <!-- Seu JS (DEVE ser carregado DEPOIS do Firebase) -->
+    <script src="./status.js"></script>
 
-    <!-- Resumo do Pedido -->
-    <div class="bg-gray-50 rounded-xl p-4 mt-6 text-left text-sm text-gray-700 shadow-inner">
-      <p class="font-semibold mb-2">Resumo do Pedido</p>
-      <ul id="itens-pedido" class="list-disc list-inside space-y-1 text-gray-600">
-        <!-- Preenchido pelo JS -->
-      </ul>
-      <div class="mt-2 flex justify-between text-sm font-medium">
-        <span>Pagamento:</span>
-        <span id="forma-pagamento">---</span>
-      </div>
-      <div class="flex justify-between text-sm font-semibold">
-        <span>Total:</span>
-        <span id="total-pedido">R$ --,--</span>
-      </div>
-    </div>
-
-    <!-- Entrega -->
-    <div class="bg-white mt-4 p-4 rounded-xl shadow-sm text-sm text-left text-gray-700">
-      <p class="font-semibold mb-2">Entrega</p>
-      <p id="tipo-entrega">---</p>
-      <p id="endereco-entrega">---</p>
-    </div>
-
-    <!-- Atualizar -->
-    <div class="mt-6">
-      <button onclick="location.reload()" class="text-xs text-gray-400 hover:text-gray-700">
-        <i class="fas fa-sync-alt mr-1"></i>Atualizar página
-      </button>
-    </div>
-
-    <!-- Contato -->
-    <a href="https://wa.me/14997580837" target="_blank" class="text-sm text-green-600 flex items-center justify-center gap-2 mt-4 hover:underline">
-      <i class="fab fa-whatsapp text-lg"></i> Falar com o restaurante
-    </a>
-
-    <!-- Frase -->
-    <p class="mt-6 text-xs text-gray-400 italic">Obrigado por escolher a gente ❤️</p>
-
-  </div>
-  
-
-  <script type="module" src="status.js"></script>
 </body>
-
 </html>

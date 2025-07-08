@@ -1002,6 +1002,8 @@ function enviarPedidoParaPainel(pedido) {
   .then((pedidoId) => {
     console.log('Pedido enviado com sucesso!', pedidoId);
     mostrarPedidoSucessoComLogo();
+    setCookie('clienteId', telefoneInput.value, 60); 
+    localStorage.setItem('clienteId', telefoneInput.value); // Salva no localStorage também para consistência
     window.location.href = `status.html?pedidoId=${pedidoId}`;
   })
   .catch((error) => {
@@ -1161,14 +1163,17 @@ const scrollbar = document.getElementById('scrollbar')
 menuButton.addEventListener('click', () => {
     sidebar.classList.remove('-translate-x-full');
     overlay.classList.remove('hidden');
-    scrollbar.classList.remove('bg-[#0E0C0A]')
-    scrollbar.classList.add('bg-black')
-    scrollbar.classList.add('opacity-50')
+    scrollbar.classList.add('opacity-25')
   });
 
   overlay.addEventListener('click', () => {
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
-    scrollbar.classList.remove('bg-black')
-    scrollbar.classList.remove('opacity-50')
+    scrollbar.classList.remove('opacity-25')
   });
+
+  document.getElementById('close-sidebar-button').addEventListener('click', () => {
+    sidebar.classList.add('-translate-x-full');
+    overlay.classList.add('hidden');
+    scrollbar.classList.remove('opacity-25')
+});
