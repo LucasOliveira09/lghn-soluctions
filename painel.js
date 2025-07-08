@@ -1,5 +1,4 @@
 // Configuração do Firebase
-// Certifique-se de que esta configuração está correta para o seu projeto Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
     authDomain: "cardapioweb-99e7b.firebaseapp.com",
@@ -15,7 +14,7 @@ firebase.initializeApp(firebaseConfig);
 
 const database = firebase.database();
 const pedidosRef = database.ref('pedidos');
-const promocoesRef = firebase.database().ref('promocoes');
+const promocoesRef = firebase.database().ref('promocoes'); // Ref para promoções (ainda existe no seu código)
 
 const pedidosAtivosContainer = document.getElementById('pedidos-ativos-container');
 const pedidosFinalizadosContainer = document.getElementById('pedidos-finalizados-container');
@@ -32,18 +31,22 @@ const btnFinalizados = document.getElementById('btn-finalizados');
 const abaAtivos = document.getElementById('aba-ativos');
 const abaFinalizados = document.getElementById('aba-finalizados');
 
-const produtosRef = database.ref('produtos');
-const btnProdutos = document.getElementById('btn-produtos');
-const abaProdutos = document.getElementById('aba-produtos');
-const btnPromocoes = document.getElementById('btn-promocoes');
-const abaPromocoes = document.getElementById('promocoes');
+const produtosRef = database.ref('produtos'); // Referência geral para 'produtos'
+const btnProdutos = document.getElementById('btn-produtos'); // Não vi esse botão no seu HTML, mas mantive a ref
+const abaProdutos = document.getElementById('aba-produtos'); // Não vi essa aba no seu HTML, mas mantive a ref
+const btnPromocoes = document.getElementById('btn-promocoes'); // Não vi esse botão no seu HTML, mas mantive a ref
+const abaPromocoes = document.getElementById('promocoes'); // ID da aba de promoções
+
 const btnEditarCardapio = document.getElementById('btn-editar-cardapio')
-const EditarCardapio = document.getElementById('editar-cardapio')
+const EditarCardapio = document.getElementById('editar-cardapio') // A seção de edição do cardápio
 const btnEditarHorario = document.getElementById('btn-editar-horario')
 const editarHorario = document.getElementById('editar-horario')
 
-let pedidos = {};
+// Novos elementos para pesquisa no cardápio
+const searchInput = document.getElementById('search-input');
+const categoriaSelect = document.getElementById('categoria-select');
 
+let pedidos = {};
 let totalPedidosAnteriores = 0;
 
 pedidosRef.on('value', (snapshot) => {
@@ -128,7 +131,6 @@ function aceitarPedido(pedidoId) {
         .then(snapshot => {
             const pedido = snapshot.val();
 
-            // Log para depuração
             console.log('Pedido completo recuperado:', pedido); 
 
             if (!pedido.telefone) {
@@ -137,7 +139,6 @@ function aceitarPedido(pedidoId) {
                 return;
             }
 
-            // Atualiza o status antes de abrir o WhatsApp
             database.ref('pedidos/' + pedidoId).update({ status: 'Aceito' });
 
             const itensPedido = pedido.cart
@@ -148,7 +149,6 @@ function aceitarPedido(pedidoId) {
                 ? `${pedido.endereco.rua}, ${pedido.endereco.numero} - ${pedido.endereco.bairro}`
                 : 'Retirada no local';
 
-            // Garante que dinheiroTotal é um número antes de formatar
             const trocoPara = pedido.dinheiroTotal ? parseFloat(pedido.dinheiroTotal) : 0;
             const trocoTexto = trocoPara > 0
                 ? `Troco para: R$ ${trocoPara.toFixed(2)}`
@@ -171,12 +171,11 @@ ${itensPedido}
 Aguarde que logo estará a caminho! 🍽️`;
 
             const telefoneLimpo = pedido.telefone.replace(/\D/g, '');
-            console.log('Telefone limpo para WhatsApp:', telefoneLimpo); // Log do telefone limpo
+            console.log('Telefone limpo para WhatsApp:', telefoneLimpo); 
 
             const url = `https://api.whatsapp.com/send?phone=${telefoneLimpo}&text=${encodeURIComponent(mensagem)}`;
-            console.log('URL gerada para WhatsApp:', url); // Log da URL completa
+            console.log('URL gerada para WhatsApp:', url); 
 
-            // Abre a janela antes da promessa acabar, igual ao saiuParaEntrega
             window.open(url, '_blank');
             console.log('Tentativa de abrir WhatsApp.');
 
@@ -195,7 +194,6 @@ function saiuParaEntrega(pedidoId) {
             return;
         }
 
-        // Atualiza status
         database.ref('pedidos/' + pedidoId).update({ 
             status: pedido.tipoEntrega === 'Retirada' ? 'Pronto para Retirada' : 'Saiu para Entrega' 
         });
@@ -235,10 +233,9 @@ function finalizarPedido(pedidoId) {
             return;
         }
 
-        // ✅ Aqui está o fix: salvando também o timestamp
         database.ref('pedidos/' + pedidoId).update({ 
             status: 'Finalizado',
-            timestamp: Date.now() // <-- Esse campo é essencial
+            timestamp: Date.now() 
         });
 
 
@@ -404,11 +401,13 @@ btnFinalizados.addEventListener('click', () => {
 btnEditarCardapio.addEventListener('click', () => {
     ativaAba(EditarCardapio, abaFinalizados, abaAtivos, editarHorario);
     estilizaBotaoAtivo(btnEditarCardapio, btnAtivos, btnFinalizados, btnEditarHorario);
+    // Carrega os itens do cardápio ao ativar a aba de edição
+    carregarItensCardapio(categoriaSelect.value, searchInput.value);
 });
 
 btnEditarHorario.addEventListener('click', () => {
     ativaAba(editarHorario, abaFinalizados, abaAtivos, EditarCardapio);
-    estilizaBotaoAtivo(btnEditarHorario, btnAtivos, btnFinalizados, btnEditarHorario);
+    estilizaBotaoAtivo(btnEditarHorario, btnAtivos, btnFinalizados, btnEditarCardapio);
 });
 
 
@@ -542,27 +541,34 @@ function imprimirPedido(pedidoId) {
 }
 
 function atualizarPromocao(){
+    // Esta função parece estar buscando o status de 'pedidosRef' e colocando em 'pedido-status'.
+    // Se 'pedido-status' é um elemento no painel, e você quer o status de um pedido específico,
+    // precisaria de um pedidoId aqui. Se for um status geral, ok.
+    // Mantenho como está, mas é bom revisar o propósito.
     pedidosRef.on('value', function(snapshot) {
-        var status = snapshot.val();
-        document.getElementById('pedido-status').innerText = status || 'Sem status ainda';
+        var status = snapshot.val(); // Isso pegaria todos os pedidos, não um status específico.
+        // document.getElementById('pedido-status').innerText = status || 'Sem status ainda'; // Provavelmente não é o que você quer aqui.
     }); 
 }
 
 const imagemUrlInput = document.getElementById('imagemUrl');
 const imagemPreview = document.getElementById('imagemPreview');
 
-imagemUrlInput.addEventListener('input', () => {
-    const url = imagemUrlInput.value.trim();
-    if (url.startsWith('http')) {
-        imagemPreview.src = url;
-        imagemPreview.classList.remove('hidden');
-    } else {
-        imagemPreview.src = '';
-        imagemPreview.classList.add('hidden');
-    }
-});
+if (imagemUrlInput && imagemPreview) { // Verifica se os elementos existem antes de adicionar listener
+    imagemUrlInput.addEventListener('input', () => {
+        const url = imagemUrlInput.value.trim();
+        if (url.startsWith('http')) {
+            imagemPreview.src = url;
+            imagemPreview.classList.remove('hidden');
+        } else {
+            imagemPreview.src = '';
+            imagemPreview.classList.add('hidden');
+        }
+    });
+}
 
-document.getElementById('promoForm').addEventListener('submit', function (e) {
+
+document.getElementById('promoForm')?.addEventListener('submit', function (e) { // Adicionado '?' para null check
     e.preventDefault();
 
     const titulo = document.getElementById('titulo').value.trim();
@@ -629,7 +635,7 @@ function renderizarItensModal(itens) {
 }
 
 // Adicionar novo item
-document.getElementById('btn-adicionar-item').addEventListener('click', () => {
+document.getElementById('btn-adicionar-item')?.addEventListener('click', () => { // Adicionado '?' para null check
     const nome = document.getElementById('novo-item-nome').value.trim();
     const preco = parseFloat(document.getElementById('novo-item-preco').value);
     const qtd = parseInt(document.getElementById('novo-item-quantidade').value, 10);
@@ -683,43 +689,73 @@ function fecharModalEditarPedido() {
     pedidoOriginal = null;
 }
 
-
-document.getElementById("btn-editar-cardapio").addEventListener("click", () => {
+// Event listeners para a seção de edição do cardápio
+btnEditarCardapio.addEventListener("click", () => {
     // Oculta outras seções
     document.getElementById("aba-ativos").classList.add("hidden");
     document.getElementById("aba-finalizados").classList.add("hidden");
-    document.getElementById("promocoes").classList.add("hidden");
+    document.getElementById("promocoes").classList.add("hidden"); // Certifique-se que este ID existe
     document.getElementById("editar-cardapio").classList.remove("hidden");
 
-    const categoria = document.getElementById("categoria-select").value;
-    carregarItensCardapio(categoria);
+    // Carrega os itens do cardápio ao ativar a aba de edição
+    carregarItensCardapio(categoriaSelect.value, searchInput.value);
 });
 
-document.getElementById("categoria-select").addEventListener("change", (e) => {
-    carregarItensCardapio(e.target.value);
+categoriaSelect.addEventListener("change", (e) => {
+    // Recarrega os itens quando a categoria muda, aplicando a pesquisa atual
+    carregarItensCardapio(e.target.value, searchInput.value);
 });
 
-function carregarItensCardapio(categoria) {
+searchInput.addEventListener("input", () => {
+    // Recarrega os itens quando o input de pesquisa muda, aplicando a categoria atual
+    carregarItensCardapio(categoriaSelect.value, searchInput.value);
+});
+
+
+// Função principal para carregar itens do cardápio para edição
+// Agora aceita um termo de pesquisa
+function carregarItensCardapio(categoria, searchQuery = '') {
     const container = document.getElementById("itens-cardapio-container");
     container.innerHTML = "Carregando...";
 
-    database.ref(`produtos/${categoria}`).once("value", function(snapshot) {
+    // Referência para a categoria selecionada (ex: produtos/pizzas)
+    const ref = database.ref(`produtos/${categoria}`);
+
+    ref.once("value", function(snapshot) {
         container.innerHTML = "";
+        let itemsToRender = [];
 
         snapshot.forEach(function(childSnapshot) {
             const item = childSnapshot.val();
             const key = childSnapshot.key;
+            itemsToRender.push({ item, key });
+        });
 
-            const card = criarCardItem(item, key, categoria);
+        // Filtra os itens com base na pesquisa
+        const lowerCaseSearchQuery = searchQuery.toLowerCase();
+        const filteredItems = itemsToRender.filter(({ item }) => {
+            const name = (item.nome || item.titulo || '').toLowerCase();
+            const description = (item.descricao || '').toLowerCase();
+            return name.includes(lowerCaseSearchQuery) || description.includes(lowerCaseSearchQuery);
+        });
+
+        if (filteredItems.length === 0) {
+            container.innerHTML = `<p class="text-gray-600 text-center col-span-full">Nenhum item encontrado para "${searchQuery}" nesta categoria.</p>`;
+            return;
+        }
+
+        filteredItems.forEach(({ item, key }) => {
+            const card = criarCardItem(item, key, categoria); // Passa a categoria atual
             container.appendChild(card);
         });
     });
 }
 
-function criarCardItem(item, key, categoria) {
+// Função para criar o card de um item do cardápio para edição
+function criarCardItem(item, key, categoriaAtual) {
     const card = document.createElement("div");
 
-    const destaquePromocao = categoria === "promocoes"
+    const destaquePromocao = categoriaAtual === "promocoes"
         ? "border-yellow-500 border-2 shadow-lg"
         : "border";
 
@@ -727,7 +763,7 @@ function criarCardItem(item, key, categoria) {
 
     // Parte fixa do conteúdo
     card.innerHTML = `
-        ${categoria === "promocoes" ? '<span class="text-yellow-600 font-bold text-sm">🔥 Promoção</span>' : ''}
+        ${categoriaAtual === "promocoes" ? '<span class="text-yellow-600 font-bold text-sm">🔥 Promoção</span>' : ''}
         <input type="text" value="${item.nome || ''}" placeholder="Nome" class="p-2 border rounded nome">
         <textarea placeholder="Descrição" class="p-2 border rounded descricao">${item.descricao || ''}</textarea>
         <input type="number" value="${item.preco || 0}" step="0.01" class="p-2 border rounded preco">
@@ -761,6 +797,26 @@ function criarCardItem(item, key, categoria) {
         </div>
     `;
 
+    // --- Nova seção para Mover Item ---
+    const moveSection = document.createElement("div");
+    moveSection.className = "mt-4 pt-4 border-t border-gray-200 flex flex-col gap-2";
+    moveSection.innerHTML = `
+        <label class="text-sm text-gray-700">Mover para categoria:</label>
+        <select class="p-2 border rounded move-category-select">
+            <option value="">-- Selecione --</option>
+            <option value="pizzas">Pizzas</option>
+            <option value="bebidas">Bebidas</option>
+            <option value="esfirras">Esfirras</option>
+            <option value="calzone">Calzones</option>
+            <option value="promocoes">🔥 Promoções</option>
+            <option value="novidades">✨ Novidades</option>
+        </select>
+        <button class="move-item-btn bg-purple-600 text-white px-3 py-2 rounded hover:bg-purple-700 w-full">Mover Item</button>
+    `;
+    card.appendChild(moveSection);
+    // --- Fim da nova seção ---
+
+
     // Preview da imagem
     const inputImagem = card.querySelector(".imagem");
     const previewImg = card.querySelector(".preview-img");
@@ -783,7 +839,7 @@ function criarCardItem(item, key, categoria) {
         const ativo = card.querySelector(".ativo").checked;
         const tipo = card.querySelector(".tipo").value;
 
-        database.ref(`produtos/${categoria}/${key}`).update({
+        database.ref(`produtos/${categoriaAtual}/${key}`).update({
             nome,
             descricao,
             preco,
@@ -798,28 +854,83 @@ function criarCardItem(item, key, categoria) {
     // Botão excluir
     card.querySelector(".excluir").addEventListener("click", function () {
         if (confirm("Tem certeza que deseja excluir este item?")) {
-            database.ref(`produtos/${categoria}/${key}`).remove(() => {
+            database.ref(`produtos/${categoriaAtual}/${key}`).remove(() => {
                 card.remove();
+                alert("Item excluído com sucesso!");
             });
+        }
+    });
+
+    // Event listener para o botão Mover Item
+    card.querySelector(".move-item-btn").addEventListener("click", function () {
+        const targetCategorySelect = card.querySelector(".move-category-select");
+        const targetCategory = targetCategorySelect.value;
+
+        if (!targetCategory) {
+            alert("Por favor, selecione uma categoria de destino para mover o item.");
+            return;
+        }
+        if (targetCategory === categoriaAtual) {
+            alert("O item já está nesta categoria.");
+            return;
+        }
+
+        // Confirmação antes de mover
+        if (confirm(`Tem certeza que deseja mover "${item.nome || item.titulo}" de "${categoriaAtual}" para "${targetCategory}"?`)) {
+            // Reconstroi o objeto do item com os valores atuais do formulário
+            const updatedItemData = {
+                nome: card.querySelector(".nome").value,
+                descricao: card.querySelector(".descricao").value,
+                preco: parseFloat(card.querySelector(".preco").value),
+                imagem: card.querySelector(".imagem").value,
+                ativo: card.querySelector(".ativo").checked,
+                tipo: card.querySelector(".tipo").value
+            };
+            moverItemParaCategoria(key, categoriaAtual, targetCategory, updatedItemData);
         }
     });
 
     return card;
 }
 
-// Mostra o modal
+/**
+ * Move um item de uma categoria para outra no Firebase.
+ * @param {string} itemKey A chave (ID) do item na categoria de origem.
+ * @param {string} categoriaOrigem A categoria atual do item (ex: 'pizzas').
+ * @param {string} categoriaDestino A categoria para a qual o item será movido (ex: 'promocoes').
+ * @param {object} itemData Os dados completos do item a ser movido.
+ */
+function moverItemParaCategoria(itemKey, categoriaOrigem, categoriaDestino, itemData) {
+    // 1. Adicionar o item à nova categoria
+    database.ref(`produtos/${categoriaDestino}`).push(itemData)
+        .then(() => {
+            // 2. Remover o item da categoria original
+            return database.ref(`produtos/${categoriaOrigem}/${itemKey}`).remove();
+        })
+        .then(() => {
+            alert(`Item "${itemData.nome || itemData.titulo}" movido com sucesso de "${categoriaOrigem}" para "${categoriaDestino}"!`);
+            // Recarregar a lista de itens na categoria atual para refletir a mudança
+            carregarItensCardapio(categoriaOrigem, searchInput.value); 
+        })
+        .catch(error => {
+            console.error('Erro ao mover item:', error);
+            alert('Erro ao mover item. Verifique o console para detalhes.');
+        });
+}
+
+
+// Mostra o modal de novo item
 function mostrarNovoitem() {
     document.getElementById("modal-novo-item").classList.remove("hidden");
     document.getElementById("modal-novo-item").classList.add("flex");
-
 }
 
-// Fecha o modal
+// Fecha o modal de novo item
 document.getElementById("btn-fechar-novo-item").addEventListener("click", () => {
     document.getElementById("modal-novo-item").classList.add("hidden");
 });
 
-// Preview da imagem digitada
+// Preview da imagem digitada no modal de novo item
 document.getElementById("novo-imagem").addEventListener("input", () => {
     const url = document.getElementById("novo-imagem").value.trim();
     const preview = document.getElementById("preview-nova-imagem");
@@ -839,7 +950,7 @@ document.getElementById("btn-salvar-novo-item").addEventListener("click", () => 
     const preco = parseFloat(document.getElementById("novo-preco").value);
     const imagem = document.getElementById("novo-imagem").value.trim();
     const ativo = document.getElementById("novo-ativo").checked;
-    const categoria = document.getElementById("categoria-select").value;
+    const categoria = document.getElementById("categoria-select").value; // Pega a categoria selecionada
     const tipo = document.getElementById("novo-tipo").value;
 
     if (!categoria) {
@@ -860,7 +971,7 @@ document.getElementById("btn-salvar-novo-item").addEventListener("click", () => 
         } else {
             alert("Item adicionado com sucesso!");
             document.getElementById("modal-novo-item").classList.add("hidden");
-            carregarItensCardapio(categoria);
+            carregarItensCardapio(categoria, searchInput.value); // Recarrega com a categoria e pesquisa atual
             limparFormularioNovoItem();
         }
     });
@@ -905,49 +1016,68 @@ document.addEventListener("DOMContentLoaded", () => {
     const dias = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
     const container = document.getElementById("dias-container");
 
-    dias.forEach((dia, i) => {
-        const linha = document.createElement("div");
-        linha.className = "flex items-center gap-4 border-b pb-3";
+    // Verifica se o container existe antes de tentar preencher
+    if (container) {
+        dias.forEach((dia, i) => {
+            const linha = document.createElement("div");
+            linha.className = "flex items-center gap-4 border-b pb-3";
 
-        linha.innerHTML = `
-            <label class="w-28 font-semibold">${dia}</label>
-            <label class="flex items-center gap-2">
-                <input type="checkbox" name="aberto-${i}" checked />
-                Aberto
-            </label>
-            <input type="number" name="inicio-${i}" min="0" max="23" value="18" class="border p-1 w-16" />
-            <span>às</span>
-            <input type="number" name="fim-${i}" min="0" max="23" value="23" class="border p-1 w-16" />
-        `;
+            linha.innerHTML = `
+                <label class="w-28 font-semibold">${dia}</label>
+                <label class="flex items-center gap-2">
+                    <input type="checkbox" name="aberto-${i}" checked />
+                    Aberto
+                </label>
+                <input type="number" name="inicio-${i}" min="0" max="23" value="18" class="border p-1 w-16" />
+                <span>às</span>
+                <input type="number" name="fim-${i}" min="0" max="23" value="23" class="border p-1 w-16" />
+            `;
 
-        container.appendChild(linha);
-    });
+            container.appendChild(linha);
+        });
+    }
+
 
     // Ao enviar o formulário
     const form = document.getElementById("horario-form");
-    form.addEventListener("submit", (e) => {
-        e.preventDefault();
+    if (form) { // Verifica se o formulário existe
+        form.addEventListener("submit", (e) => {
+            e.preventDefault();
 
-        const horarios = {};
-        for (let i = 0; i <= 6; i++) {
-            const aberto = document.querySelector(`[name="aberto-${i}"]`).checked;
-            const inicio = parseInt(document.querySelector(`[name="inicio-${i}"]`).value);
-            const fim = parseInt(document.querySelector(`[name="fim-${i}"]`).value);
-            horarios[i] = { aberto, inicio, fim };
-        }
+            const horarios = {};
+            for (let i = 0; i <= 6; i++) {
+                const aberto = document.querySelector(`[name="aberto-${i}"]`).checked;
+                const inicio = parseInt(document.querySelector(`[name="inicio-${i}"]`).value);
+                const fim = parseInt(document.querySelector(`[name="fim-${i}"]`).value);
+                horarios[i] = { aberto, inicio, fim };
+            }
 
-        salvarHorariosNoFirebase(horarios);
-    });
+            salvarHorariosNoFirebase(horarios);
+        });
+    }
 
     // Verifica se está aberto agora e mostra status
     db.ref('config/horarios').once('value')
         .then(snapshot => {
+            const statusElement = document.getElementById("status");
             if (snapshot.exists()) {
                 const horarios = snapshot.val();
                 const status = checkRestaurantOpen(horarios);
-                document.getElementById("status").innerText = status ? "✅ Aberto agora" : "❌ Fechado agora";
+                if (statusElement) {
+                    statusElement.innerText = status ? "✅ Aberto agora" : "❌ Fechado agora";
+                }
             } else {
-                console.log("Nenhuma configuração encontrada.");
+                console.log("Nenhuma configuração de horários encontrada.");
+                if (statusElement) {
+                    statusElement.innerText = "Horários não configurados.";
+                }
+            }
+        })
+        .catch(error => {
+            console.error("Erro ao buscar horários:", error);
+            const statusElement = document.getElementById("status");
+            if (statusElement) {
+                statusElement.innerText = "Erro ao carregar status.";
             }
         });
 });

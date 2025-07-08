@@ -96,6 +96,8 @@ function carregarProdutos() {
         listaDoces.innerHTML = '';
 
         
+        
+
         snapshot.forEach((esfirraSnap) => {
             const esfirra = esfirraSnap.val();
             if (esfirra.ativo) {
@@ -149,7 +151,34 @@ function carregarProdutos() {
         } else {
             secaoPromocoes.classList.add("hidden");
             btnPromocoes.classList.add("hidden");
-        }
+        }  
+    });
+
+    database.ref('produtos/novidades').on('value', (snapshot) => {
+        const listaNovidades = document.getElementById('lista-novidades');
+        listaNovidades.innerHTML = '';
+        
+        let temNovidadeAtiva = false;
+        
+        snapshot.forEach((noviSnap) => {
+            const novi = noviSnap.val();
+            if (novi.ativo) {
+                temNovidadeAtiva = true;
+                listaNovidades.innerHTML += criarItemCardapio(novi, 'novidade');
+            }
+        });
+
+        // Mostrar/ocultar seção e botão de promoções
+        const secaoNovidades = document.getElementById('show-novidades');
+        const btnNovidades = document.getElementById('btn-novidades');
+        
+        if (temNovidadeAtiva) {
+            secaoNovidades.classList.remove("hidden");
+            btnNovidades.classList.remove("hidden");
+        } else {
+            secaoNovidades.classList.add("hidden");
+            btnNovidades.classList.add("hidden");
+        }  
     });
 }
 

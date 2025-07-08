@@ -219,6 +219,14 @@ html {
   <div id="scroll-container" class="w-full overflow-x-auto scrollbar-hide flex md:justify-center items-center ">
   <div class="flex flex-nowrap space-x-3 px-3 py-2">
 
+    <a href="#show-novidades" id="btn-novidades" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all hidden">
+      🔥 Novidades
+    </a>
+
+    <a href="#show-promocoes" id="btn-promocoes" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all hidden">
+      💰 Promoções
+    </a>
+
     <a href="#show-promocoes" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all hidden">
       💰 Promoções
     </a>
@@ -412,6 +420,15 @@ html {
     </div>
 
   </div>
+</div>
+
+<div id="show-novidades" class="mb-12 hidden">
+  <section id="novidades" class="p-4">
+        <div class="w-full items-center justify-center flex mt-8 mb-6">
+    <h2 class="text-5xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50">NOVIDADES</h2>
+  </div>
+  <div id="lista-novidades" class="grid gap-4 md:grid-cols-2"></div>
+</section>
 </div>
 
 <div id="show-promocoes" class="mb-12 hidden">
