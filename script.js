@@ -1013,32 +1013,47 @@ function atualizarConfirmacao() {
 
 let telefone = ""
 
+function setCookie(name, value, days) {
+  let expires = "";
+  if (days) {
+    const date = new Date();
+    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+    expires = "; expires=" + date.toUTCString();
+  }
+  document.cookie = name + "=" + (value || "") + expires + "; path=/";
+}
+
 function enviarPedidoParaPainel(pedido) {
   const pedidosRef = database.ref('pedidos');
   const configRef = database.ref('config/ultimoPedidoId');
 
   configRef.transaction((current) => {
-    return (current || 1000) + 1; // começa em 1001 se estiver vazio
-  })
-  .then((result) => {
-    const novoId = result.snapshot.val(); // esse será o ID numérico
-    pedido.status = 'Aguardando';
-    pedido.timestamp = Date.now();
+      return (current || 1000) + 1; // starts at 1001 if empty
+    })
+    .then((result) => {
+      const novoId = result.snapshot.val(); // this will be the numeric ID
+      pedido.status = 'Aguardando';
+      pedido.timestamp = Date.now();
 
-    return pedidosRef.child(novoId).set(pedido)
-      .then(() => novoId); // retorna o novo ID
-  })
-  .then((pedidoId) => {
-    console.log('Pedido enviado com sucesso!', pedidoId);
-    mostrarPedidoSucessoComLogo();
-    setCookie('clienteId', telefoneInput.value, 60); 
-    localStorage.setItem('clienteId', telefoneInput.value);
-    window.location.href = `status.html?pedidoId=${pedidoId}`;
-    
-  })
-  .catch((error) => {
-    console.error('Erro ao enviar pedido: ', error);
-  });
+      return pedidosRef.child(novoId).set(pedido)
+        .then(() => novoId); // returns the new ID
+    })
+    .then((pedidoId) => {
+      console.log('Pedido enviado com sucesso!', pedidoId);
+
+      // Save client ID (phone number) to localStorage
+      const phoneNumber = telefoneInput.value; // Assuming telefoneInput is accessible here
+      localStorage.setItem('clienteId', phoneNumber);
+
+      // Set cookie with client ID (phone number)
+      setCookie('clienteId', phoneNumber, 60); // Save for 60 days
+
+      mostrarPedidoSucessoComLogo();
+      window.location.href = `status.html?pedidoId=${pedidoId}`;
+    })
+    .catch((error) => {
+      console.error('Erro ao enviar pedido: ', error);
+    });
 }
 
 
