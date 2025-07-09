@@ -1222,3 +1222,56 @@ menuButton.addEventListener('click', () => {
     overlay.classList.add('hidden');
     scrollbar.classList.remove('opacity-25')
 });
+
+
+// cupom
+
+const cupomteste = "TESTE"; // cupom de teste para o exemplo
+
+  // cupom maiúsculo
+const cupomInput = document.getElementById('cupom');
+  if (cupomInput) {
+    cupomInput.addEventListener('input', function() {
+      this.value = this.value.toUpperCase();
+    });
+  }
+
+const applycupom = document.getElementById('apply-cupom');
+applycupom.addEventListener('click', () => {
+  const codigoDigitado = cupomInput.value.trim();
+
+  if (codigoDigitado === '') {
+    Toastify({
+      text: "Insira um cupom!",
+      duration: 3000,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "#ffc107",
+      },
+    }).showToast();
+    return;
+  }
+
+  if (codigoDigitado === cupomteste) {
+    Toastify({
+      text: "Cupom aplicado!",
+      duration: 3000,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "#22c55e", 
+      },
+    }).showToast();
+  } else {
+    Toastify({
+      text: "Cupom inválido!",
+      duration: 3000,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "#ef4444", 
+      },
+    }).showToast();
+  }
+})

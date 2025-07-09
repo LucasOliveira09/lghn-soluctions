@@ -44,6 +44,16 @@ html {
   box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3);
 }
 
+/*Cumpom em maiusculo*/
+.uppercase-input {
+  text-transform: uppercase;
+}
+
+/*PlaceHolder minusculo*/
+.uppercase-input::placeholder {
+  text-transform: none;
+}
+
 /* Estilos para os passos de status ativos */
         .status-step.active {
             background-color: #10B981; /* Tailwind green-500 */
@@ -403,6 +413,19 @@ html {
         <label for="troco" class="block font-medium mb-1">Troco para quanto?</label>
         <input type="number" id="troco" placeholder="Ex: 100.00" class="w-full border rounded-lg p-3">
         <p id="troco-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
+      </div>
+    </div>
+
+    <!-- Cupom -->
+    <div class="mb-6 border p-4 rounded-lg shadow-sm">
+      <div class="space-y-4">
+        <div>
+          <label for="cupom" class="block font-medium mb-1">Cupom de Desconto</label>
+          <div class="flex items-center gap-2">
+            <input type="text" id="cupom" placeholder="Insira seu Cupom" class="w-full border rounded-lg p-3 uppercase-input">
+            <button id="apply-cupom" class="bg-green-500 text-white px-5 py-3 rounded-lg hover:bg-green-600 transition-colors font-semibold">Aplicar</button>
+          </div>
+        </div>
       </div>
     </div>
 
