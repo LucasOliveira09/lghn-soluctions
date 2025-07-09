@@ -1238,40 +1238,62 @@ const cupomInput = document.getElementById('cupom');
 
 const applycupom = document.getElementById('apply-cupom');
 applycupom.addEventListener('click', () => {
-  const codigoDigitado = cupomInput.value.trim();
+    const codigoDigitado = cupomInput.value.trim();
+    const clienteId = telefoneInput.value.trim(); // Usa o telefone como ID do cliente
 
-  if (codigoDigitado === '') {
-    Toastify({
-      text: "Insira um cupom!",
-      duration: 3000,
-      gravity: "top",
-      position: "right",
-      style: {
-        background: "#ffc107",
-      },
-    }).showToast();
-    return;
-  }
+    if (codigoDigitado === '') {
+        Toastify({
+            text: "Insira um cupom!",
+            duration: 3000,
+            gravity: "top",
+            position: "right",
+            style: {
+                background: "#ffc107",
+            },
+        }).showToast();
+        return;
+    }
 
-  if (codigoDigitado === cupomteste) {
-    Toastify({
-      text: "Cupom aplicado!",
-      duration: 3000,
-      gravity: "top",
-      position: "right",
-      style: {
-        background: "#22c55e", 
-      },
-    }).showToast();
-  } else {
-    Toastify({
-      text: "Cupom inválido!",
-      duration: 3000,
-      gravity: "top",
-      position: "right",
-      style: {
-        background: "#ef4444", 
-      },
-    }).showToast();
-  }
-})
+    if (clienteId === '') {
+        Toastify({
+            text: "Por favor, informe seu número de telefone antes de aplicar um cupom.",
+            duration: 3000,
+            gravity: "top",
+            position: "right",
+            style: {
+                background: "#ffc107",
+            },
+        }).showToast();
+        telefoneWarn.classList.remove("hidden");
+        telefoneInput.classList.add("border-red-500");
+        return;
+    }
+
+    // Verifica no Firebase se este cliente já usou este cupom
+    database.ref(`cupons_usados/${clienteId}/${codigoDigitado}`).once('value', (snapshot) => {
+        if (snapshot.exists()) {
+            Toastify({ text: "Este cupom já foi utilizado!", duration: 3000, gravity: "top", position: "right", style: { background: "#ef4444" } }).showToast();
+        } else {
+            // Cupom não usado, verificar se é válido
+            if (codigoDigitado === cupomteste) {
+                Toastify({
+                  text: "Cupom aplicado!",
+                  duration: 3000,
+                  gravity: "top",
+                  position: "right",
+                  style: { 
+                    background: "#22c55e"
+                  },
+                }).showToast();
+                
+                // Marca o cupom como usado para este cliente no Firebase
+                // Depois trocar isso pra o cliente não perder o cupom se não quiser concluir o pedido, fazer funcionar com o botão de concluir
+                database.ref(`cupons_usados/${clienteId}/${codigoDigitado}`).set(true);
+                // add lógica para aplicar o desconto no carrinho
+
+            } else {
+                Toastify({ text: "Cupom inválido!", duration: 3000, gravity: "top", position: "right", style: { background: "#ef4444" } }).showToast();
+            }
+        }
+    });
+});
