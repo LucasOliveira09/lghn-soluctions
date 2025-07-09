@@ -1,4 +1,4 @@
-// Configuração do Firebase (mantido como está)
+// Configuração do Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
     authDomain: "cardapioweb-99e7b.firebaseapp.com",
@@ -26,23 +26,23 @@ const btnFiltrar = document.getElementById('btn-filtrar');
 const totalPedidosEl = document.getElementById('total-pedidos');
 const totalVendidoEl = document.getElementById('total-vendido');
 
-// Botões do menu
+// Botões do menu principal
 const btnAtivos = document.getElementById('btn-ativos');
 const btnFinalizados = document.getElementById('btn-finalizados');
 const btnEditarCardapio = document.getElementById('btn-editar-cardapio');
 const btnEditarHorario = document.getElementById('btn-editar-horario');
-const btnGerenciarUsuarios = document.getElementById('btn-gerenciar-usuarios'); // Novo
-const btnConfiguracoesGerais = document.getElementById('btn-configuracoes-gerais'); // Novo
-const btnRelatorios = document.getElementById('btn-relatorios'); // Novo
+const btnGerenciarUsuarios = document.getElementById('btn-gerenciar-usuarios');
+const btnConfiguracoesGerais = document.getElementById('btn-configuracoes-gerais');
+const btnRelatorios = document.getElementById('btn-relatorios');
 
 // Abas (seções)
 const abaAtivos = document.getElementById('aba-ativos');
 const abaFinalizados = document.getElementById('aba-finalizados');
 const EditarCardapio = document.getElementById('editar-cardapio');
 const editarHorario = document.getElementById('editar-horario');
-const abaGerenciarUsuarios = document.getElementById('aba-gerenciar-usuarios'); // Novo
-const abaConfiguracoesGerais = document.getElementById('aba-configuracoes-gerais'); // Novo
-const abaRelatorios = document.getElementById('aba-relatorios'); // Novo
+const abaGerenciarUsuarios = document.getElementById('aba-gerenciar-usuarios');
+const abaConfiguracoesGerais = document.getElementById('aba-configuracoes-gerais');
+const abaRelatorios = document.getElementById('aba-relatorios');
 
 const produtosRef = database.ref('produtos');
 const searchInput = document.getElementById('search-input');
@@ -53,6 +53,33 @@ const menuButton = document.getElementById('menu-button');
 const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('overlay');
 const closeSidebarButton = document.getElementById('close-sidebar-button');
+
+// Elementos para relatórios
+const relatorioDataInicio = document.getElementById('relatorio-data-inicio');
+const relatorioDataFim = document.getElementById('relatorio-data-fim');
+const btnGerarRelatorios = document.getElementById('btn-gerar-relatorios');
+
+// Containers para sumários textuais e gráficos
+const topProdutosSummary = document.getElementById('top-produtos-summary');
+const topProdutosChartCanvas = document.getElementById('top-produtos-chart');
+const vendasPorDiaSummary = document.getElementById('vendas-por-dia-summary');
+const vendasPorDiaChartCanvas = document.getElementById('vendas-por-dia-chart');
+const horariosPicoSummary = document.getElementById('horarios-pico-summary');
+const horariosPicoChartCanvas = document.getElementById('horarios-pico-chart');
+const metodosPagamentoSummary = document.getElementById('metodos-pagamento-summary');
+const metodosPagamentoChartCanvas = document.getElementById('metodos-pagamento-chart');
+
+// Botões de seleção rápida de data
+const btnUltimos7Dias = document.getElementById('btn-ultimos-7-dias');
+const btnUltimoMes = document.getElementById('btn-ultimo-mes');
+const btnUltimos3Meses = document.getElementById('btn-ultimos-3-meses');
+const btnHoje = document.getElementById('btn-hoje');
+
+// Instâncias dos gráficos
+let topProdutosChartInstance = null;
+let vendasPorDiaChartInstance = null;
+let horariosPicoChartInstance = null;
+let metodosPagamentoChartInstance = null;
 
 
 let pedidos = {};
@@ -345,8 +372,6 @@ function gerarHtmlPedido(pedido, pedidoId) {
         </div>
     </div>
     `;
-
-
 }
 
 function getStatusColor(status) {
@@ -448,13 +473,581 @@ btnConfiguracoesGerais.addEventListener('click', () => {
     overlay.classList.add('hidden');
 });
 
+// --- FUNÇÕES DE RELATÓRIOS ---
+
+// Helper function to set date inputs
+function setRelatorioDateRange(daysAgoStart = 0, daysAgoEnd = 0, monthsAgo = 0) {
+    const today = new Date();
+    let startDate = new Date(today);
+    let endDate = new Date(today);
+
+    // If monthsAgo is provided, calculate based on months
+    if (monthsAgo > 0) {
+        // For "Último Mês", calculate the first day of the previous month
+        // and the last day of the previous month.
+        if (monthsAgo === 1) {
+            startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+        }
+        // For "Últimos 3 Meses", calculate the first day of 3 months ago
+        // and the current date (inclusive).
+        else if (monthsAgo === 3) {
+            startDate = new Date(today.getFullYear(), today.getMonth() - 3, 1);
+            endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        }
+    } else { // Otherwise, calculate based on days
+        startDate.setDate(today.getDate() - daysAgoStart);
+        endDate.setDate(today.getDate() - daysAgoEnd);
+    }
+    
+    // Ensure the date is formatted correctly for input type="date"
+    const formatDate = (date) => {
+        const d = new Date(date);
+        let month = '' + (d.getMonth() + 1);
+        let day = '' + d.getDate();
+        const year = d.getFullYear();
+
+        if (month.length < 2) month = '0' + month;
+        if (day.length < 2) day = '0' + day;
+
+        return [year, month, day].join('-');
+    };
+
+    relatorioDataInicio.value = formatDate(startDate);
+    relatorioDataFim.value = formatDate(endDate);
+    
+    // Immediately generate reports after setting the dates
+    gerarRelatorios();
+}
+
+// Event Listeners for Quick Date Selectors
+btnHoje.addEventListener('click', () => {
+    setRelatorioDateRange(0, 0); // Today
+});
+
+btnUltimos7Dias.addEventListener('click', () => {
+    setRelatorioDateRange(6, 0); // Last 7 days including today
+});
+
+btnUltimoMes.addEventListener('click', () => {
+    setRelatorioDateRange(0, 0, 1); // Last full month
+});
+
+btnUltimos3Meses.addEventListener('click', () => {
+    setRelatorioDateRange(0, 0, 3); // Last 3 full months
+});
+
+
 btnRelatorios.addEventListener('click', () => {
     ativaAba(abaRelatorios, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarUsuarios, abaConfiguracoesGerais);
     estilizaBotaoAtivo(btnRelatorios, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarUsuarios, btnConfiguracoesGerais);
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
+    
+    // Default to "Últimos 7 Dias" when the reports tab is opened
+    setRelatorioDateRange(6, 0); 
 });
 
+
+// Carrega e processa os pedidos para gerar relatórios
+function gerarRelatorios() {
+    const inicio = relatorioDataInicio.value;
+    const fim = relatorioDataFim.value;
+
+    if (!inicio || !fim) {
+        alert("Por favor, selecione as datas de início e fim para gerar os relatórios.");
+        return;
+    }
+
+    const dataInicioTimestamp = new Date(inicio).setHours(0, 0, 0, 0);
+    const dataFimTimestamp = new Date(fim).setHours(23, 59, 59, 999);
+
+    if (dataInicioTimestamp > dataFimTimestamp) {
+        alert("A data de início não pode ser posterior à data de fim.");
+        return;
+    }
+
+    // Destruir instâncias de gráficos anteriores para evitar sobreposição
+    if (topProdutosChartInstance) topProdutosChartInstance.destroy();
+    if (vendasPorDiaChartInstance) vendasPorDiaChartInstance.destroy();
+    if (horariosPicoChartInstance) horariosPicoChartInstance.destroy();
+    if (metodosPagamentoChartInstance) metodosPagamentoChartInstance.destroy();
+
+    // Resetar containers de relatórios e sumários
+    topProdutosSummary.innerHTML = '<p class="text-gray-600">Carregando...</p>';
+    vendasPorDiaSummary.innerHTML = '<p class="text-gray-600">Carregando...</p>';
+    horariosPicoSummary.innerHTML = '<p class="text-gray-600">Carregando...</p>';
+    metodosPagamentoSummary.innerHTML = '<p class="text-gray-600">Carregando...</p>';
+    
+    // Esconder canvases enquanto carrega ou se não houver dados
+    topProdutosChartCanvas.style.display = 'none';
+    vendasPorDiaChartCanvas.style.display = 'none';
+    horariosPicoChartCanvas.style.display = 'none';
+    metodosPagamentoChartCanvas.style.display = 'none';
+
+
+    database.ref('pedidos').orderByChild('timestamp').once('value', (snapshot) => { // Usar .once() para buscar os dados uma vez
+        const pedidosNoPeriodo = [];
+        snapshot.forEach(childSnapshot => {
+            const pedido = childSnapshot.val();
+            if (pedido.status === 'Finalizado' && pedido.timestamp >= dataInicioTimestamp && pedido.timestamp <= dataFimTimestamp) {
+                pedidosNoPeriodo.push(pedido);
+            }
+        });
+
+        if (pedidosNoPeriodo.length === 0) {
+            topProdutosSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
+            vendasPorDiaSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
+            horariosPicoSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
+            metodosPagamentoSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
+            
+            topProdutosChartCanvas.style.display = 'none';
+            vendasPorDiaChartCanvas.style.display = 'none';
+            horariosPicoChartCanvas.style.display = 'none';
+            metodosPagamentoChartCanvas.style.display = 'none';
+            return;
+        }
+
+        analisarProdutosMaisVendidos(pedidosNoPeriodo);
+        analisarVendasPorDiaDaSemana(pedidosNoPeriodo);
+        analisarHorariosDePico(pedidosNoPeriodo);
+        analisarMetodosDePagamento(pedidosNoPeriodo);
+    }, (error) => {
+        console.error("Erro ao carregar pedidos para relatórios:", error);
+        topProdutosSummary.innerHTML = '<p class="text-red-600">Erro ao carregar dados.</p>';
+        vendasPorDiaSummary.innerHTML = '<p class="text-red-600">Erro ao carregar dados.</p>';
+        horariosPicoSummary.innerHTML = '<p class="text-red-600">Erro ao carregar dados.</p>';
+        metodosPagamentoSummary.innerHTML = '<p class="text-red-600">Erro ao carregar dados.</p>';
+        
+        topProdutosChartCanvas.style.display = 'none';
+        vendasPorDiaChartCanvas.style.display = 'none';
+        horariosPicoChartCanvas.style.display = 'none';
+        metodosPagamentoChartCanvas.style.display = 'none';
+    });
+}
+
+function analisarProdutosMaisVendidos(pedidos) {
+    const contagemProdutos = {};
+
+    pedidos.forEach(pedido => {
+        if (pedido.cart && Array.isArray(pedido.cart)) {
+            pedido.cart.forEach(item => {
+                const nomeProduto = item.name;
+                const quantidade = item.quantity;
+                contagemProdutos[nomeProduto] = (contagemProdutos[nomeProduto] || 0) + quantidade;
+            });
+        }
+    });
+
+    const produtosOrdenados = Object.entries(contagemProdutos)
+        .sort(([, qtdA], [, qtdB]) => qtdB - qtdA)
+        .slice(0, 5); // Pegar os 5 mais vendidos
+
+    topProdutosSummary.innerHTML = '';
+    if (produtosOrdenados.length > 0) {
+        topProdutosChartCanvas.style.display = 'block';
+        const labels = produtosOrdenados.map(item => item[0]);
+        const data = produtosOrdenados.map(item => item[1]);
+
+        topProdutosChartInstance = new Chart(topProdutosChartCanvas, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Unidades Vendidas',
+                    data: data,
+                    backgroundColor: [
+                        'rgba(75, 192, 192, 0.8)', // Cor 1
+                        'rgba(54, 162, 235, 0.8)', // Cor 2
+                        'rgba(255, 206, 86, 0.8)', // Cor 3
+                        'rgba(153, 102, 255, 0.8)', // Cor 4
+                        'rgba(255, 99, 132, 0.8)'  // Cor 5
+                    ],
+                    borderColor: [
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(153, 102, 255, 1)',
+                        'rgba(255, 99, 132, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false, // ESSA É A PROPRIEDADE CHAVE
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            display: false // Esconde as linhas de grade do eixo Y
+                        },
+                        ticks: {
+                            precision: 0 // Garante números inteiros
+                        },
+                        title: {
+                            display: false // Esconde o título do eixo Y
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false // Esconde as linhas de grade do eixo X
+                        },
+                        title: {
+                            display: false // Esconde o título do eixo X
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false // Esconde a legenda
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ': ' + context.raw + ' unidades';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        topProdutosSummary.innerHTML = `<p>Os 5 produtos mais vendidos totalizaram **${data.reduce((a, b) => a + b, 0)} unidades**.</p>`;
+    } else {
+        topProdutosSummary.innerHTML = '<p class="text-gray-600">Nenhum produto vendido no período.</p>';
+        topProdutosChartCanvas.style.display = 'none';
+    }
+}
+
+function analisarVendasPorDiaDaSemana(pedidos) {
+    const vendasPorDia = {
+        0: 0, // Domingo
+        1: 0, // Segunda
+        2: 0, // Terça
+        3: 0, // Quarta
+        4: 0, // Quinta
+        5: 0, // Sexta
+        6: 0 // Sábado
+    };
+    const nomesDias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]; // Nomes mais curtos
+
+    pedidos.forEach(pedido => {
+        const data = new Date(pedido.timestamp);
+        const diaSemana = data.getDay();
+        vendasPorDia[diaSemana] = (vendasPorDia[diaSemana] || 0) + 1;
+    });
+
+    const diasParaGrafico = nomesDias.map((name, index) => ({
+        day: name,
+        count: vendasPorDia[index] || 0
+    }));
+
+    const diasOrdenadosParaResumo = Object.entries(vendasPorDia)
+        .filter(([, count]) => count > 0)
+        .sort(([, countA], [, countB]) => countB - countA);
+
+    vendasPorDiaSummary.innerHTML = '';
+    if (diasParaGrafico.some(d => d.count > 0)) {
+        vendasPorDiaChartCanvas.style.display = 'block';
+        const labels = diasParaGrafico.map(item => item.day);
+        const data = diasParaGrafico.map(item => item.count);
+
+        vendasPorDiaChartInstance = new Chart(vendasPorDiaChartCanvas, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Pedidos',
+                    data: data,
+                    backgroundColor: 'rgba(153, 102, 255, 0.8)',
+                    borderColor: 'rgba(153, 102, 255, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false, // ESSA É A PROPRIEDADE CHAVE
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            precision: 0
+                        },
+                        title: {
+                            display: false
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        title: {
+                            display: false
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ': ' + context.raw + ' pedidos';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (diasOrdenadosParaResumo.length > 0) {
+            const topDay = nomesDias[parseInt(diasOrdenadosParaResumo[0][0])];
+            const topCount = diasOrdenadosParaResumo[0][1];
+            vendasPorDiaSummary.innerHTML = `<p>O dia com mais vendas foi **${topDay}** com **${topCount} pedidos**.</p>`;
+        } else {
+             vendasPorDiaSummary.innerHTML = '<p class="text-gray-600">Nenhum dado de vendas por dia.</p>';
+        }
+
+    } else {
+        vendasPorDiaSummary.innerHTML = '<p class="text-gray-600">Nenhum dado de vendas por dia.</p>';
+        vendasPorDiaChartCanvas.style.display = 'none';
+    }
+}
+
+function analisarHorariosDePico(pedidos) {
+    const pedidosPorHora = {};
+    for (let i = 0; i < 24; i++) {
+        pedidosPorHora[i] = 0;
+    }
+
+    pedidos.forEach(pedido => {
+        const data = new Date(pedido.timestamp);
+        const hora = data.getHours();
+        pedidosPorHora[hora] = (pedidosPorHora[hora] || 0) + 1;
+    });
+
+    const horariosOrdenados = Object.entries(pedidosPorHora)
+        .sort(([horaA, ], [horaB, ]) => parseInt(horaA) - parseInt(horaB));
+
+    horariosPicoSummary.innerHTML = '';
+    if (horariosOrdenados.some(h => h[1] > 0)) {
+        horariosPicoChartCanvas.style.display = 'block';
+        const labels = horariosOrdenados.map(item => `${item[0]}h`);
+        const data = horariosOrdenados.map(item => item[1]);
+
+        horariosPicoChartInstance = new Chart(horariosPicoChartCanvas, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Pedidos',
+                    data: data,
+                    backgroundColor: 'rgba(255, 159, 64, 0.8)',
+                    borderColor: 'rgba(255, 159, 64, 1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 3,
+                    pointBackgroundColor: 'rgba(255, 159, 64, 1)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false, // ESSA É A PROPRIEDADE CHAVE
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            precision: 0
+                        },
+                        title: {
+                            display: false
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        title: {
+                            display: false
+                        },
+                        ticks: {
+                            autoSkip: true,
+                            maxTicksLimit: 12
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ': ' + context.raw + ' pedidos';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        const topHorario = horariosOrdenados.reduce((prev, current) => (prev[1] > current[1] ? prev : current), ["0", 0]);
+        if (topHorario[1] > 0) {
+            horariosPicoSummary.innerHTML = `<p>O horário de pico foi entre **${topHorario[0]}h e ${parseInt(topHorario[0]) + 1}h** com **${topHorario[1]} pedidos**.</p>`;
+        } else {
+             horariosPicoSummary.innerHTML = '<p class="text-gray-600">Nenhum dado de horário de pico.</p>';
+        }
+
+    } else {
+        horariosPicoSummary.innerHTML = '<p class="text-gray-600">Nenhum dado de horário de pico.</p>';
+        horariosPicoChartCanvas.style.display = 'none';
+    }
+}
+
+function analisarMetodosDePagamento(pedidos) {
+    const contagemMetodos = {};
+
+    pedidos.forEach(pedido => {
+        const metodo = pedido.pagamento || 'Desconhecido';
+        contagemMetodos[metodo] = (contagemMetodos[metodo] || 0) + 1;
+    });
+
+    const metodosOrdenados = Object.entries(contagemMetodos)
+        .sort(([, qtdA], [, qtdB]) => qtdB - qtdA);
+
+    metodosPagamentoSummary.innerHTML = '';
+    if (metodosOrdenados.length > 0) {
+        metodosPagamentoChartCanvas.style.display = 'block';
+        const labels = metodosOrdenados.map(item => item[0]);
+        const data = metodosOrdenados.map(item => item[1]);
+
+        metodosPagamentoChartInstance = new Chart(metodosPagamentoChartCanvas, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.8)', // Vermelho (Pix)
+                        'rgba(54, 162, 235, 0.8)', // Azul (Cartão)
+                        'rgba(255, 206, 86, 0.8)', // Amarelo (Dinheiro)
+                        'rgba(75, 192, 192, 0.8)',
+                        'rgba(153, 102, 255, 0.8)'
+                    ],
+                    borderColor: '#ffffff',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false, // ESSA É A PROPRIEDADE CHAVE
+                plugins: {
+                    legend: {
+                        position: 'right', // Mova a legenda para a direita para um visual mais limpo
+                        labels: {
+                            boxWidth: 20,
+                            padding: 15
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed !== null) {
+                                    const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+                                    const percentage = ((context.parsed / total) * 100).toFixed(1) + '%';
+                                    label += context.parsed + ' pedidos (' + percentage + ')';
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        metodosPagamentoSummary.innerHTML = `<p>O método de pagamento mais usado é **${labels[0]}**.</p>`;
+    } else {
+        metodosPagamentoSummary.innerHTML = '<p class="text-gray-600">Nenhum dado de método de pagamento.</p>';
+        metodosPagamentoChartCanvas.style.display = 'none';
+    }
+}
+
+function setRelatorioDateRange(daysAgoStart = 0, daysAgoEnd = 0, monthsAgo = 0) {
+    const today = new Date();
+    let startDate = new Date(today);
+    let endDate = new Date(today);
+
+    if (monthsAgo > 0) {
+        if (monthsAgo === 1) {
+            startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+        } else if (monthsAgo === 3) {
+            startDate = new Date(today.getFullYear(), today.getMonth() - 3, 1);
+            endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        }
+    } else {
+        startDate.setDate(today.getDate() - daysAgoStart);
+        endDate.setDate(today.getDate() - daysAgoEnd);
+    }
+    
+    const formatDate = (date) => {
+        const d = new Date(date);
+        let month = '' + (d.getMonth() + 1);
+        let day = '' + d.getDate();
+        const year = d.getFullYear();
+
+        if (month.length < 2) month = '0' + month;
+        if (day.length < 2) day = '0' + day;
+
+        return [year, month, day].join('-');
+    };
+
+    relatorioDataInicio.value = formatDate(startDate);
+    relatorioDataFim.value = formatDate(endDate);
+    
+    gerarRelatorios();
+}
+
+btnGerarRelatorios.addEventListener('click', gerarRelatorios);
+
+btnUltimos7Dias.addEventListener('click', () => {
+    setRelatorioDateRange(6, 0);
+});
+
+btnUltimoMes.addEventListener('click', () => {
+    setRelatorioDateRange(0, 0, 1);
+});
+
+btnUltimos3Meses.addEventListener('click', () => {
+    setRelatorioDateRange(0, 0, 3);
+});
+
+btnHoje.addEventListener('click', () => {
+    setRelatorioDateRange(0, 0);
+});
+
+
+btnRelatorios.addEventListener('click', () => {
+    ativaAba(abaRelatorios, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarUsuarios, abaConfiguracoesGerais);
+    estilizaBotaoAtivo(btnRelatorios, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarUsuarios, btnConfiguracoesGerais);
+    sidebar.classList.add('-translate-x-full');
+    overlay.classList.add('hidden');
+    
+    setRelatorioDateRange(6, 0); 
+});
 
 // Função para inicializar a aba ativa e o estilo do botão
 btnAtivos.click();
@@ -587,13 +1180,8 @@ function imprimirPedido(pedidoId) {
 }
 
 function atualizarPromocao() {
-    // Esta função parece estar buscando o status de 'pedidosRef' e colocando em 'pedido-status'.
-    // Se 'pedido-status' é um elemento no painel, e você quer o status de um pedido específico,
-    // precisaria de um pedidoId aqui. Se for um status geral, ok.
-    // Mantenho como está, mas é bom revisar o propósito.
     pedidosRef.on('value', function(snapshot) {
-        var status = snapshot.val(); // Isso pegaria todos os pedidos, não um status específico.
-        // document.getElementById('pedido-status').innerText = status || 'Sem status ainda'; // Provavelmente não é o que você quer aqui.
+        var status = snapshot.val();
     });
 }
 
@@ -614,7 +1202,7 @@ if (imagemUrlInput && imagemPreview) { // Verifica se os elementos existem antes
 }
 
 
-document.getElementById('promoForm')?.addEventListener('submit', function(e) { // Adicionado '?' para null check
+document.getElementById('promoForm')?.addEventListener('submit', function(e) {
     e.preventDefault();
 
     const titulo = document.getElementById('titulo').value.trim();
@@ -675,13 +1263,11 @@ function renderizarItensModal(itens) {
         `;
     });
 
-
-    // Atualizar listener
     document.getElementById('btn-salvar-pedido').onclick = salvarPedidoEditado;
 }
 
 // Adicionar novo item
-document.getElementById('btn-adicionar-item')?.addEventListener('click', () => { // Adicionado '?' para null check
+document.getElementById('btn-adicionar-item')?.addEventListener('click', () => {
     const nome = document.getElementById('novo-item-nome').value.trim();
     const preco = parseFloat(document.getElementById('novo-item-preco').value);
     const qtd = parseInt(document.getElementById('novo-item-quantidade').value, 10);
