@@ -106,6 +106,12 @@
                 class="py-3 px-4 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-600 transition w-full text-left">
                 <i class="fas fa-chart-line mr-2"></i> Relatórios
             </button>
+
+            <!--Add Cupom -->
+            <button id="btn-gerenciar-cupom"
+                class="py-3 px-4 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-600 transition w-full text-left">
+                <i class="fa-solid fa-ticket-simple"></i> Gerenciar Cupons
+            </button>
         </div>
     </div>
 
@@ -553,6 +559,49 @@
                             <canvas id="metodos-pagamento-chart"></canvas>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!--Cupons-->
+            <div id="aba-gerenciar-cupom" class="hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2 border-gray-300">Editar Cupons</h2>
+                <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                    <h3 class="text-xl font-semibold mb-4 text-gray-700">Cadastrar Novo Cupom</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="cupom-codigo" class="block text-sm font-medium text-gray-700">Código do Cupom:</label>
+                            <input type="text" id="cupom-codigo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 uppercase-input" placeholder="EX: DESCONTO">
+                        </div>
+                        <div>
+                            <label for="cupom-valor" class="block text-sm font-medium text-gray-700">Valor do Desconto (% ou R$):</label>
+                            <input type="number" id="cupom-valor" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="10.00">
+                        </div>
+                        <div>
+                            <label for="cupom-tipo" class="block text-sm font-medium text-gray-700">Tipo de Desconto:</label>
+                            <select id="cupom-tipo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                <option value="porcentagem">Porcentagem (%)</option>
+                                <option value="valor">Valor Fixo (R$)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="cupom-min-valor" class="block text-sm font-medium text-gray-700">Valor Mínimo do Pedido (opcional):</label>
+                            <input type="number" id="cupom-min-valor" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500" placeholder="Ex 10.00">
+                        </div>
+                        <div>
+                            <label for="validade-cupom" class="block text-sm font-medium text-gray-700">Validade do Cupom:</label>
+                            <input type="date" id="validade-cupom" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500" placeholder="00/00/0000">
+                        </div>
+                    </div>
+                    <div class="flex justify-end mt-4">
+                        <button id="btn-salvar-cupom" class="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700">
+                            Salvar Cupom
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <h3 class="text-xl font-semibold mb-4 text-gray-700">Cupons Cadastrados</h3>
+                    <div id="lista-cupons-container" class="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"></div>
                 </div>
             </div>
         </div>

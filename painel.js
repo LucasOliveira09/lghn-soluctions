@@ -17,6 +17,8 @@ const pedidosRef = database.ref('pedidos');
 const promocoesRef = firebase.database().ref('promocoes');
 // Nova referência para as mesas
 const mesasRef = database.ref('mesas');
+// Referência para cupons
+const cuponsRef = database.ref('cupons');
 
 const pedidosAtivosContainer = document.getElementById('pedidos-ativos-container');
 const pedidosFinalizadosContainer = document.getElementById('pedidos-finalizados-container');
@@ -36,6 +38,7 @@ const btnEditarHorario = document.getElementById('btn-editar-horario');
 const btnGerenciarMesas = document.getElementById('btn-gerenciar-mesas'); // Renomeado
 const btnConfiguracoesGerais = document.getElementById('btn-configuracoes-gerais');
 const btnRelatorios = document.getElementById('btn-relatorios');
+const btnGerenciarCupom = document.getElementById('btn-gerenciar-cupom');
 
 // Abas (seções)
 const abaAtivos = document.getElementById('aba-ativos');
@@ -76,6 +79,16 @@ let topProdutosChartInstance = null;
 let vendasPorDiaChartInstance = null;
 let horariosPicoChartInstance = null;
 let metodosPagamentoChartInstance = null;
+
+// Elementos para Gerenciar Cupons
+const abaGerenciarCupom = document.getElementById('aba-gerenciar-cupom');
+const btnSalvarCupom = document.getElementById('btn-salvar-cupom');
+const cupomCodigoInput = document.getElementById('cupom-codigo');
+const cupomValorInput = document.getElementById('cupom-valor');
+const cupomTipoSelect = document.getElementById('cupom-tipo');
+const cupomMinValorInput = document.getElementById('cupom-min-valor');
+const validadeCupomInput = document.getElementById('validade-cupom');
+const listaCuponsContainer = document.getElementById('lista-cupons-container');
 
 
 // NOVOS ELEMENTOS para Gerenciamento de Mesas (no painel ADMIN)
@@ -503,6 +516,15 @@ btnConfiguracoesGerais.addEventListener('click', () => {
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
 });
+
+btnGerenciarCupom.addEventListener('click', () => {
+    ativaAba(abaGerenciarCupom, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios);
+    estilizaBotaoAtivo(btnGerenciarCupom, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios);
+    sidebar.classList.add('-translate-x-full');
+    overlay.classList.add('hidden');
+    carregarCupons(); // Carrega os cupons
+});
+
 
 // --- FUNÇÕES DE RELATÓRIOS ---
 
@@ -2179,6 +2201,135 @@ btnFinalizarContaMesa.addEventListener('click', () => {
                     alert("Erro ao finalizar conta da mesa.");
                 });
         });
+    }
+});
+
+// Cupons
+
+btnSalvarCupom.addEventListener('click', () => {
+    const codigo = cupomCodigoInput.value.trim().toUpperCase();
+    const valor = parseFloat(cupomValorInput.value);
+    const tipo = cupomTipoSelect.value;
+    const valorMinimo = parseFloat(cupomMinValorInput.value) || 0;
+    const validade = validadeCupomInput.value;
+
+    if (!codigo) {
+        alert("O código do cupom é obrigatório.");
+        return;
+    }
+    if (isNaN(valor) || valor <= 0) {
+        alert("O valor do desconto deve ser um número positivo.");
+        return;
+    }
+    if (!validade) {
+        alert("A data de validade é obrigatória.");
+        return;
+    }
+
+    const cupomData = {
+        codigo: codigo,
+        valor: valor,
+        tipo: tipo,
+        valorMinimo: valorMinimo,
+        validade: new Date(validade).getTime() + (23 * 60 * 60 * 1000 + 59 * 60 * 1000), // Fim do dia
+        ativo: true,
+        usos: 0
+    };
+
+    cuponsRef.child(codigo).set(cupomData)
+        .then(() => {
+            alert(`Cupom "${codigo}" salvo com sucesso!`);
+            // Limpar formulário
+            cupomCodigoInput.value = '';
+            cupomValorInput.value = '';
+            cupomMinValorInput.value = '';
+            validadeCupomInput.value = '';
+        })
+        .catch(error => {
+            console.error("Erro ao salvar cupom:", error);
+            alert("Erro ao salvar cupom: " + error.message);
+        });
+});
+
+// Carrega e exibe os cupons na lista
+function carregarCupons() {
+    cuponsRef.on('value', (snapshot) => {
+        const cupons = snapshot.val();
+        listaCuponsContainer.innerHTML = '';
+
+        if (!cupons) {
+            listaCuponsContainer.innerHTML = '<p class="text-gray-600 col-span-full text-center">Nenhum cupom cadastrado.</p>';
+            return;
+        }
+
+        Object.entries(cupons).forEach(([codigo, cupom]) => {
+            const cupomDiv = document.createElement('div');
+            cupomDiv.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col justify-between';
+
+            const validadeDate = new Date(cupom.validade);
+            const hoje = new Date();
+            hoje.setHours(0, 0, 0, 0);
+            const expirado = validadeDate < hoje;
+
+            const statusClass = cupom.ativo && !expirado ? 'text-green-600' : 'text-red-600';
+            const statusText = expirado ? 'Expirado' : (cupom.ativo ? 'Ativo' : 'Inativo');
+            const valorTexto = cupom.tipo === 'porcentagem' ? `${cupom.valor}%` : `R$ ${cupom.valor.toFixed(2)}`;
+
+            cupomDiv.innerHTML = `
+                <div class="flex-grow">
+                    <h3 class="text-lg font-semibold text-gray-800">${cupom.codigo}</h3>
+                    <p class="text-gray-700">Desconto: <strong>${valorTexto}</strong></p>
+                    <p class="text-gray-700">Validade: <strong>${new Date(cupom.validade).toLocaleDateString()}</strong></p>
+                    ${cupom.valorMinimo > 0 ? `<p class="text-gray-700">Pedido Mínimo: <strong>R$ ${cupom.valorMinimo.toFixed(2)}</strong></p>` : ''}
+                    <p class="text-gray-700">Usos: <strong>${cupom.usos || 0}</strong></p>
+                    <p class="font-medium ${statusClass}">Status: ${statusText}</p>
+                </div>
+                <div class="flex gap-2 mt-4">
+                    <button class="btn-toggle-ativo bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm flex-1" data-codigo="${codigo}" data-ativo="${cupom.ativo}">
+                        ${cupom.ativo ? 'Desativar' : 'Ativar'}
+                    </button>
+                    <button class="btn-excluir-cupom bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm flex-1" data-codigo="${codigo}">
+                        Excluir
+                    </button>
+                </div>
+            `;
+
+            listaCuponsContainer.appendChild(cupomDiv);
+        });
+    });
+}
+
+// Ativa e exclui
+listaCuponsContainer.addEventListener('click', (e) => {
+    const toggleButton = e.target.closest('.btn-toggle-ativo');
+    const deleteButton = e.target.closest('.btn-excluir-cupom');
+
+    if (toggleButton) {
+        const codigo = toggleButton.dataset.codigo;
+        const ativo = toggleButton.dataset.ativo === 'true';
+        cuponsRef.child(codigo).update({ ativo: !ativo })
+            .then(() => alert(`Status do cupom ${codigo} alterado!`))
+            .catch(error => alert("Erro ao atualizar status do cupom: " + error.message));
+    }
+
+    if (deleteButton) {
+        const codigo = deleteButton.dataset.codigo;
+        if (confirm(`Deseja realmente excluir o cupom ${codigo}?`)) {
+            cuponsRef.child(codigo).remove()
+                .then(() => alert(`Cupom ${codigo} excluído com sucesso!`))
+                .catch(error => alert("Erro ao excluir cupom: " + error.message));
+        }
+    }
+});
+
+// Input do cupom em maiúsculo
+document.addEventListener('input', (event) => {
+    if (event.target.classList.contains('uppercase-input')) {
+        const input = event.target;
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        input.value = input.value.toUpperCase();
+        input.setSelectionRange(start, end); // Mantém a posição do cursor
     }
 });
 
