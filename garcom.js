@@ -1,23 +1,23 @@
-// Firebase Configuration (Replace with your actual config)
+// Configuração do Firebase (SUBSTITUA PELAS SUAS CREDENCIAIS REAIS)
 const firebaseConfig = {
-    apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
-    authDomain: "cardapioweb-99e7b.firebaseapp.com",
-    databaseURL: "https://cardapioweb-99e7b-default-rtdb.firebaseio.com",
-    projectId: "cardapioweb-99e7b",
-    storageBucket: "cardapioweb-99e7b.firebasestorage.app",
-    messagingSenderId: "110849299422",
-    appId: "1:110849299422:web:60285eb408825c3ff9434f",
-    measurementId: "G-QP7K16G4NM"
+  apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
+  authDomain: "cardapioweb-99e7b.firebaseapp.com",
+  databaseURL: "https://cardapioweb-99e7b-default-rtdb.firebaseio.com",
+  projectId: "cardapioweb-99e7b",
+  storageBucket: "cardapioweb-99e7b.firebasestorage.app",
+  messagingSenderId: "110849299422",
+  appId: "1:110849299422:web:60285eb408825c3ff9434f",
+  measurementId: "G-QP7K16G4NM"
 };
 
-// Initialize Firebase
+// Inicializa Firebase
 firebase.initializeApp(firebaseConfig);
 
 const database = firebase.database();
 const mesasRef = database.ref('mesas');
 const produtosRef = database.ref('produtos');
 
-// HTML Elements
+// Elementos HTML
 const loginScreen = document.getElementById('login-screen');
 const garcomNameInput = document.getElementById('garcom-name-input');
 const accessPanelBtn = document.getElementById('access-panel-btn');
@@ -42,64 +42,80 @@ const orderObservationsInput = document.getElementById('order-observations');
 const sendOrderBtn = document.getElementById('send-order-btn');
 
 let currentWaiterName = '';
-let currentSelectedTable = null; // Stores the Firebase key of the selected table
-let currentTableData = null;    // Stores the full data of the selected table
-let allProducts = {};           // Stores all products fetched from Firebase
-let currentOrderCart = [];      // Local cart for the selected table's order
-let selectedOrderItemIndex = -1; // Index of the selected item in currentOrderCart for quantity/remove actions
+let currentSelectedTable = null; // Chave Firebase da mesa selecionada (número da mesa)
+let currentTableData = null;    // Dados completos da mesa selecionada do Firebase
+let allProducts = {};           // Todos os produtos ativos carregados do Firebase
+let currentOrderCart = [];      // Carrinho local para o pedido da mesa (array de {nome, preco, quantidade})
+let selectedOrderItemIndex = -1; // Índice do item selecionado no currentOrderCart para ações de quantidade/remover
 
-// --- Login Functionality ---
+const WAITER_NAME_STORAGE_KEY = 'garcomName'; // Chave para armazenar o nome do garçom no localStorage
+
+// --- Funcionalidade de Login ---
 accessPanelBtn.addEventListener('click', () => {
     const name = garcomNameInput.value.trim();
     if (name) {
         currentWaiterName = name;
-        waiterNameDisplay.value = name; // Set waiter name in the order section
-        loginScreen.classList.add('hidden');
-        mainPanel.classList.remove('hidden');
-        loadAllProducts(); // Load products once logged in
+        localStorage.setItem(WAITER_NAME_STORAGE_KEY, name); // Salva o nome no armazenamento local
+        waiterNameDisplay.value = name; // Define o nome do garçom na seção de pedido
+        loginScreen.classList.add('hidden'); // Esconde a tela de login
+        mainPanel.classList.remove('hidden'); // Mostra o painel principal
+        loadAllProducts(); // Carrega os produtos assim que o login é feito
     } else {
         alert('Por favor, digite seu nome.');
     }
 });
 
-// --- Real-time Table Monitoring ---
+// Auto-preenchimento e auto-acesso se o nome estiver salvo
+document.addEventListener('DOMContentLoaded', () => {
+    const savedWaiterName = localStorage.getItem(WAITER_NAME_STORAGE_KEY);
+    if (savedWaiterName) {
+        garcomNameInput.value = savedWaiterName;
+        accessPanelBtn.click(); // Simula o clique para auto-acessar
+    } else {
+        loginScreen.classList.remove('hidden');
+        mainPanel.classList.add('hidden');
+    }
+});
+
+// --- Monitoramento de Mesas em Tempo Real ---
 mesasRef.on('value', (snapshot) => {
     const mesasData = snapshot.val() || {};
-    renderMesas(mesasData);
+    renderMesas(mesasData); // Re-renderiza as mesas sempre que os dados mudam
 
-    // If a table is currently selected, refresh its data in the order section
+    // Se uma mesa estiver selecionada, atualiza seus dados na seção de pedido
     if (currentSelectedTable) {
         const updatedTableData = mesasData[currentSelectedTable];
         if (updatedTableData) {
             currentTableData = updatedTableData;
-            renderOrderSection(currentTableData);
+            renderOrderSection(currentTableData); // Re-renderiza a seção do pedido
         } else {
-            // Selected table no longer exists (e.g., deleted from admin panel)
+            // Mesa selecionada não existe mais (ex: removida ou liberada pelo painel admin)
             resetOrderSection();
+            alert('A mesa selecionada foi removida ou liberada por outro usuário.');
         }
     }
 });
 
-// --- Product Loading and Search ---
+// --- Carregamento e Pesquisa de Produtos ---
 function loadAllProducts() {
     produtosRef.on('value', (snapshot) => {
-        allProducts = {}; // Reset products
+        allProducts = {}; // Reseta os produtos
         const categories = new Set();
-        categories.add('all'); // Add default 'Todas as Categorias'
+        categories.add('all'); // Adiciona a categoria padrão 'Todas as Categorias'
 
         snapshot.forEach(categorySnap => {
-            const categoryName = categorySnap.key; // e.g., 'pizzas', 'bebidas'
+            const categoryName = categorySnap.key; // Ex: 'pizzas', 'bebidas'
             categories.add(categoryName);
             categorySnap.forEach(productSnap => {
                 const product = productSnap.val();
-                if (product.ativo) { // Only load active products
+                if (product.ativo) { // Carrega apenas produtos ativos
                     allProducts[productSnap.key] = { ...product, category: categoryName, id: productSnap.key };
                 }
             });
         });
         
-        renderProductCategories(Array.from(categories));
-        filterAndRenderProducts(); // Initial render of products
+        renderProductCategories(Array.from(categories)); // Renderiza as categorias no dropdown
+        filterAndRenderProducts(); // Renderiza inicialmente os produtos filtrados
     });
 }
 
@@ -137,7 +153,7 @@ function filterAndRenderProducts() {
 
     productsToDisplay.forEach(product => {
         const productCard = document.createElement('div');
-        productCard.className = 'bg-blue-100 p-2 rounded-lg shadow-sm text-center cursor-pointer hover:bg-blue-200 transition';
+        productCard.className = 'product-item bg-blue-100 hover:bg-blue-200'; // Aplica o estilo de item de produto
         productCard.innerHTML = `
             <p class="font-semibold text-blue-800">${product.nome || product.titulo}</p>
             <p class="text-sm text-blue-600">R$ ${product.preco.toFixed(2)}</p>
@@ -150,7 +166,7 @@ function filterAndRenderProducts() {
 productSearchInput.addEventListener('input', filterAndRenderProducts);
 productCategorySelect.addEventListener('change', filterAndRenderProducts);
 
-// --- Table Grid Rendering ---
+// --- Renderização do Grid de Mesas ---
 function renderMesas(mesasData) {
     mesasGrid.innerHTML = '';
     const sortedMesas = Object.values(mesasData).sort((a, b) => a.numero - b.numero);
@@ -159,7 +175,7 @@ function renderMesas(mesasData) {
         const statusClass = mesa.status === 'Livre' ? 'table-status-free' : 'table-status-occupied';
         const card = document.createElement('div');
         card.className = `table-card bg-white p-4 rounded-lg shadow-md border-2 text-center flex flex-col items-center justify-center ${statusClass}`;
-        card.dataset.mesaKey = mesa.numero; // Use mesa.numero as key for selection
+        card.dataset.mesaKey = mesa.numero; // Usa o número da mesa como chave para seleção
 
         let occupiedInfo = '';
         if (mesa.status !== 'Livre') {
@@ -181,9 +197,9 @@ function renderMesas(mesasData) {
     });
 }
 
-// --- Table Selection and Order Section Display ---
+// --- Seleção de Mesa e Exibição da Seção de Pedido ---
 function selectTable(mesaNumero, mesaData) {
-    // Visually mark selected table
+    // Marca visualmente a mesa selecionada
     document.querySelectorAll('.table-card').forEach(card => {
         card.classList.remove('border-blue-500', 'ring-2', 'ring-blue-500');
     });
@@ -202,39 +218,38 @@ function selectTable(mesaNumero, mesaData) {
 }
 
 function renderOrderSection(mesaData) {
-    // Populate client and waiter fields
+    // Preenche os campos de cliente e garçom
     clientNameInput.value = mesaData.cliente || '';
-    waiterNameDisplay.value = mesaData.garcom || currentWaiterName; // Default to logged in waiter name
+    waiterNameDisplay.value = mesaData.garcom || currentWaiterName; // Padrão para o nome do garçom logado
 
-    // Populate order items
-    currentOrderCart = mesaData.pedido ? [...mesaData.pedido] : []; // Create a copy
-    renderCurrentOrderItems();
+    // Preenche os itens do pedido
+    currentOrderCart = mesaData.pedido ? [...mesaData.pedido] : []; // Cria uma cópia do array
+    renderCurrentOrderItems(); // Renderiza os itens no carrinho atual
 
-    // Populate observations
+    // Preenche as observações
     orderObservationsInput.value = mesaData.observacoes || '';
 
-    // Update total
+    // Atualiza o total
     updateOrderTotal();
 
-    // If it's a new order (table is free), set client and waiter inputs editable
+    // Se for um novo pedido (mesa livre), permite editar o nome do cliente
     if (mesaData.status === 'Livre') {
         clientNameInput.readOnly = false;
-        // waiterNameDisplay is always set, but can be manually changed by waiter if needed for new order
     } else {
-        // If table is occupied, client and waiter names are generally fixed
+        // Se a mesa estiver ocupada, o nome do cliente geralmente é fixo
         clientNameInput.readOnly = true;
     }
 }
 
 function renderCurrentOrderItems() {
     currentOrderItemsContainer.innerHTML = '';
-    // selectedOrderItemIndex = -1; // Don't reset here, selection might come from a click
 
     if (currentOrderCart.length === 0) {
         emptyOrderMessage.classList.remove('hidden');
         decreaseQuantityBtn.disabled = true;
         increaseQuantityBtn.disabled = true;
         removeItemBtn.disabled = true;
+        selectedOrderItemIndex = -1; // Desseleciona se o carrinho ficar vazio
         return;
     } else {
         emptyOrderMessage.classList.add('hidden');
@@ -242,18 +257,18 @@ function renderCurrentOrderItems() {
 
     currentOrderCart.forEach((item, index) => {
         const itemDiv = document.createElement('div');
-        // Add highlight class if it's the selected item
-        itemDiv.className = `flex justify-between items-center p-2 rounded border border-gray-200 cursor-pointer hover:bg-gray-100 ${index === selectedOrderItemIndex ? 'order-item-selected' : ''}`;
+        // Adiciona classe de destaque se for o item selecionado
+        itemDiv.className = `flex justify-between items-center p-3 rounded-md border border-gray-200 cursor-pointer hover:bg-gray-100 text-base ${index === selectedOrderItemIndex ? 'order-item-selected' : ''}`; // p-3 para área de toque maior, text-base para tamanho do texto
         itemDiv.innerHTML = `
-            <span>${item.quantity}x ${item.name}</span>
+            <span class="flex-1">${item.quantity}x ${item.name}</span>
             <span>R$ ${(item.price * item.quantity).toFixed(2)}</span>
         `;
-        // Add an event listener to select the item on click
+        // Adiciona um event listener para selecionar o item ao clicar
         itemDiv.addEventListener('click', () => selectOrderItem(index));
         currentOrderItemsContainer.appendChild(itemDiv);
     });
 
-    // Re-enable/disable quantity/remove buttons based on selection
+    // Reabilita/desabilita botões de quantidade/remover com base na seleção
     if (selectedOrderItemIndex !== -1) {
         decreaseQuantityBtn.disabled = false;
         increaseQuantityBtn.disabled = false;
@@ -269,24 +284,32 @@ function renderCurrentOrderItems() {
 
 function selectOrderItem(index) {
     selectedOrderItemIndex = index;
-    renderCurrentOrderItems(); // Re-render to apply selection styling
+    renderCurrentOrderItems(); // Re-renderiza para aplicar o estilo de seleção
 }
 
+// Adiciona produto ou aumenta a quantidade, e então o seleciona
 function addProductToOrder(product) {
+    if (!currentSelectedTable) {
+        alert('Por favor, selecione uma mesa antes de adicionar produtos.');
+        return;
+    }
+    
     const existingItemIndex = currentOrderCart.findIndex(item => item.name === (product.nome || product.titulo));
 
     if (existingItemIndex !== -1) {
         currentOrderCart[existingItemIndex].quantity += 1;
-        selectedOrderItemIndex = existingItemIndex; // Select the existing item
+        selectedOrderItemIndex = existingItemIndex; // Seleciona o item existente
     } else {
         currentOrderCart.push({
             name: product.nome || product.titulo,
             price: product.preco,
             quantity: 1
         });
-        selectedOrderItemIndex = currentOrderCart.length - 1; // Select the newly added item
+        selectedOrderItemIndex = currentOrderCart.length - 1; // Seleciona o item recém-adicionado
     }
     renderCurrentOrderItems();
+    // Opcional: Rola para o item recém-adicionado/atualizado se a lista for longa
+    currentOrderItemsContainer.scrollTop = currentOrderItemsContainer.scrollHeight;
 }
 
 decreaseQuantityBtn.addEventListener('click', () => {
@@ -294,9 +317,9 @@ decreaseQuantityBtn.addEventListener('click', () => {
         if (currentOrderCart[selectedOrderItemIndex].quantity > 1) {
             currentOrderCart[selectedOrderItemIndex].quantity -= 1;
         } else {
-            // If quantity is 1 and decreases, remove the item
+            // Se a quantidade for 1 e diminuir, remove o item
             currentOrderCart.splice(selectedOrderItemIndex, 1);
-            selectedOrderItemIndex = -1; // Deselect after removing
+            selectedOrderItemIndex = -1; // Desseleciona após remover
         }
         renderCurrentOrderItems();
     }
@@ -312,7 +335,7 @@ increaseQuantityBtn.addEventListener('click', () => {
 removeItemBtn.addEventListener('click', () => {
     if (selectedOrderItemIndex !== -1 && confirm('Tem certeza que deseja remover este item do pedido?')) {
         currentOrderCart.splice(selectedOrderItemIndex, 1);
-        selectedOrderItemIndex = -1; // Deselect after removing
+        selectedOrderItemIndex = -1; // Desseleciona após remover
         renderCurrentOrderItems();
     }
 });
@@ -322,7 +345,7 @@ function updateOrderTotal() {
     orderTotalSpan.textContent = `R$ ${total.toFixed(2)}`;
 }
 
-// --- Sending Order to Firebase ---
+// --- Envio do Pedido para o Firebase ---
 sendOrderBtn.addEventListener('click', () => {
     if (!currentSelectedTable) {
         alert('Por favor, selecione uma mesa primeiro.');
@@ -351,23 +374,22 @@ sendOrderBtn.addEventListener('click', () => {
         cliente: clientName,
         garcom: waiterName,
         observacoes: observations,
-        pedido: currentOrderCart,
+        pedido: currentOrderCart, // Este é o array de itens
         total: orderTotal,
         lastUpdate: firebase.database.ServerValue.TIMESTAMP
     };
 
-    // If the table is currently free, change its status to 'Ocupada'
+    // Se a mesa estiver livre, muda seu status para 'Ocupada'
     if (currentTableData.status === 'Livre') {
         updateData.status = 'Ocupada';
-        // You might want to automatically generate a basic internal order ID here
-        // or just rely on the mesa number for tracking.
+        // Opcional: Você pode gerar um ID de pedido interno aqui ou usar apenas o número da mesa para rastreamento.
     }
 
     mesasRef.child(currentSelectedTable).update(updateData)
         .then(() => {
             alert(`Pedido da Mesa ${currentSelectedTable} enviado/atualizado com sucesso!`);
-            // The Firebase 'value' listener will automatically re-render the tables
-            // and refresh the order section due to currentTableData update.
+            // O listener 'value' do Firebase re-renderizará automaticamente as mesas
+            // e atualizará a seção do pedido devido à mudança em currentTableData.
         })
         .catch(error => {
             console.error('Erro ao enviar pedido da mesa:', error);
@@ -375,37 +397,31 @@ sendOrderBtn.addEventListener('click', () => {
         });
 });
 
-// --- Reset Order Section ---
+// --- Resetar Seção de Pedido ---
 function resetOrderSection() {
     currentSelectedTable = null;
     currentTableData = null;
     currentOrderCart = [];
-    selectedOrderItemIndex = -1; // Reset selection index
+    selectedOrderItemIndex = -1; // Reseta o índice de seleção
 
     selectedTableNumberSpan.textContent = 'N/A';
     noTableSelectedMessage.classList.remove('hidden');
     orderManagementSection.classList.add('hidden');
 
     clientNameInput.value = '';
-    clientNameInput.readOnly = false; // Make it editable for next table
+    clientNameInput.readOnly = false; // Torna editável para a próxima mesa
     orderObservationsInput.value = '';
     orderTotalSpan.textContent = 'R$ 0.00';
 
-    renderCurrentOrderItems(); // Clear items display
-    // Clear product search/filter
+    renderCurrentOrderItems(); // Limpa a exibição dos itens
+    // Limpa pesquisa/filtro de produtos
     productSearchInput.value = '';
     productCategorySelect.value = 'all';
     filterAndRenderProducts();
 }
 
 
-// --- Helper Functions ---
+// --- Funções Auxiliares ---
 function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
-
-// Ensure the page starts with the login screen
-document.addEventListener('DOMContentLoaded', () => {
-    loginScreen.classList.remove('hidden');
-    mainPanel.classList.add('hidden');
-});

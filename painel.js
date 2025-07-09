@@ -1,6 +1,6 @@
-// Configuração do Firebase (mantido como está)
+// Configuração do Firebase (SUBSTITUA PELAS SUAS CREDENCIAIS REAIS)
 const firebaseConfig = {
-    apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
+    apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc", 
     authDomain: "cardapioweb-99e7b.firebaseapp.com",
     databaseURL: "https://cardapioweb-99e7b-default-rtdb.firebaseio.com",
     projectId: "cardapioweb-99e7b",
@@ -56,9 +56,9 @@ const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('overlay');
 const closeSidebarButton = document.getElementById('close-sidebar-button');
 
-// Elementos para relatórios (mantidos como estão)
+// Elementos para relatórios
 const relatorioDataInicio = document.getElementById('relatorio-data-inicio');
-const relatorioDataFim = document.getElementById('relatorio-data-fim');
+const relatorioDataFim = document.getElementById('data-fim'); // Corrigido para data-fim do relatório
 const btnGerarRelatorios = document.getElementById('btn-gerar-relatorios');
 const topProdutosSummary = document.getElementById('top-produtos-summary');
 const topProdutosChartCanvas = document.getElementById('top-produtos-chart');
@@ -78,7 +78,7 @@ let horariosPicoChartInstance = null;
 let metodosPagamentoChartInstance = null;
 
 
-// NOVOS ELEMENTOS para Gerenciamento de Mesas
+// NOVOS ELEMENTOS para Gerenciamento de Mesas (no painel ADMIN)
 const numMesasInput = document.getElementById('num-mesas');
 const btnConfigurarMesas = document.getElementById('btn-configurar-mesas');
 const mesasContainer = document.getElementById('mesas-container');
@@ -89,22 +89,37 @@ const mesaDetalhesStatus = document.getElementById('mesa-detalhes-status');
 const mesaDetalhesCliente = document.getElementById('mesa-detalhes-cliente');
 const mesaDetalhesGarcom = document.getElementById('mesa-detalhes-garcom');
 const mesaDetalhesObs = document.getElementById('mesa-detalhes-obs');
-const mesaDetalhesTotal = document.getElementById('mesa-detalhes-total');
-const mesaDetalhesItens = document.getElementById('mesa-detalhes-itens');
-const pagamentoCheckout = document.getElementById('pagamento-checkout');
-const trocoCheckoutGroup = document.getElementById('troco-checkout-group');
-const trocoCheckoutInput = document.getElementById('troco-checkout');
-const btnCancelarMesa = document.getElementById('btn-cancelar-mesa');
-const btnFecharMesa = document.getElementById('btn-fechar-mesa');
+// NOVOS ELEMENTOS para o modal de Fechamento de Conta Avançado
+const mesaItensSelecaoContainer = document.getElementById('mesa-itens-selecao-container');
+const emptyItemsMessage = document.getElementById('empty-items-message');
+const mesaTotalOriginal = document.getElementById('mesa-total-original');
+const mesaTotalPago = document.getElementById('mesa-total-pago'); 
+const mesaRestantePagar = document.getElementById('mesa-restante-pagar');
+const valorAPagarInput = document.getElementById('valor-a-pagar-input');
+const dividirPorInput = document.getElementById('dividir-por-input');
+const btnDividirRestante = document.getElementById('btn-dividir-restante');
+const pagamentoMetodoAtual = document.getElementById('pagamento-metodo-atual');
+const trocoInputGroup = document.getElementById('troco-input-group');
+const trocoRecebidoInput = document.getElementById('troco-recebido');
+const btnAdicionarPagamento = document.getElementById('btn-adicionar-pagamento');
+const historicoPagamentosContainer = document.getElementById('historico-pagamentos');
+const emptyPaymentsMessage = document.getElementById('empty-payments-message');
+const btnCancelarPedidoMesa = document.getElementById('btn-cancelar-pedido-mesa'); 
+const btnFinalizarContaMesa = document.getElementById('btn-finalizar-conta-mesa'); 
 
-let currentEditingTableId = null; // Armazena a ID da mesa atualmente sendo editada/vista
+// Variáveis de estado local para o modal de fechamento
+let currentMesaIdForCheckout = null;
+let currentMesaItemsToPay = []; 
+let currentMesaTotal = 0;
+let currentMesaRemainingToPay = 0;
+let currentMesaPaymentsHistory = [];
 
 
-let pedidosOnline = {}; // Renomeado para evitar conflito com 'pedidos' de mesas
+let pedidosOnline = {}; 
 let totalPedidosAnteriores = 0;
 
 pedidosRef.on('value', (snapshot) => {
-    pedidosOnline = {}; // Atribui a pedidosOnline
+    pedidosOnline = {}; 
     snapshot.forEach((child) => {
         pedidosOnline[child.key] = child.val();
     });
@@ -129,7 +144,7 @@ mesasRef.on('value', (snapshot) => {
 function tocarNotificacao() {
     const som = document.getElementById('notificacao-som');
     if (som) {
-        som.currentTime = 0; // reinicia
+        som.currentTime = 0; 
         som.play().catch((err) => {
             console.warn('Não foi possível reproduzir o som:', err);
         });
@@ -139,10 +154,9 @@ function tocarNotificacao() {
 function renderizarPedidos() {
     pedidosAtivosContainer.innerHTML = '';
 
-    // Filtra apenas pedidos online
+    // Filtra apenas pedidos online (não mesa/presencial)
     Object.entries(pedidosOnline).forEach(([pedidoId, pedido]) => {
-        // Assume que pedidos de mesa terão um campo 'tipoAtendimento: "Mesa"'
-        if (pedido.status !== 'Finalizado' && pedido.status !== 'Recusado' && pedido.tipoAtendimento !== 'Mesa') {
+        if (pedido.status !== 'Finalizado' && pedido.status !== 'Recusado' && pedido.tipoAtendimento !== 'Mesa' && pedido.tipoAtendimento !== 'Presencial') {
             const pedidoDiv = document.createElement('div');
             pedidoDiv.className = 'bg-white p-4 rounded shadow mb-4';
             pedidoDiv.innerHTML = gerarHtmlPedido(pedido, pedidoId);
@@ -158,10 +172,11 @@ function aplicarFiltroDatas() {
     let dataFimTimestamp = inputDataFim.value ? new Date(inputDataFim.value).setHours(23, 59, 59, 999) : null;
 
     let pedidosFiltrados = Object.entries(pedidosOnline).filter(([id, pedido]) => {
-        if (pedido.status !== 'Finalizado' || !pedido.timestamp || pedido.tipoAtendimento === 'Mesa') return false; // Exclui pedidos de mesa
+        if (pedido.status !== 'Finalizado' || !pedido.timestamp) return false;
 
         const ts = pedido.timestamp;
 
+        // Filtra todos os pedidos finalizados no período, incluindo os de mesa/presenciais
         if (dataInicioTimestamp && ts < dataInicioTimestamp) return false;
         if (dataFimTimestamp && ts > dataFimTimestamp) return false;
 
@@ -169,7 +184,7 @@ function aplicarFiltroDatas() {
     });
 
     const totalPedidos = pedidosFiltrados.length;
-    const totalVendido = pedidosFiltrados.reduce((acc, [_, p]) => acc + (p.totalPedido || 0), 0);
+    const totalVendido = pedidosFiltrados.reduce((acc, [_, p]) => acc + (p.totalPedido || p.totalOriginal || 0), 0); // Considera totalOriginal para mesas
 
     totalPedidosEl.textContent = totalPedidos;
     totalVendidoEl.textContent = totalVendido.toFixed(2);
@@ -182,7 +197,7 @@ function aplicarFiltroDatas() {
     pedidosFiltrados.forEach(([pedidoId, pedido]) => {
         const pedidoDiv = document.createElement('div');
         pedidoDiv.className = 'bg-white p-4 rounded shadow mb-4';
-        pedidoDiv.innerHTML = gerarHtmlPedido(pedido, pedidoId);
+        pedidoDiv.innerHTML = gerarHtmlPedido(pedido, pedidoId); // Reusa a função, mas pode precisar de ajustes para mostrar info de mesa
         pedidosFinalizadosContainer.appendChild(pedidoDiv);
     });
 }
@@ -315,17 +330,38 @@ function gerarHtmlPedido(pedido, pedidoId) {
         <p class="text-sm mb-1"><strong>Telefone:</strong> ${pedido.telefone || '-'}</p>
     `;
 
+    // Adiciona informações específicas para pedidos de mesa/presenciais no painel de finalizados
+    let tipoAtendimentoInfo = '';
+    if (pedido.tipoAtendimento === 'Mesa' || pedido.tipoAtendimento === 'Presencial') {
+        tipoAtendimentoInfo = `<p class="text-sm mb-1"><strong>Atendimento:</strong> Presencial (Mesa ${pedido.mesaNumero || 'N/A'})</p>`;
+        // totalPedido ou totalOriginal para mesas
+        const totalExibido = (pedido.totalOriginal || pedido.totalPedido).toFixed(2);
+        produtos += `<li class="flex justify-between text-sm mt-2 font-bold text-gray-800"><span>TOTAL ORIGINAL:</span><span>R$ ${totalExibido}</span></li>`;
+        if (pedido.pagamentosRegistrados && pedido.pagamentosRegistrados.length > 0) {
+            produtos += `<li class="flex justify-between text-sm font-bold text-gray-800"><span>PAGAMENTOS:</span></li>`;
+            pedido.pagamentosRegistrados.forEach(pag => {
+                produtos += `<li class="flex justify-between text-sm text-gray-700 ml-4"><span>- ${pag.metodo}:</span><span>R$ ${pag.valorPago.toFixed(2)}</span>`;
+                if (pag.troco !== undefined && pag.troco !== null) { // Verifica se há info de troco
+                   produtos += `<span class="ml-2">(Troco: R$ ${pag.troco.toFixed(2)})</span>`;
+                }
+                produtos += `</li>`;
+            });
+        }
+    }
+
+
     return `
     <div class="flex flex-col justify-between h-full">
         <div>
             <h2 class="text-lg font-bold mb-2">Pedido (${horario})</h2>
             ${clienteInfo}
+            ${tipoAtendimentoInfo}
             ${enderecoTexto}
             <p class="text-sm"><strong>Pagamento:</strong> ${pedido.pagamento} ${pedido.dinheiroTotal ? '(Troco p/ R$ ' + parseFloat(pedido.dinheiroTotal).toFixed(2) + ')' : ''}</p>
             <p class="text-sm"><strong>Obs:</strong> ${pedido.observacao || '-'}</p>
-            <p class="text-sm"><strong>Entrega:</strong> ${pedido.tipoEntrega}</p>
+            <p class="text-sm"><strong>Entrega:</strong> ${pedido.tipoEntrega || 'N/A'}</p>
             <ul class="my-2 space-y-1">${produtos}</ul>
-            <p class="font-bold text-green-600 text-lg">Total: R$ ${pedido.totalPedido.toFixed(2)}</p>
+            <p class="font-bold text-green-600 text-lg">Total Final: R$ ${(pedido.totalPago || pedido.totalPedido).toFixed(2)}</p>
         </div>
 
         <div>
@@ -577,7 +613,7 @@ function gerarRelatorios() {
 
         if (pedidosNoPeriodo.length === 0) {
             topProdutosSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
-            vendasPorDiaSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
+            vendasPorDiaSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionada.</p>';
             horariosPicoSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
             metodosPagamentoSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
 
@@ -1427,7 +1463,7 @@ function moverItemParaCategoria(itemKey, categoriaOrigem, categoriaDestino, item
 function mostrarNovoitem() {
     document.getElementById("modal-novo-item").classList.remove("hidden");
     document.getElementById("modal-novo-item").classList.add("flex");
-}
+};
 
 document.getElementById("btn-fechar-novo-item").addEventListener("click", () => {
     document.getElementById("modal-novo-item").classList.add("hidden");
@@ -1607,7 +1643,7 @@ overlay.addEventListener('click', () => {
 });
 
 
-// --- FUNÇÕES DE GERENCIAMENTO DE MESAS ---
+// --- FUNÇÕES DE GERENCIAMENTO DE MESAS (Painel Administrativo) ---
 
 // Inicializa as mesas no Firebase se não existirem
 btnConfigurarMesas.addEventListener('click', () => {
@@ -1668,7 +1704,7 @@ function renderMesas(mesasData) {
 
         card.innerHTML = `
             <i class="fas fa-utensils text-4xl mb-2 ${mesa.status === 'Livre' ? 'text-green-700' : 'text-red-700'}"></i>
-            <h3 class="text-2xl font-bold mb-1">Mesa ${mesa.numero}</h3>
+            <h3 class="text-2xl font-bold">Mesa ${mesa.numero}</h3>
             <span class="text-sm font-semibold ${mesa.status === 'Livre' ? 'text-green-700' : 'text-red-700'}">${mesa.status}</span>
             ${ocupiedInfo}
         `;
@@ -1703,12 +1739,12 @@ function carregarMesasDoFirebase() {
 
 // Abre o modal de detalhes da mesa
 function abrirModalMesaDetalhes(mesaNumero) {
-    currentEditingTableId = mesaNumero; // Guarda a mesa que está sendo editada
+    currentMesaIdForCheckout = mesaNumero; // Armazena a ID da mesa para o checkout
 
     mesasRef.child(mesaNumero).once('value', (snapshot) => {
         const mesa = snapshot.val();
         if (!mesa) {
-            alert('Mesa não encontrada.');
+            alert('Mesa não encontrada ou foi removida.');
             return;
         }
 
@@ -1718,65 +1754,358 @@ function abrirModalMesaDetalhes(mesaNumero) {
         mesaDetalhesCliente.textContent = mesa.cliente || 'N/A';
         mesaDetalhesGarcom.textContent = mesa.garcom || 'N/A';
         mesaDetalhesObs.textContent = mesa.observacoes || 'N/A';
-        mesaDetalhesTotal.textContent = `R$ ${mesa.total.toFixed(2)}`;
 
-        mesaDetalhesItens.innerHTML = '';
-        if (mesa.pedido && mesa.pedido.length > 0) {
-            mesa.pedido.forEach(item => {
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'flex justify-between items-center bg-gray-50 p-2 rounded';
-                itemDiv.innerHTML = `
-                    <span>${item.quantity}x ${item.name}</span>
-                    <span>R$ ${item.price.toFixed(2)}</span>
-                `;
-                mesaDetalhesItens.appendChild(itemDiv);
-            });
+        // Inicializa o estado local do modal
+        // Cada item terá sua quantidade restante e a quantidade selecionada para pagar
+        currentMesaItemsToPay = mesa.pedido ? mesa.pedido.map(item => ({
+            ...item,
+            originalQuantity: item.quantity, 
+            remainingQuantity: item.quantity, 
+            selectedToPayQuantity: 0 
+        })) : [];
+        
+        currentMesaTotal = mesa.total || 0;
+        currentMesaRemainingToPay = mesa.total || 0; 
+        currentMesaPaymentsHistory = [];
+        let totalAlreadyPaid = 0; 
+
+        mesaTotalOriginal.textContent = `R$ ${currentMesaTotal.toFixed(2)}`;
+        mesaTotalPago.textContent = `R$ ${totalAlreadyPaid.toFixed(2)}`; 
+        mesaRestantePagar.textContent = `R$ ${currentMesaRemainingToPay.toFixed(2)}`; 
+
+        renderMesaItemsForCheckout(); 
+        renderPagamentoHistory(); 
+
+        // Reseta campos de pagamento
+        valorAPagarInput.value = '';
+        dividirPorInput.value = '';
+        pagamentoMetodoAtual.value = '';
+        trocoRecebidoInput.value = '';
+        trocoInputGroup.classList.add('hidden');
+        
+        // Desabilita botões até que haja ação
+        btnAdicionarPagamento.disabled = true;
+        btnDividirRestante.disabled = true;
+
+        // Mostra/esconde botões de ação do modal
+        if (mesa.status === 'Livre' || !mesa.pedido || mesa.pedido.length === 0) {
+            btnCancelarPedidoMesa.classList.add('hidden');
+            btnFinalizarContaMesa.disabled = true;
+            btnAdicionarPagamento.disabled = true;
+            mesaItensSelecaoContainer.innerHTML = '<p class="text-gray-500 text-center">Nenhum item para exibir ou mesa livre.</p>';
         } else {
-            mesaDetalhesItens.innerHTML = '<p class="text-gray-500">Nenhum item adicionado a esta mesa.</p>';
+            btnCancelarPedidoMesa.classList.remove('hidden');
         }
 
-        // Reseta o formulário de pagamento
-        pagamentoCheckout.value = '';
-        trocoCheckoutInput.value = '';
-        trocoCheckoutGroup.classList.add('hidden');
-
-        // Mostra/esconde botões com base no status da mesa
-        if (mesa.status === 'Livre') {
-            btnCancelarMesa.classList.add('hidden');
-            btnFecharMesa.classList.add('hidden');
-            // Futuramente: Botão para "Abrir Mesa / Iniciar Pedido"
-        } else {
-            btnCancelarMesa.classList.remove('hidden'); // Permitir cancelar pedido de mesa ocupada
-            btnFecharMesa.classList.remove('hidden');
-        }
-
+        updateCheckoutStatus(); 
         modalMesaDetalhes.classList.remove('hidden');
         modalMesaDetalhes.classList.add('flex');
+    }).catch(error => {
+        console.error("Erro ao abrir modal de mesa:", error);
+        alert("Erro ao carregar detalhes da mesa.");
     });
 }
 
 // Fecha o modal de detalhes da mesa
 function fecharModalMesaDetalhes() {
     modalMesaDetalhes.classList.add('hidden');
-    currentEditingTableId = null;
+    currentMesaIdForCheckout = null;
+    currentMesaOrderItems = []; 
+    currentMesaItemsToPay = []; 
+    currentMesaTotal = 0;
+    currentMesaRemainingToPay = 0;
+    currentMesaPaymentsHistory = [];
 }
 
-// Listener para o select de método de pagamento no modal
-pagamentoCheckout.addEventListener('change', (event) => {
-    if (event.target.value === 'Dinheiro') {
-        trocoCheckoutGroup.classList.remove('hidden');
+// --- LÓGICA DE CHECKOUT AVANÇADA ---
+
+function renderMesaItemsForCheckout() {
+    mesaItensSelecaoContainer.innerHTML = '';
+    emptyItemsMessage.classList.add('hidden'); 
+
+    const pendingItems = currentMesaItemsToPay.filter(item => item.remainingQuantity > 0);
+
+    if (pendingItems.length === 0) {
+        emptyItemsMessage.classList.remove('hidden');
+        valorAPagarInput.value = currentMesaRemainingToPay.toFixed(2); 
+        updateCheckoutStatus();
+        return;
+    }
+
+    pendingItems.forEach((item, index) => {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'flex items-center gap-2 border-b border-gray-200 py-2 last:border-b-0';
+        itemDiv.innerHTML = `
+            <div class="flex-1">
+                <p class="font-medium text-gray-800">${item.name}</p>
+                <p class="text-sm text-gray-600">Total: ${item.originalQuantity} un. | Restante: ${item.remainingQuantity} un.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button class="px-2 py-1 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-700 decrease-pay-quantity-btn" data-index="${index}" ${item.selectedToPayQuantity === 0 ? 'disabled' : ''}>-</button>
+                <input type="number" class="w-16 p-1 border rounded text-center selected-pay-quantity-input" 
+                       value="${item.selectedToPayQuantity}" min="0" max="${item.remainingQuantity}" step="1" data-index="${index}">
+                <button class="px-2 py-1 bg-blue-200 rounded-md hover:bg-blue-300 text-blue-800 increase-pay-quantity-btn" data-index="${index}" ${item.selectedToPayQuantity >= item.remainingQuantity ? 'disabled' : ''}>+</button>
+            </div>
+            <span class="text-gray-700 font-semibold w-20 text-right">R$ ${(item.price * item.selectedToPayQuantity).toFixed(2)}</span>
+        `;
+        mesaItensSelecaoContainer.appendChild(itemDiv);
+    });
+
+    // Adiciona event listeners para os botões e inputs de quantidade
+    mesaItensSelecaoContainer.querySelectorAll('.decrease-pay-quantity-btn').forEach(button => {
+        button.addEventListener('click', handlePayQuantityButton);
+    });
+    mesaItensSelecaoContainer.querySelectorAll('.increase-pay-quantity-btn').forEach(button => {
+        button.addEventListener('click', handlePayQuantityButton);
+    });
+    mesaItensSelecaoContainer.querySelectorAll('.selected-pay-quantity-input').forEach(input => {
+        input.addEventListener('input', handlePayQuantityInput);
+    });
+    
+    // Atualiza o valor a pagar no input principal
+    valorAPagarInput.value = calculateSelectedItemsTotalForCurrentPayment().toFixed(2);
+    updateCheckoutStatus(); 
+}
+
+function handlePayQuantityButton(event) {
+    const button = event.target.closest('button');
+    const index = parseInt(button.dataset.index);
+    const item = currentMesaItemsToPay.filter(i => i.remainingQuantity > 0)[index]; 
+
+    if (button.classList.contains('increase-pay-quantity-btn')) {
+        if (item.selectedToPayQuantity < item.remainingQuantity) {
+            item.selectedToPayQuantity++;
+        }
+    } else if (button.classList.contains('decrease-pay-quantity-btn')) {
+        if (item.selectedToPayQuantity > 0) {
+            item.selectedToPayQuantity--;
+        }
+    }
+    renderMesaItemsForCheckout(); 
+    valorAPagarInput.value = calculateSelectedItemsTotalForCurrentPayment().toFixed(2);
+    updateCheckoutStatus(); 
+}
+
+function handlePayQuantityInput(event) {
+    const input = event.target;
+    const index = parseInt(input.dataset.index);
+    const item = currentMesaItemsToPay.filter(i => i.remainingQuantity > 0)[index]; 
+
+    let newQuantity = parseInt(input.value);
+    if (isNaN(newQuantity) || newQuantity < 0) {
+        newQuantity = 0;
+    }
+    if (newQuantity > item.remainingQuantity) {
+        newQuantity = item.remainingQuantity; 
+        input.value = newQuantity; 
+    }
+    item.selectedToPayQuantity = newQuantity;
+
+    valorAPagarInput.value = calculateSelectedItemsTotalForCurrentPayment().toFixed(2);
+    updateCheckoutStatus(); 
+}
+
+function calculateSelectedItemsTotalForCurrentPayment() {
+    return currentMesaItemsToPay.reduce((sum, item) => sum + (item.price * item.selectedToPayQuantity), 0);
+}
+
+function renderPagamentoHistory() {
+    historicoPagamentosContainer.innerHTML = '';
+    emptyPaymentsMessage.classList.add('hidden');
+
+    if (currentMesaPaymentsHistory.length === 0) {
+        emptyPaymentsMessage.classList.remove('hidden');
+        return;
+    }
+
+    currentMesaPaymentsHistory.forEach((payment, index) => {
+        const paymentDiv = document.createElement('div');
+        paymentDiv.className = 'flex justify-between items-center bg-gray-100 p-2 rounded-md';
+        let trocoInfo = '';
+        if (payment.troco !== null && payment.troco !== undefined && payment.troco > 0) {
+            trocoInfo = `<span class="text-xs text-gray-600 ml-2">(Troco: R$ ${payment.troco.toFixed(2)})</span>`;
+        } else if (payment.troco !== null && payment.troco !== undefined && payment.troco === 0) {
+            trocoInfo = `<span class="text-xs text-gray-600 ml-2">(Sem troco)</span>`;
+        }
+
+        paymentDiv.innerHTML = `
+            <span>${index + 1}. ${payment.metodo} - R$ ${payment.valorPago.toFixed(2)} ${trocoInfo}</span>
+            <button class="text-red-500 hover:text-red-700 remove-payment-btn" data-index="${index}"><i class="fas fa-trash-alt"></i></button>
+        `;
+        historicoPagamentosContainer.appendChild(paymentDiv);
+    });
+
+    historicoPagamentosContainer.querySelectorAll('.remove-payment-btn').forEach(button => {
+        button.addEventListener('click', (event) => {
+            const indexToRemove = parseInt(event.target.closest('button').dataset.index);
+            removePayment(indexToRemove);
+        });
+    });
+}
+
+function removePayment(index) {
+    const payment = currentMesaPaymentsHistory[index];
+    currentMesaPaymentsHistory.splice(index, 1);
+    
+    // Recalcula o restante a pagar
+    const totalPaidSoFar = currentMesaPaymentsHistory.reduce((sum, p) => sum + p.valorPago, 0);
+    currentMesaRemainingToPay = currentMesaTotal - totalPaidSoFar;
+    mesaTotalPago.textContent = `R$ ${totalPaidSoFar.toFixed(2)}`;
+
+    updateCheckoutStatus();
+    renderPagamentoHistory();
+}
+
+function updateCheckoutStatus() {
+    const selectedItemsTotal = calculateSelectedItemsTotalForCurrentPayment();
+    const currentPaymentMethod = pagamentoMetodoAtual.value;
+    const trocoReceived = parseFloat(trocoRecebidoInput.value) || 0;
+    const totalPaidSoFar = currentMesaPaymentsHistory.reduce((sum, p) => sum + p.valorPago, 0);
+    
+    currentMesaRemainingToPay = currentMesaTotal - totalPaidSoFar;
+    if (currentMesaRemainingToPay < 0.01 && currentMesaRemainingToPay > -0.01) { 
+        currentMesaRemainingToPay = 0;
+    }
+
+    mesaTotalPago.textContent = `R$ ${totalPaidSoFar.toFixed(2)}`;
+    mesaRestantePagar.textContent = `R$ ${currentMesaRemainingToPay.toFixed(2)}`;
+
+    // Habilita/desabilita o botão "Adicionar Pagamento"
+    const isValorAPagarInputValid = parseFloat(valorAPagarInput.value) > 0 && parseFloat(valorAPagarInput.value) <= currentMesaRemainingToPay + 0.01;
+    const hasItemsSelected = selectedItemsTotal > 0;
+    
+    if (currentPaymentMethod && (isValorAPagarInputValid || hasItemsSelected)) {
+        btnAdicionarPagamento.disabled = false;
     } else {
-        trocoCheckoutGroup.classList.add('hidden');
-        trocoCheckoutInput.value = ''; // Limpa o troco se mudar de método
+        btnAdicionarPagamento.disabled = true;
+    }
+
+    // Habilita/desabilita o botão "Dividir Restante"
+    const numPessoasDividir = parseInt(dividirPorInput.value, 10);
+    btnDividirRestante.disabled = currentMesaRemainingToPay <= 0.01 || isNaN(numPessoasDividir) || numPessoasDividir <= 0;
+
+    // Habilita/desabilita o botão "Finalizar Conta"
+    btnFinalizarContaMesa.disabled = currentMesaRemainingToPay > 0.01; 
+
+    // Mostra/esconde campo de troco
+    if (currentPaymentMethod === 'Dinheiro') {
+        trocoInputGroup.classList.remove('hidden');
+    } else {
+        trocoInputGroup.classList.add('hidden');
+        trocoRecebidoInput.value = ''; 
+    }
+}
+
+// Event Listeners para o modal de checkout
+valorAPagarInput.addEventListener('input', updateCheckoutStatus);
+pagamentoMetodoAtual.addEventListener('change', updateCheckoutStatus);
+trocoRecebidoInput.addEventListener('input', updateCheckoutStatus);
+
+btnAdicionarPagamento.addEventListener('click', () => {
+    let valueToPay = parseFloat(valorAPagarInput.value); 
+    const currentPaymentMethod = pagamentoMetodoAtual.value;
+    const trocoReceived = parseFloat(trocoRecebidoInput.value) || 0; 
+
+    if (isNaN(valueToPay) || valueToPay <= 0) {
+        alert('Por favor, digite um valor válido para esta parcela.');
+        return;
+    }
+    if (!currentPaymentMethod) {
+        alert('Selecione um método de pagamento.');
+        return;
+    }
+    if (valueToPay > currentMesaRemainingToPay + 0.01) { 
+        alert(`O valor da parcela (R$ ${valueToPay.toFixed(2)}) é maior que o restante a pagar da mesa (R$ ${currentMesaRemainingToPay.toFixed(2)}).`);
+        return;
+    }
+
+    // Validação para dinheiro e cálculo do troco
+    let trocoADevolver = 0;
+    if (currentPaymentMethod === 'Dinheiro') {
+        if (trocoReceived < valueToPay) {
+            alert(`O valor recebido (R$ ${trocoReceived.toFixed(2)}) é menor que a parcela a pagar (R$ ${valueToPay.toFixed(2)}).`);
+            return;
+        }
+        trocoADevolver = trocoReceived - valueToPay;
+    }
+
+    // Registra o pagamento no histórico
+    currentMesaPaymentsHistory.push({
+        metodo: currentPaymentMethod,
+        valorPago: valueToPay, 
+        valorRecebido: currentPaymentMethod === 'Dinheiro' ? trocoReceived : null, 
+        troco: currentPaymentMethod === 'Dinheiro' ? trocoADevolver : null, 
+        timestamp: Date.now(),
+        // Incluir itens pagamentos e suas quantidades
+        itemsPaid: currentMesaItemsToPay
+            .filter(item => item.selectedToPayQuantity > 0)
+            .map(item => ({
+                name: item.name,
+                price: item.price,
+                quantity: item.selectedToPayQuantity
+            }))
+    });
+
+    // Deduz as quantidades pagas dos itens restantes
+    currentMesaItemsToPay.forEach(item => {
+        item.remainingQuantity -= item.selectedToPayQuantity;
+        item.selectedToPayQuantity = 0; 
+    });
+
+    // Limpa os campos de input para a próxima transação
+    valorAPagarInput.value = '';
+    trocoRecebidoInput.value = '';
+    pagamentoMetodoAtual.value = ''; 
+
+    renderMesaItemsForCheckout(); 
+    renderPagamentoHistory(); 
+    updateCheckoutStatus(); 
+
+    // Feedback visual para o troco
+    if (currentPaymentMethod === 'Dinheiro' && trocoADevolver > 0) {
+        alert(`Pagamento adicionado com sucesso!\nTROCO A DEVOLVER: R$ ${trocoADevolver.toFixed(2)}`);
+    } else {
+        alert('Pagamento adicionado com sucesso!');
     }
 });
 
-// Botão "Cancelar Pedido" (libera a mesa e exclui o pedido associado)
-btnCancelarMesa.addEventListener('click', () => {
-    if (!currentEditingTableId) return;
+// Botão Dividir Restante
+btnDividirRestante.addEventListener('click', () => {
+    const numPessoas = parseInt(dividirPorInput.value, 10);
+    if (isNaN(numPessoas) || numPessoas <= 0) {
+        alert('Por favor, digite um número válido de pessoas para dividir.');
+        return;
+    }
+    if (currentMesaRemainingToPay <= 0.01) { 
+        alert('Não há valor restante para dividir.');
+        return;
+    }
 
-    if (confirm(`Tem certeza que deseja cancelar o pedido da Mesa ${currentEditingTableId}? A mesa será liberada.`)) {
-        mesasRef.child(currentEditingTableId).update({
+    const valorPorPessoa = currentMesaRemainingToPay / numPessoas;
+    valorAPagarInput.value = valorPorPessoa.toFixed(2);
+    
+    // Limpa as quantidades selecionadas de itens, pois a divisão é por valor total
+    currentMesaItemsToPay.forEach(item => item.selectedToPayQuantity = 0);
+    renderMesaItemsForCheckout(); 
+
+    dividirPorInput.value = ''; 
+
+    updateCheckoutStatus(); 
+
+    // Adiciona um alerta guiando o usuário para o próximo passo
+    alert(`O valor por pessoa (R$ ${valorPorPessoa.toFixed(2)}) foi preenchido no campo "Valor desta Parcela". Agora, selecione o método de pagamento e clique em "Adicionar Pagamento".`);
+});
+
+// Event listener para o input de dividir para habilitar/desabilitar o botão
+dividirPorInput.addEventListener('input', updateCheckoutStatus);
+
+
+// Botão "Cancelar Pedido" (libera a mesa e exclui o pedido associado)
+btnCancelarPedidoMesa.addEventListener('click', () => {
+    if (!currentMesaIdForCheckout) return;
+
+    if (confirm(`Tem certeza que deseja CANCELAR COMPLETAMENTE o pedido da Mesa ${currentMesaIdForCheckout}? A mesa será liberada e o pedido não será registrado.`)) {
+        mesasRef.child(currentMesaIdForCheckout).update({
             status: 'Livre',
             cliente: '',
             garcom: '',
@@ -1785,7 +2114,7 @@ btnCancelarMesa.addEventListener('click', () => {
             total: 0
         })
         .then(() => {
-            alert(`Pedido da Mesa ${currentEditingTableId} cancelado e mesa liberada.`);
+            alert(`Pedido da Mesa ${currentMesaIdForCheckout} cancelado e mesa liberada.`);
             fecharModalMesaDetalhes();
         })
         .catch(error => {
@@ -1795,52 +2124,44 @@ btnCancelarMesa.addEventListener('click', () => {
     }
 });
 
-// Botão "Fechar Conta" (finaliza o pedido da mesa)
-btnFecharMesa.addEventListener('click', () => {
-    if (!currentEditingTableId) return;
 
-    const metodoPagamento = pagamentoCheckout.value;
-    const trocoPara = parseFloat(trocoCheckoutInput.value) || 0;
+// Botão "Finalizar Conta" (finaliza o pedido da mesa, registrando todos os pagamentos)
+btnFinalizarContaMesa.addEventListener('click', () => {
+    if (!currentMesaIdForCheckout) return;
 
-    if (!metodoPagamento) {
-        alert("Selecione um método de pagamento.");
+    if (currentMesaRemainingToPay > 0.01) { 
+        alert('Ainda há um valor restante a pagar. Adicione todos os pagamentos antes de finalizar.');
         return;
     }
 
-    mesasRef.child(currentEditingTableId).once('value', (snapshot) => {
-        const mesa = snapshot.val();
-        if (!mesa || !mesa.pedido || mesa.pedido.length === 0) {
-            alert('Não há pedido ativo para fechar nesta mesa.');
-            return;
-        }
+    if (confirm(`Confirmar FINALIZAÇÃO da conta da Mesa ${currentMesaIdForCheckout}?`)) {
+        // Obter os dados atuais da mesa para registrar o pedido finalizado
+        mesasRef.child(currentMesaIdForCheckout).once('value', (snapshot) => {
+            const mesaAtual = snapshot.val();
+            if (!mesaAtual) {
+                alert('Erro: Dados da mesa não encontrados para finalizar a conta.');
+                return;
+            }
 
-        const totalPagar = mesa.total;
-        if (metodoPagamento === 'Dinheiro' && trocoPara < totalPagar) {
-            alert(`O valor do troco deve ser maior ou igual ao total do pedido (R$ ${totalPagar.toFixed(2)}).`);
-            return;
-        }
-
-        if (confirm(`Confirmar fechamento da conta da Mesa ${mesa.numero} no valor de R$ ${totalPagar.toFixed(2)} (${metodoPagamento})?`)) {
-            // Registra o pedido da mesa como um "pedido finalizado" no nó 'pedidos'
-            const novoPedidoId = database.ref('pedidos').push().key; // Gera uma nova chave para o pedido finalizado
+            const novoPedidoId = database.ref('pedidos').push().key;
             const pedidoFinalizado = {
-                tipoAtendimento: 'Mesa',
-                mesaNumero: mesa.numero,
-                cliente: mesa.cliente,
-                garcom: mesa.garcom,
-                observacoes: mesa.observacoes,
-                cart: mesa.pedido, // Usa os itens do pedido da mesa
-                totalPedido: mesa.total,
-                pagamento: metodoPagamento,
-                dinheiroTotal: metodoPagamento === 'Dinheiro' ? trocoPara : null,
+                tipoAtendimento: 'Presencial', // Marcado como pedido presencial
+                mesaNumero: mesaAtual.numero,
+                cliente: mesaAtual.cliente,
+                garcom: mesaAtual.garcom,
+                observacoes: mesaAtual.observacoes,
+                cart: mesaAtual.pedido, 
+                totalOriginal: mesaAtual.total,
+                totalPago: currentMesaTotal, 
+                pagamentosRegistrados: currentMesaPaymentsHistory, 
                 status: 'Finalizado',
-                timestamp: firebase.database.ServerValue.TIMESTAMP // Usa timestamp do servidor
+                timestamp: firebase.database.ServerValue.TIMESTAMP
             };
 
             database.ref('pedidos/' + novoPedidoId).set(pedidoFinalizado)
                 .then(() => {
-                    // Após registrar, libera a mesa
-                    return mesasRef.child(currentEditingTableId).update({
+                    // Após registrar o pedido finalizado, liberar a mesa
+                    return mesasRef.child(currentMesaIdForCheckout).update({
                         status: 'Livre',
                         cliente: '',
                         garcom: '',
@@ -1850,17 +2171,18 @@ btnFecharMesa.addEventListener('click', () => {
                     });
                 })
                 .then(() => {
-                    alert(`Conta da Mesa ${mesa.numero} fechada e mesa liberada!`);
+                    alert(`Conta da Mesa ${mesaAtual.numero} finalizada e mesa liberada!`);
                     fecharModalMesaDetalhes();
                 })
                 .catch(error => {
-                    console.error("Erro ao fechar conta da mesa:", error);
-                    alert("Erro ao fechar conta da mesa.");
+                    console.error("Erro ao finalizar conta da mesa:", error);
+                    alert("Erro ao finalizar conta da mesa.");
                 });
-        }
-    });
+        });
+    }
 });
 
-
 // Inicializa a primeira aba ao carregar a página
-btnAtivos.click();
+document.addEventListener('DOMContentLoaded', () => {
+    btnAtivos.click(); 
+});
