@@ -1,4 +1,4 @@
-// Configuração do Firebase
+// Configuração do Firebase (mantido como está)
 const firebaseConfig = {
     apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
     authDomain: "cardapioweb-99e7b.firebaseapp.com",
@@ -15,6 +15,8 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 const pedidosRef = database.ref('pedidos');
 const promocoesRef = firebase.database().ref('promocoes');
+// Nova referência para as mesas
+const mesasRef = database.ref('mesas');
 
 const pedidosAtivosContainer = document.getElementById('pedidos-ativos-container');
 const pedidosFinalizadosContainer = document.getElementById('pedidos-finalizados-container');
@@ -31,7 +33,7 @@ const btnAtivos = document.getElementById('btn-ativos');
 const btnFinalizados = document.getElementById('btn-finalizados');
 const btnEditarCardapio = document.getElementById('btn-editar-cardapio');
 const btnEditarHorario = document.getElementById('btn-editar-horario');
-const btnGerenciarUsuarios = document.getElementById('btn-gerenciar-usuarios');
+const btnGerenciarMesas = document.getElementById('btn-gerenciar-mesas'); // Renomeado
 const btnConfiguracoesGerais = document.getElementById('btn-configuracoes-gerais');
 const btnRelatorios = document.getElementById('btn-relatorios');
 
@@ -40,7 +42,7 @@ const abaAtivos = document.getElementById('aba-ativos');
 const abaFinalizados = document.getElementById('aba-finalizados');
 const EditarCardapio = document.getElementById('editar-cardapio');
 const editarHorario = document.getElementById('editar-horario');
-const abaGerenciarUsuarios = document.getElementById('aba-gerenciar-usuarios');
+const abaGerenciarMesas = document.getElementById('aba-gerenciar-mesas'); // Renomeado
 const abaConfiguracoesGerais = document.getElementById('aba-configuracoes-gerais');
 const abaRelatorios = document.getElementById('aba-relatorios');
 
@@ -54,12 +56,10 @@ const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('overlay');
 const closeSidebarButton = document.getElementById('close-sidebar-button');
 
-// Elementos para relatórios
+// Elementos para relatórios (mantidos como estão)
 const relatorioDataInicio = document.getElementById('relatorio-data-inicio');
 const relatorioDataFim = document.getElementById('relatorio-data-fim');
 const btnGerarRelatorios = document.getElementById('btn-gerar-relatorios');
-
-// Containers para sumários textuais e gráficos
 const topProdutosSummary = document.getElementById('top-produtos-summary');
 const topProdutosChartCanvas = document.getElementById('top-produtos-chart');
 const vendasPorDiaSummary = document.getElementById('vendas-por-dia-summary');
@@ -68,38 +68,63 @@ const horariosPicoSummary = document.getElementById('horarios-pico-summary');
 const horariosPicoChartCanvas = document.getElementById('horarios-pico-chart');
 const metodosPagamentoSummary = document.getElementById('metodos-pagamento-summary');
 const metodosPagamentoChartCanvas = document.getElementById('metodos-pagamento-chart');
-
-// Botões de seleção rápida de data
 const btnUltimos7Dias = document.getElementById('btn-ultimos-7-dias');
 const btnUltimoMes = document.getElementById('btn-ultimo-mes');
 const btnUltimos3Meses = document.getElementById('btn-ultimos-3-meses');
 const btnHoje = document.getElementById('btn-hoje');
-
-// Instâncias dos gráficos
 let topProdutosChartInstance = null;
 let vendasPorDiaChartInstance = null;
 let horariosPicoChartInstance = null;
 let metodosPagamentoChartInstance = null;
 
 
-let pedidos = {};
+// NOVOS ELEMENTOS para Gerenciamento de Mesas
+const numMesasInput = document.getElementById('num-mesas');
+const btnConfigurarMesas = document.getElementById('btn-configurar-mesas');
+const mesasContainer = document.getElementById('mesas-container');
+const modalMesaDetalhes = document.getElementById('modal-mesa-detalhes');
+const modalMesaNumero = document.getElementById('modal-mesa-numero');
+const mesaDetalhesInfo = document.getElementById('mesa-detalhes-info');
+const mesaDetalhesStatus = document.getElementById('mesa-detalhes-status');
+const mesaDetalhesCliente = document.getElementById('mesa-detalhes-cliente');
+const mesaDetalhesGarcom = document.getElementById('mesa-detalhes-garcom');
+const mesaDetalhesObs = document.getElementById('mesa-detalhes-obs');
+const mesaDetalhesTotal = document.getElementById('mesa-detalhes-total');
+const mesaDetalhesItens = document.getElementById('mesa-detalhes-itens');
+const pagamentoCheckout = document.getElementById('pagamento-checkout');
+const trocoCheckoutGroup = document.getElementById('troco-checkout-group');
+const trocoCheckoutInput = document.getElementById('troco-checkout');
+const btnCancelarMesa = document.getElementById('btn-cancelar-mesa');
+const btnFecharMesa = document.getElementById('btn-fechar-mesa');
+
+let currentEditingTableId = null; // Armazena a ID da mesa atualmente sendo editada/vista
+
+
+let pedidosOnline = {}; // Renomeado para evitar conflito com 'pedidos' de mesas
 let totalPedidosAnteriores = 0;
 
 pedidosRef.on('value', (snapshot) => {
-    pedidos = {};
+    pedidosOnline = {}; // Atribui a pedidosOnline
     snapshot.forEach((child) => {
-        pedidos[child.key] = child.val();
+        pedidosOnline[child.key] = child.val();
     });
 
     renderizarPedidos();
     aplicarFiltroDatas();
 
-    const totalPedidosAtual = Object.keys(pedidos).length;
+    const totalPedidosAtual = Object.keys(pedidosOnline).length;
     if (totalPedidosAtual > totalPedidosAnteriores) {
         tocarNotificacao();
     }
     totalPedidosAnteriores = totalPedidosAtual;
 });
+
+// Listener para as mesas no Firebase (para manter o estado atualizado)
+mesasRef.on('value', (snapshot) => {
+    const mesasData = snapshot.val() || {};
+    renderMesas(mesasData);
+});
+
 
 function tocarNotificacao() {
     const som = document.getElementById('notificacao-som');
@@ -114,8 +139,10 @@ function tocarNotificacao() {
 function renderizarPedidos() {
     pedidosAtivosContainer.innerHTML = '';
 
-    Object.entries(pedidos).forEach(([pedidoId, pedido]) => {
-        if (pedido.status !== 'Finalizado' && pedido.status !== 'Recusado') {
+    // Filtra apenas pedidos online
+    Object.entries(pedidosOnline).forEach(([pedidoId, pedido]) => {
+        // Assume que pedidos de mesa terão um campo 'tipoAtendimento: "Mesa"'
+        if (pedido.status !== 'Finalizado' && pedido.status !== 'Recusado' && pedido.tipoAtendimento !== 'Mesa') {
             const pedidoDiv = document.createElement('div');
             pedidoDiv.className = 'bg-white p-4 rounded shadow mb-4';
             pedidoDiv.innerHTML = gerarHtmlPedido(pedido, pedidoId);
@@ -127,11 +154,11 @@ function renderizarPedidos() {
 function aplicarFiltroDatas() {
     pedidosFinalizadosContainer.innerHTML = '';
 
-    let dataInicioTimestamp = inputDataInicio.value ? new Date(inputDataInicio.value).getTime() : null;
-    let dataFimTimestamp = inputDataFim.value ? new Date(inputDataFim.value).getTime() + (24 * 60 * 60 * 1000) - 1 : null;
+    let dataInicioTimestamp = inputDataInicio.value ? new Date(inputDataInicio.value).setHours(0, 0, 0, 0) : null;
+    let dataFimTimestamp = inputDataFim.value ? new Date(inputDataFim.value).setHours(23, 59, 59, 999) : null;
 
-    let pedidosFiltrados = Object.entries(pedidos).filter(([id, pedido]) => {
-        if (pedido.status !== 'Finalizado' || !pedido.timestamp) return false;
+    let pedidosFiltrados = Object.entries(pedidosOnline).filter(([id, pedido]) => {
+        if (pedido.status !== 'Finalizado' || !pedido.timestamp || pedido.tipoAtendimento === 'Mesa') return false; // Exclui pedidos de mesa
 
         const ts = pedido.timestamp;
 
@@ -141,7 +168,6 @@ function aplicarFiltroDatas() {
         return true;
     });
 
-    // Atualiza total de pedidos e vendas
     const totalPedidos = pedidosFiltrados.length;
     const totalVendido = pedidosFiltrados.reduce((acc, [_, p]) => acc + (p.totalPedido || 0), 0);
 
@@ -161,37 +187,23 @@ function aplicarFiltroDatas() {
     });
 }
 
-
+// Funções de Pedido (aceitar, saiu para entrega, finalizar, recusar) - Mantidas as originais pois são para delivery/online
+// Você precisará de funções separadas para as mesas se o fluxo for diferente (ex: "abrir mesa", "adicionar item à mesa", "fechar conta da mesa")
 function aceitarPedido(pedidoId) {
     database.ref('pedidos/' + pedidoId).once('value')
         .then(snapshot => {
             const pedido = snapshot.val();
-
-            console.log('Pedido completo recuperado:', pedido);
-
             if (!pedido.telefone) {
                 alert('Não foi possível encontrar o telefone do cliente.');
                 console.error('Erro: Telefone do cliente não encontrado no pedido.');
                 return;
             }
-
             database.ref('pedidos/' + pedidoId).update({ status: 'Aceito' });
-
-            const itensPedido = pedido.cart
-                .map(item => `${item.quantity}x ${item.name} - R$ ${(item.price * item.quantity).toFixed(2)}`)
-                .join('\n');
-
-            const enderecoTexto = pedido.tipoEntrega === 'Entrega' ?
-                `${pedido.endereco.rua}, ${pedido.endereco.numero} - ${pedido.endereco.bairro}` :
-                'Retirada no local';
-
+            const itensPedido = pedido.cart.map(item => `${item.quantity}x ${item.name} - R$ ${(item.price * item.quantity).toFixed(2)}`).join('\n');
+            const enderecoTexto = pedido.tipoEntrega === 'Entrega' ? `${pedido.endereco.rua}, ${pedido.endereco.numero} - ${pedido.endereco.bairro}` : 'Retirada no local';
             const trocoPara = pedido.dinheiroTotal ? parseFloat(pedido.dinheiroTotal) : 0;
-            const trocoTexto = trocoPara > 0 ?
-                `Troco para: R$ ${trocoPara.toFixed(2)}` :
-                'Sem troco';
-
+            const trocoTexto = trocoPara > 0 ? `Troco para: R$ ${trocoPara.toFixed(2)}` : 'Sem troco';
             const obsTexto = pedido.observacao || 'Nenhuma';
-
             const mensagem = `✅ *Seu pedido foi aceito!*
 
 🛒 *Itens:*
@@ -205,16 +217,8 @@ ${itensPedido}
 💵 *Total:* R$ ${pedido.totalPedido.toFixed(2)}
 
 Aguarde que logo estará a caminho! 🍽️`;
-
             const telefoneLimpo = pedido.telefone.replace(/\D/g, '');
-            console.log('Telefone limpo para WhatsApp:', telefoneLimpo);
-
-            const url = `https://api.whatsapp.com/send?phone=${telefoneLimpo}&text=${encodeURIComponent(mensagem)}`;
-            console.log('URL gerada para WhatsApp:', url);
-
-            window.open(url, '_blank');
-            console.log('Tentativa de abrir WhatsApp.');
-
+            window.open(`https://api.whatsapp.com/send?phone=${telefoneLimpo}&text=${encodeURIComponent(mensagem)}`, '_blank');
         })
         .catch(err => {
             console.error('Erro ao aceitar pedido:', err);
@@ -235,9 +239,7 @@ function saiuParaEntrega(pedidoId) {
         });
 
         const telefoneLimpo = pedido.telefone.replace(/\D/g, '');
-
         let mensagem = '';
-
         if (pedido.tipoEntrega === 'Retirada') {
             mensagem =
                 `✅ *Seu pedido está pronto para retirada!*
@@ -255,9 +257,7 @@ Pode vir buscar quando quiser. Agradecemos pela preferência! 🙏`;
 
 Nosso entregador está a caminho. 🛵 Agradecemos pela preferência! 🙏`;
         }
-
-        const url = `https://api.whatsapp.com/send?phone=${telefoneLimpo}&text=${encodeURIComponent(mensagem)}`;
-        window.open(url, '_blank');
+        window.open(`https://api.whatsapp.com/send?phone=${telefoneLimpo}&text=${encodeURIComponent(mensagem)}`, '_blank');
     });
 }
 
@@ -274,7 +274,6 @@ function finalizarPedido(pedidoId) {
             timestamp: Date.now()
         });
 
-
         const mensagem =
             `✅ *Pedido finalizado!*
 
@@ -282,8 +281,7 @@ Muito obrigado, ${pedido.nomeCliente || ''}, por confiar em nosso serviço. 😄
 Esperamos vê-lo novamente em breve! 🍽️🍕`;
 
         const telefoneLimpo = pedido.telefone.replace(/\D/g, '');
-        const url = `https://api.whatsapp.com/send?phone=${telefoneLimpo}&text=${encodeURIComponent(mensagem)}`;
-        window.open(url, '_blank');
+        window.open(`https://api.whatsapp.com/send?phone=${telefoneLimpo}&text=${encodeURIComponent(mensagem)}`, '_blank');
     });
 }
 
@@ -293,13 +291,10 @@ function recusarPedido(pedidoId) {
     }
 }
 
-
 function gerarHtmlPedido(pedido, pedidoId) {
-
     if (!pedido || !pedido.cart || !Array.isArray(pedido.cart)) {
         return `<div class="text-red-600 font-semibold">Erro: pedido inválido ou sem produtos.</div>`;
     }
-
 
     let enderecoTexto = pedido.tipoEntrega === 'Entrega' ?
         `<p class="text-sm mb-1"><strong>Endereço:</strong> ${pedido.endereco.rua}, ${pedido.endereco.numero} - ${pedido.endereco.bairro}</p>` :
@@ -402,34 +397,32 @@ function calcularTempoDecorrido(data) {
     return `${horas}h ${minutos % 60}min`;
 }
 
-// Atualizada para incluir as novas abas
 function ativaAba(ativa, ...inativas) {
     ativa.classList.remove('hidden');
     inativas.forEach(aba => aba.classList.add('hidden'));
 }
 
-// Atualizada para incluir os novos botões
 function estilizaBotaoAtivo(botaoAtivo, ...inativos) {
     botaoAtivo.classList.add('bg-blue-600', 'text-white');
-    botaoAtivo.classList.remove('bg-blue-700'); // Cor padrão da sidebar
+    botaoAtivo.classList.remove('bg-blue-700');
 
     inativos.forEach(botao => {
         botao.classList.remove('bg-blue-600', 'text-white');
-        botao.classList.add('bg-blue-700'); // Cor padrão da sidebar
+        botao.classList.add('bg-blue-700');
     });
 }
 
 // Event Listeners para os botões do menu hamburguer
 btnAtivos.addEventListener('click', () => {
-    ativaAba(abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarUsuarios, abaConfiguracoesGerais, abaRelatorios);
-    estilizaBotaoAtivo(btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarUsuarios, btnConfiguracoesGerais, btnRelatorios);
+    ativaAba(abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios);
+    estilizaBotaoAtivo(btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios);
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
 });
 
 btnFinalizados.addEventListener('click', () => {
-    ativaAba(abaFinalizados, abaAtivos, EditarCardapio, editarHorario, abaGerenciarUsuarios, abaConfiguracoesGerais, abaRelatorios);
-    estilizaBotaoAtivo(btnFinalizados, btnAtivos, btnEditarCardapio, btnEditarHorario, btnGerenciarUsuarios, btnConfiguracoesGerais, btnRelatorios);
+    ativaAba(abaFinalizados, abaAtivos, EditarCardapio, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios);
+    estilizaBotaoAtivo(btnFinalizados, btnAtivos, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios);
 
     const hoje = new Date();
     const seteDiasAtras = new Date(hoje);
@@ -444,63 +437,57 @@ btnFinalizados.addEventListener('click', () => {
 });
 
 btnEditarCardapio.addEventListener('click', () => {
-    ativaAba(EditarCardapio, abaFinalizados, abaAtivos, editarHorario, abaGerenciarUsuarios, abaConfiguracoesGerais, abaRelatorios);
-    estilizaBotaoAtivo(btnEditarCardapio, btnAtivos, btnFinalizados, btnEditarHorario, btnGerenciarUsuarios, btnConfiguracoesGerais, btnRelatorios);
+    ativaAba(EditarCardapio, abaFinalizados, abaAtivos, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios);
+    estilizaBotaoAtivo(btnEditarCardapio, btnAtivos, btnFinalizados, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios);
     carregarItensCardapio(categoriaSelect.value, searchInput.value);
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
 });
 
 btnEditarHorario.addEventListener('click', () => {
-    ativaAba(editarHorario, abaFinalizados, abaAtivos, EditarCardapio, abaGerenciarUsuarios, abaConfiguracoesGerais, abaRelatorios);
-    estilizaBotaoAtivo(btnEditarHorario, btnAtivos, btnFinalizados, btnEditarCardapio, btnGerenciarUsuarios, btnConfiguracoesGerais, btnRelatorios);
+    ativaAba(editarHorario, abaFinalizados, abaAtivos, EditarCardapio, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios);
+    estilizaBotaoAtivo(btnEditarHorario, btnAtivos, btnFinalizados, btnEditarCardapio, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios);
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
 });
 
-// Novos Event Listeners para os novos botões
-btnGerenciarUsuarios.addEventListener('click', () => {
-    ativaAba(abaGerenciarUsuarios, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaConfiguracoesGerais, abaRelatorios);
-    estilizaBotaoAtivo(btnGerenciarUsuarios, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnConfiguracoesGerais, btnRelatorios);
+// Novo Event Listener para o botão Gerenciar Mesas
+btnGerenciarMesas.addEventListener('click', () => {
+    ativaAba(abaGerenciarMesas, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaConfiguracoesGerais, abaRelatorios);
+    estilizaBotaoAtivo(btnGerenciarMesas, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnConfiguracoesGerais, btnRelatorios);
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
+    carregarMesasDoFirebase(); // Carrega as mesas quando a aba é ativada
 });
+
 
 btnConfiguracoesGerais.addEventListener('click', () => {
-    ativaAba(abaConfiguracoesGerais, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarUsuarios, abaRelatorios);
-    estilizaBotaoAtivo(btnConfiguracoesGerais, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarUsuarios, btnRelatorios);
+    ativaAba(abaConfiguracoesGerais, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarMesas, abaRelatorios);
+    estilizaBotaoAtivo(btnConfiguracoesGerais, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnRelatorios);
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
 });
 
 // --- FUNÇÕES DE RELATÓRIOS ---
 
-// Helper function to set date inputs
 function setRelatorioDateRange(daysAgoStart = 0, daysAgoEnd = 0, monthsAgo = 0) {
     const today = new Date();
     let startDate = new Date(today);
     let endDate = new Date(today);
 
-    // If monthsAgo is provided, calculate based on months
     if (monthsAgo > 0) {
-        // For "Último Mês", calculate the first day of the previous month
-        // and the last day of the previous month.
         if (monthsAgo === 1) {
             startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
             endDate = new Date(today.getFullYear(), today.getMonth(), 0);
-        }
-        // For "Últimos 3 Meses", calculate the first day of 3 months ago
-        // and the current date (inclusive).
-        else if (monthsAgo === 3) {
+        } else if (monthsAgo === 3) {
             startDate = new Date(today.getFullYear(), today.getMonth() - 3, 1);
             endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         }
-    } else { // Otherwise, calculate based on days
+    } else {
         startDate.setDate(today.getDate() - daysAgoStart);
         endDate.setDate(today.getDate() - daysAgoEnd);
     }
-    
-    // Ensure the date is formatted correctly for input type="date"
+
     const formatDate = (date) => {
         const d = new Date(date);
         let month = '' + (d.getMonth() + 1);
@@ -515,41 +502,37 @@ function setRelatorioDateRange(daysAgoStart = 0, daysAgoEnd = 0, monthsAgo = 0) 
 
     relatorioDataInicio.value = formatDate(startDate);
     relatorioDataFim.value = formatDate(endDate);
-    
-    // Immediately generate reports after setting the dates
+
     gerarRelatorios();
 }
 
-// Event Listeners for Quick Date Selectors
 btnHoje.addEventListener('click', () => {
-    setRelatorioDateRange(0, 0); // Today
+    setRelatorioDateRange(0, 0);
 });
 
 btnUltimos7Dias.addEventListener('click', () => {
-    setRelatorioDateRange(6, 0); // Last 7 days including today
+    setRelatorioDateRange(6, 0);
 });
 
 btnUltimoMes.addEventListener('click', () => {
-    setRelatorioDateRange(0, 0, 1); // Last full month
+    setRelatorioDateRange(0, 0, 1);
 });
 
 btnUltimos3Meses.addEventListener('click', () => {
-    setRelatorioDateRange(0, 0, 3); // Last 3 full months
+    setRelatorioDateRange(0, 0, 3);
 });
 
 
 btnRelatorios.addEventListener('click', () => {
-    ativaAba(abaRelatorios, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarUsuarios, abaConfiguracoesGerais);
-    estilizaBotaoAtivo(btnRelatorios, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarUsuarios, btnConfiguracoesGerais);
+    ativaAba(abaRelatorios, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais);
+    estilizaBotaoAtivo(btnRelatorios, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais);
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
-    
-    // Default to "Últimos 7 Dias" when the reports tab is opened
-    setRelatorioDateRange(6, 0); 
+
+    setRelatorioDateRange(6, 0);
 });
 
 
-// Carrega e processa os pedidos para gerar relatórios
 function gerarRelatorios() {
     const inicio = relatorioDataInicio.value;
     const fim = relatorioDataFim.value;
@@ -567,26 +550,23 @@ function gerarRelatorios() {
         return;
     }
 
-    // Destruir instâncias de gráficos anteriores para evitar sobreposição
     if (topProdutosChartInstance) topProdutosChartInstance.destroy();
     if (vendasPorDiaChartInstance) vendasPorDiaChartInstance.destroy();
     if (horariosPicoChartInstance) horariosPicoChartInstance.destroy();
     if (metodosPagamentoChartInstance) metodosPagamentoChartInstance.destroy();
 
-    // Resetar containers de relatórios e sumários
     topProdutosSummary.innerHTML = '<p class="text-gray-600">Carregando...</p>';
     vendasPorDiaSummary.innerHTML = '<p class="text-gray-600">Carregando...</p>';
     horariosPicoSummary.innerHTML = '<p class="text-gray-600">Carregando...</p>';
     metodosPagamentoSummary.innerHTML = '<p class="text-gray-600">Carregando...</p>';
-    
-    // Esconder canvases enquanto carrega ou se não houver dados
+
     topProdutosChartCanvas.style.display = 'none';
     vendasPorDiaChartCanvas.style.display = 'none';
     horariosPicoChartCanvas.style.display = 'none';
     metodosPagamentoChartCanvas.style.display = 'none';
 
 
-    database.ref('pedidos').orderByChild('timestamp').once('value', (snapshot) => { // Usar .once() para buscar os dados uma vez
+    database.ref('pedidos').orderByChild('timestamp').once('value', (snapshot) => {
         const pedidosNoPeriodo = [];
         snapshot.forEach(childSnapshot => {
             const pedido = childSnapshot.val();
@@ -600,7 +580,7 @@ function gerarRelatorios() {
             vendasPorDiaSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
             horariosPicoSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
             metodosPagamentoSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
-            
+
             topProdutosChartCanvas.style.display = 'none';
             vendasPorDiaChartCanvas.style.display = 'none';
             horariosPicoChartCanvas.style.display = 'none';
@@ -618,7 +598,7 @@ function gerarRelatorios() {
         vendasPorDiaSummary.innerHTML = '<p class="text-red-600">Erro ao carregar dados.</p>';
         horariosPicoSummary.innerHTML = '<p class="text-red-600">Erro ao carregar dados.</p>';
         metodosPagamentoSummary.innerHTML = '<p class="text-red-600">Erro ao carregar dados.</p>';
-        
+
         topProdutosChartCanvas.style.display = 'none';
         vendasPorDiaChartCanvas.style.display = 'none';
         horariosPicoChartCanvas.style.display = 'none';
@@ -657,11 +637,11 @@ function analisarProdutosMaisVendidos(pedidos) {
                     label: 'Unidades Vendidas',
                     data: data,
                     backgroundColor: [
-                        'rgba(75, 192, 192, 0.8)', // Cor 1
-                        'rgba(54, 162, 235, 0.8)', // Cor 2
-                        'rgba(255, 206, 86, 0.8)', // Cor 3
-                        'rgba(153, 102, 255, 0.8)', // Cor 4
-                        'rgba(255, 99, 132, 0.8)'  // Cor 5
+                        'rgba(75, 192, 192, 0.8)',
+                        'rgba(54, 162, 235, 0.8)',
+                        'rgba(255, 206, 86, 0.8)',
+                        'rgba(153, 102, 255, 0.8)',
+                        'rgba(255, 99, 132, 0.8)'
                     ],
                     borderColor: [
                         'rgba(75, 192, 192, 1)',
@@ -675,32 +655,32 @@ function analisarProdutosMaisVendidos(pedidos) {
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false, // ESSA É A PROPRIEDADE CHAVE
+                maintainAspectRatio: false,
                 scales: {
                     y: {
                         beginAtZero: true,
                         grid: {
-                            display: false // Esconde as linhas de grade do eixo Y
+                            display: false
                         },
                         ticks: {
-                            precision: 0 // Garante números inteiros
+                            precision: 0
                         },
                         title: {
-                            display: false // Esconde o título do eixo Y
+                            display: false
                         }
                     },
                     x: {
                         grid: {
-                            display: false // Esconde as linhas de grade do eixo X
+                            display: false
                         },
                         title: {
-                            display: false // Esconde o título do eixo X
+                            display: false
                         }
                     }
                 },
                 plugins: {
                     legend: {
-                        display: false // Esconde a legenda
+                        display: false
                     },
                     tooltip: {
                         callbacks: {
@@ -722,15 +702,15 @@ function analisarProdutosMaisVendidos(pedidos) {
 
 function analisarVendasPorDiaDaSemana(pedidos) {
     const vendasPorDia = {
-        0: 0, // Domingo
-        1: 0, // Segunda
-        2: 0, // Terça
-        3: 0, // Quarta
-        4: 0, // Quinta
-        5: 0, // Sexta
-        6: 0 // Sábado
+        0: 0,
+        1: 0,
+        2: 0,
+        3: 0,
+        4: 0,
+        5: 0,
+        6: 0
     };
-    const nomesDias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]; // Nomes mais curtos
+    const nomesDias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
     pedidos.forEach(pedido => {
         const data = new Date(pedido.timestamp);
@@ -767,7 +747,7 @@ function analisarVendasPorDiaDaSemana(pedidos) {
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false, // ESSA É A PROPRIEDADE CHAVE
+                maintainAspectRatio: false,
                 scales: {
                     y: {
                         beginAtZero: true,
@@ -810,7 +790,7 @@ function analisarVendasPorDiaDaSemana(pedidos) {
             const topCount = diasOrdenadosParaResumo[0][1];
             vendasPorDiaSummary.innerHTML = `<p>O dia com mais vendas foi **${topDay}** com **${topCount} pedidos**.</p>`;
         } else {
-             vendasPorDiaSummary.innerHTML = '<p class="text-gray-600">Nenhum dado de vendas por dia.</p>';
+            vendasPorDiaSummary.innerHTML = '<p class="text-gray-600">Nenhum dado de vendas por dia.</p>';
         }
 
     } else {
@@ -858,7 +838,7 @@ function analisarHorariosDePico(pedidos) {
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false, // ESSA É A PROPRIEDADE CHAVE
+                maintainAspectRatio: false,
                 scales: {
                     y: {
                         beginAtZero: true,
@@ -904,7 +884,7 @@ function analisarHorariosDePico(pedidos) {
         if (topHorario[1] > 0) {
             horariosPicoSummary.innerHTML = `<p>O horário de pico foi entre **${topHorario[0]}h e ${parseInt(topHorario[0]) + 1}h** com **${topHorario[1]} pedidos**.</p>`;
         } else {
-             horariosPicoSummary.innerHTML = '<p class="text-gray-600">Nenhum dado de horário de pico.</p>';
+            horariosPicoSummary.innerHTML = '<p class="text-gray-600">Nenhum dado de horário de pico.</p>';
         }
 
     } else {
@@ -937,9 +917,9 @@ function analisarMetodosDePagamento(pedidos) {
                 datasets: [{
                     data: data,
                     backgroundColor: [
-                        'rgba(255, 99, 132, 0.8)', // Vermelho (Pix)
-                        'rgba(54, 162, 235, 0.8)', // Azul (Cartão)
-                        'rgba(255, 206, 86, 0.8)', // Amarelo (Dinheiro)
+                        'rgba(255, 99, 132, 0.8)',
+                        'rgba(54, 162, 235, 0.8)',
+                        'rgba(255, 206, 86, 0.8)',
                         'rgba(75, 192, 192, 0.8)',
                         'rgba(153, 102, 255, 0.8)'
                     ],
@@ -949,10 +929,10 @@ function analisarMetodosDePagamento(pedidos) {
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false, // ESSA É A PROPRIEDADE CHAVE
+                maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        position: 'right', // Mova a legenda para a direita para um visual mais limpo
+                        position: 'right',
                         labels: {
                             boxWidth: 20,
                             padding: 15
@@ -977,80 +957,13 @@ function analisarMetodosDePagamento(pedidos) {
                 }
             }
         });
-        
+
         metodosPagamentoSummary.innerHTML = `<p>O método de pagamento mais usado é **${labels[0]}**.</p>`;
     } else {
         metodosPagamentoSummary.innerHTML = '<p class="text-gray-600">Nenhum dado de método de pagamento.</p>';
         metodosPagamentoChartCanvas.style.display = 'none';
     }
 }
-
-function setRelatorioDateRange(daysAgoStart = 0, daysAgoEnd = 0, monthsAgo = 0) {
-    const today = new Date();
-    let startDate = new Date(today);
-    let endDate = new Date(today);
-
-    if (monthsAgo > 0) {
-        if (monthsAgo === 1) {
-            startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-            endDate = new Date(today.getFullYear(), today.getMonth(), 0);
-        } else if (monthsAgo === 3) {
-            startDate = new Date(today.getFullYear(), today.getMonth() - 3, 1);
-            endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        }
-    } else {
-        startDate.setDate(today.getDate() - daysAgoStart);
-        endDate.setDate(today.getDate() - daysAgoEnd);
-    }
-    
-    const formatDate = (date) => {
-        const d = new Date(date);
-        let month = '' + (d.getMonth() + 1);
-        let day = '' + d.getDate();
-        const year = d.getFullYear();
-
-        if (month.length < 2) month = '0' + month;
-        if (day.length < 2) day = '0' + day;
-
-        return [year, month, day].join('-');
-    };
-
-    relatorioDataInicio.value = formatDate(startDate);
-    relatorioDataFim.value = formatDate(endDate);
-    
-    gerarRelatorios();
-}
-
-btnGerarRelatorios.addEventListener('click', gerarRelatorios);
-
-btnUltimos7Dias.addEventListener('click', () => {
-    setRelatorioDateRange(6, 0);
-});
-
-btnUltimoMes.addEventListener('click', () => {
-    setRelatorioDateRange(0, 0, 1);
-});
-
-btnUltimos3Meses.addEventListener('click', () => {
-    setRelatorioDateRange(0, 0, 3);
-});
-
-btnHoje.addEventListener('click', () => {
-    setRelatorioDateRange(0, 0);
-});
-
-
-btnRelatorios.addEventListener('click', () => {
-    ativaAba(abaRelatorios, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarUsuarios, abaConfiguracoesGerais);
-    estilizaBotaoAtivo(btnRelatorios, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarUsuarios, btnConfiguracoesGerais);
-    sidebar.classList.add('-translate-x-full');
-    overlay.classList.add('hidden');
-    
-    setRelatorioDateRange(6, 0); 
-});
-
-// Função para inicializar a aba ativa e o estilo do botão
-btnAtivos.click();
 
 function gerarNota(pedido) {
     let html = `
@@ -1170,8 +1083,6 @@ function gerarNota(pedido) {
     printWindow.print();
 }
 
-
-
 function imprimirPedido(pedidoId) {
     database.ref('pedidos/' + pedidoId).once('value').then(snapshot => {
         const pedido = snapshot.val();
@@ -1188,7 +1099,7 @@ function atualizarPromocao() {
 const imagemUrlInput = document.getElementById('imagemUrl');
 const imagemPreview = document.getElementById('imagemPreview');
 
-if (imagemUrlInput && imagemPreview) { // Verifica se os elementos existem antes de adicionar listener
+if (imagemUrlInput && imagemPreview) {
     imagemUrlInput.addEventListener('input', () => {
         const url = imagemUrlInput.value.trim();
         if (url.startsWith('http')) {
@@ -1200,7 +1111,6 @@ if (imagemUrlInput && imagemPreview) { // Verifica se os elementos existem antes
         }
     });
 }
-
 
 document.getElementById('promoForm')?.addEventListener('submit', function(e) {
     e.preventDefault();
@@ -1266,7 +1176,6 @@ function renderizarItensModal(itens) {
     document.getElementById('btn-salvar-pedido').onclick = salvarPedidoEditado;
 }
 
-// Adicionar novo item
 document.getElementById('btn-adicionar-item')?.addEventListener('click', () => {
     const nome = document.getElementById('novo-item-nome').value.trim();
     const preco = parseFloat(document.getElementById('novo-item-preco').value);
@@ -1279,7 +1188,6 @@ document.getElementById('btn-adicionar-item')?.addEventListener('click', () => {
     pedidoOriginal.cart = pedidoOriginal.cart || [];
     pedidoOriginal.cart.push({ name: nome, price: preco, quantity: qtd });
 
-    // Limpa campos
     document.getElementById('novo-item-nome').value = '';
     document.getElementById('novo-item-preco').value = '';
     document.getElementById('novo-item-quantidade').value = '1';
@@ -1301,10 +1209,9 @@ function salvarPedidoEditado() {
         }
     });
 
-    // Recalcula o total do pedido com base nos novos itens
     const novoTotalPedido = novosItens.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-    database.ref('pedidos/' + pedidoEmEdicao).update({ cart: novosItens, totalPedido: novoTotalPedido }) // Atualiza o carrinho e o total
+    database.ref('pedidos/' + pedidoEmEdicao).update({ cart: novosItens, totalPedido: novoTotalPedido })
         .then(() => {
             alert('Pedido atualizado com sucesso!');
             fecharModalEditarPedido();
@@ -1321,36 +1228,27 @@ function fecharModalEditarPedido() {
     pedidoOriginal = null;
 }
 
-// Event listeners para a seção de edição do cardápio
 btnEditarCardapio.addEventListener("click", () => {
-    // Oculta outras seções
     document.getElementById("aba-ativos").classList.add("hidden");
     document.getElementById("aba-finalizados").classList.add("hidden");
-    document.getElementById("promocoes").classList.add("hidden"); // Certifique-se que este ID existe
+    document.getElementById("promocoes").classList.add("hidden");
     document.getElementById("editar-cardapio").classList.remove("hidden");
 
-    // Carrega os itens do cardápio ao ativar a aba de edição
     carregarItensCardapio(categoriaSelect.value, searchInput.value);
 });
 
 categoriaSelect.addEventListener("change", (e) => {
-    // Recarrega os itens quando a categoria muda, aplicando a pesquisa atual
     carregarItensCardapio(e.target.value, searchInput.value);
 });
 
 searchInput.addEventListener("input", () => {
-    // Recarrega os itens quando o input de pesquisa muda, aplicando a categoria atual
     carregarItensCardapio(categoriaSelect.value, searchInput.value);
 });
 
-
-// Função principal para carregar itens do cardápio para edição
-// Agora aceita um termo de pesquisa
 function carregarItensCardapio(categoria, searchQuery = '') {
     const container = document.getElementById("itens-cardapio-container");
     container.innerHTML = "Carregando...";
 
-    // Referência para a categoria selecionada (ex: produtos/pizzas)
     const ref = database.ref(`produtos/${categoria}`);
 
     ref.once("value", function(snapshot) {
@@ -1363,7 +1261,6 @@ function carregarItensCardapio(categoria, searchQuery = '') {
             itemsToRender.push({ item, key });
         });
 
-        // Filtra os itens com base na pesquisa
         const lowerCaseSearchQuery = searchQuery.toLowerCase();
         const filteredItems = itemsToRender.filter(({ item }) => {
             const name = (item.nome || item.titulo || '').toLowerCase();
@@ -1377,13 +1274,12 @@ function carregarItensCardapio(categoria, searchQuery = '') {
         }
 
         filteredItems.forEach(({ item, key }) => {
-            const card = criarCardItem(item, key, categoria); // Passa a categoria atual
+            const card = criarCardItem(item, key, categoria);
             container.appendChild(card);
         });
     });
 }
 
-// Função para criar o card de um item do cardápio para edição
 function criarCardItem(item, key, categoriaAtual) {
     const card = document.createElement("div");
 
@@ -1393,7 +1289,6 @@ function criarCardItem(item, key, categoriaAtual) {
 
     card.className = `bg-white p-4 rounded ${destaquePromocao} flex flex-col gap-2`;
 
-    // Parte fixa do conteúdo
     card.innerHTML = `
         ${categoriaAtual === "promocoes" ? '<span class="text-yellow-600 font-bold text-sm">🔥 Promoção</span>' : ''}
         <input type="text" value="${item.nome || ''}" placeholder="Nome" class="p-2 border rounded nome">
@@ -1403,7 +1298,6 @@ function criarCardItem(item, key, categoriaAtual) {
         <img class="preview-img w-full h-32 object-cover rounded border ${item.imagem ? '' : 'hidden'}" src="${item.imagem || ''}">
     `;
 
-    // Label e select do tipo (doce/salgado)
     const tipoLabel = document.createElement("label");
     tipoLabel.className = "text-sm text-gray-700";
     tipoLabel.textContent = "Tipo (Doce ou Salgado)";
@@ -1418,7 +1312,6 @@ function criarCardItem(item, key, categoriaAtual) {
     selectTipo.value = item.tipo || "salgado";
     card.appendChild(selectTipo);
 
-    // Checkbox ativo e botões
     card.innerHTML += `
         <label class="flex items-center gap-2 text-sm text-gray-700 mt-2">
             <input type="checkbox" class="ativo" ${item.ativo ? 'checked' : ''}> Ativo
@@ -1429,7 +1322,6 @@ function criarCardItem(item, key, categoriaAtual) {
         </div>
     `;
 
-    // --- Nova seção para Mover Item ---
     const moveSection = document.createElement("div");
     moveSection.className = "mt-4 pt-4 border-t border-gray-200 flex flex-col gap-2";
     moveSection.innerHTML = `
@@ -1446,10 +1338,7 @@ function criarCardItem(item, key, categoriaAtual) {
         <button class="move-item-btn bg-purple-600 text-white px-3 py-2 rounded hover:bg-purple-700 w-full">Mover Item</button>
     `;
     card.appendChild(moveSection);
-    // --- Fim da nova seção ---
 
-
-    // Preview da imagem
     const inputImagem = card.querySelector(".imagem");
     const previewImg = card.querySelector(".preview-img");
 
@@ -1462,7 +1351,6 @@ function criarCardItem(item, key, categoriaAtual) {
         }
     });
 
-    // Botão salvar
     card.querySelector(".salvar").addEventListener("click", function() {
         const nome = card.querySelector(".nome").value;
         const descricao = card.querySelector(".descricao").value;
@@ -1483,7 +1371,6 @@ function criarCardItem(item, key, categoriaAtual) {
         });
     });
 
-    // Botão excluir
     card.querySelector(".excluir").addEventListener("click", function() {
         if (confirm("Tem certeza que deseja excluir este item?")) {
             database.ref(`produtos/${categoriaAtual}/${key}`).remove(() => {
@@ -1493,7 +1380,6 @@ function criarCardItem(item, key, categoriaAtual) {
         }
     });
 
-    // Event listener para o botão Mover Item
     card.querySelector(".move-item-btn").addEventListener("click", function() {
         const targetCategorySelect = card.querySelector(".move-category-select");
         const targetCategory = targetCategorySelect.value;
@@ -1507,9 +1393,7 @@ function criarCardItem(item, key, categoriaAtual) {
             return;
         }
 
-        // Confirmação antes de mover
         if (confirm(`Tem certeza que deseja mover "${item.nome || item.titulo}" de "${categoriaAtual}" para "${targetCategory}"?`)) {
-            // Reconstroi o objeto do item com os valores atuais do formulário
             const updatedItemData = {
                 nome: card.querySelector(".nome").value,
                 descricao: card.querySelector(".descricao").value,
@@ -1525,23 +1409,13 @@ function criarCardItem(item, key, categoriaAtual) {
     return card;
 }
 
-/**
- * Move um item de uma categoria para outra no Firebase.
- * @param {string} itemKey A chave (ID) do item na categoria de origem.
- * @param {string} categoriaOrigem A categoria atual do item (ex: 'pizzas').
- * @param {string} categoriaDestino A categoria para a qual o item será movido (ex: 'promocoes').
- * @param {object} itemData Os dados completos do item a ser movido.
- */
 function moverItemParaCategoria(itemKey, categoriaOrigem, categoriaDestino, itemData) {
-    // 1. Adicionar o item à nova categoria
     database.ref(`produtos/${categoriaDestino}`).push(itemData)
         .then(() => {
-            // 2. Remover o item da categoria original
             return database.ref(`produtos/${categoriaOrigem}/${itemKey}`).remove();
         })
         .then(() => {
             alert(`Item "${itemData.nome || itemData.titulo}" movido com sucesso de "${categoriaOrigem}" para "${categoriaDestino}"!`);
-            // Recarregar a lista de itens na categoria atual para refletir a mudança
             carregarItensCardapio(categoriaOrigem, searchInput.value);
         })
         .catch(error => {
@@ -1550,19 +1424,15 @@ function moverItemParaCategoria(itemKey, categoriaOrigem, categoriaDestino, item
         });
 }
 
-
-// Mostra o modal de novo item
 function mostrarNovoitem() {
     document.getElementById("modal-novo-item").classList.remove("hidden");
     document.getElementById("modal-novo-item").classList.add("flex");
 }
 
-// Fecha o modal de novo item
 document.getElementById("btn-fechar-novo-item").addEventListener("click", () => {
     document.getElementById("modal-novo-item").classList.add("hidden");
 });
 
-// Preview da imagem digitada no modal de novo item
 document.getElementById("novo-imagem").addEventListener("input", () => {
     const url = document.getElementById("novo-imagem").value.trim();
     const preview = document.getElementById("preview-nova-imagem");
@@ -1575,14 +1445,13 @@ document.getElementById("novo-imagem").addEventListener("input", () => {
     }
 });
 
-// Salvar novo item no Firebase
 document.getElementById("btn-salvar-novo-item").addEventListener("click", () => {
     const nome = document.getElementById("novo-nome").value.trim();
     const descricao = document.getElementById("novo-descricao").value.trim();
     const preco = parseFloat(document.getElementById("novo-preco").value);
     const imagem = document.getElementById("novo-imagem").value.trim();
     const ativo = document.getElementById("novo-ativo").checked;
-    const categoria = document.getElementById("categoria-select").value; // Pega a categoria selecionada
+    const categoria = document.getElementById("categoria-select").value;
     const tipo = document.getElementById("novo-tipo").value;
 
     if (!categoria) {
@@ -1603,13 +1472,12 @@ document.getElementById("btn-salvar-novo-item").addEventListener("click", () => 
         } else {
             alert("Item adicionado com sucesso!");
             document.getElementById("modal-novo-item").classList.add("hidden");
-            carregarItensCardapio(categoria, searchInput.value); // Recarrega com a categoria e pesquisa atual
+            carregarItensCardapio(categoria, searchInput.value);
             limparFormularioNovoItem();
         }
     });
 });
 
-// Limpar campos após salvar
 function limparFormularioNovoItem() {
     document.getElementById("novo-nome").value = "";
     document.getElementById("novo-descricao").value = "";
@@ -1617,10 +1485,9 @@ function limparFormularioNovoItem() {
     document.getElementById("novo-imagem").value = "";
     document.getElementById("preview-nova-imagem").classList.add("hidden");
     document.getElementById("novo-ativo").checked = true;
-    document.getElementById("novo-tipo").value = "salgado"; // reseta para padrão
+    document.getElementById("novo-tipo").value = "salgado";
 }
 
-// Salva os horários no Realtime Database (versão compat)
 function salvarHorariosNoFirebase(horarios) {
     const db = firebase.database();
     db.ref('config/horarios')
@@ -1629,10 +1496,9 @@ function salvarHorariosNoFirebase(horarios) {
         .catch((error) => console.error("Erro ao salvar horários:", error));
 }
 
-// Verifica se está aberto agora
 function checkRestaurantOpen(horarios) {
     const agora = new Date();
-    const diaSemana = agora.getDay(); // 0 = domingo
+    const diaSemana = agora.getDay();
     const horaAtual = agora.getHours();
 
     const configDia = horarios[diaSemana];
@@ -1644,11 +1510,9 @@ function checkRestaurantOpen(horarios) {
 document.addEventListener("DOMContentLoaded", () => {
     const db = firebase.database();
 
-    // Renderiza os campos de cada dia
     const dias = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
     const container = document.getElementById("dias-container");
 
-    // Verifica se o container existe antes de tentar preencher
     if (container) {
         dias.forEach((dia, i) => {
             const linha = document.createElement("div");
@@ -1669,7 +1533,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Carrega os horários salvos do Firebase e preenche o formulário
     db.ref('config/horarios').once('value')
         .then(snapshot => {
             if (snapshot.exists()) {
@@ -1687,9 +1550,8 @@ document.addEventListener("DOMContentLoaded", () => {
         .catch(error => console.error("Erro ao carregar horários do Firebase:", error));
 
 
-    // Ao enviar o formulário
     const form = document.getElementById("horario-form");
-    if (form) { // Verifica se o formulário existe
+    if (form) {
         form.addEventListener("submit", (e) => {
             e.preventDefault();
 
@@ -1699,10 +1561,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 const inicio = parseInt(document.querySelector(`[name="inicio-${i}"]`).value);
                 const fim = parseInt(document.querySelector(`[name="fim-${i}"]`).value);
 
-                // Validação básica de horários
                 if (aberto && (isNaN(inicio) || isNaN(fim) || inicio < 0 || inicio > 23 || fim < 0 || fim > 23 || inicio >= fim)) {
                     alert(`Por favor, verifique os horários de ${dias[i]}.`);
-                    return; // Impede o salvamento se houver erro
+                    return;
                 }
                 horarios[i] = { aberto, inicio, fim };
             }
@@ -1711,8 +1572,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Verifica se está aberto agora e mostra status
-    db.ref('config/horarios').on('value', // Use 'on' para atualização em tempo real
+    db.ref('config/horarios').on('value',
         snapshot => {
             const statusElement = document.getElementById("status");
             if (snapshot.exists()) {
@@ -1745,3 +1605,262 @@ overlay.addEventListener('click', () => {
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
 });
+
+
+// --- FUNÇÕES DE GERENCIAMENTO DE MESAS ---
+
+// Inicializa as mesas no Firebase se não existirem
+btnConfigurarMesas.addEventListener('click', () => {
+    const numMesas = parseInt(numMesasInput.value, 10);
+    if (isNaN(numMesas) || numMesas < 1 || numMesas > 20) {
+        alert("Por favor, insira um número de mesas válido entre 1 e 20.");
+        return;
+    }
+
+    if (confirm(`Deseja configurar ${numMesas} mesas? Isso redefinirá o estado de todas as mesas existentes.`)) {
+        // Remove todas as mesas existentes
+        mesasRef.remove()
+            .then(() => {
+                const updates = {};
+                for (let i = 1; i <= numMesas; i++) {
+                    updates[i] = {
+                        numero: i,
+                        status: 'Livre', // Livre, Ocupada, Aguardando Pagamento
+                        cliente: '',
+                        garcom: '',
+                        observacoes: '',
+                        pedido: null, // Armazena os itens do pedido
+                        total: 0,
+                        lastUpdate: firebase.database.ServerValue.TIMESTAMP
+                    };
+                }
+                return mesasRef.update(updates);
+            })
+            .then(() => {
+                alert(`${numMesas} mesas configuradas com sucesso!`);
+            })
+            .catch(error => {
+                console.error("Erro ao configurar mesas:", error);
+                alert("Erro ao configurar mesas. Verifique o console.");
+            });
+    }
+});
+
+// Renderiza as mesas no container
+function renderMesas(mesasData) {
+    mesasContainer.innerHTML = '';
+    const sortedMesas = Object.values(mesasData).sort((a, b) => a.numero - b.numero); // Garante a ordem numérica
+
+    sortedMesas.forEach(mesa => {
+        const statusClass = mesa.status === 'Livre' ? 'table-status-free' : 'table-status-occupied';
+        const card = document.createElement('div');
+        card.className = `table-card bg-white p-4 rounded-lg shadow-md border-2 text-center flex flex-col items-center justify-center ${statusClass}`;
+        card.dataset.mesaNumero = mesa.numero;
+
+        let ocupiedInfo = '';
+        if (mesa.status !== 'Livre' && mesa.cliente) {
+            ocupiedInfo = `
+                <p class="text-sm font-medium text-gray-700">Cliente: ${mesa.cliente}</p>
+                <p class="text-sm text-gray-600">Garçom: ${mesa.garcom || 'N/A'}</p>
+                <p class="text-md font-semibold text-blue-600 mt-1">Total: R$ ${mesa.total.toFixed(2)}</p>
+            `;
+        }
+
+        card.innerHTML = `
+            <i class="fas fa-utensils text-4xl mb-2 ${mesa.status === 'Livre' ? 'text-green-700' : 'text-red-700'}"></i>
+            <h3 class="text-2xl font-bold mb-1">Mesa ${mesa.numero}</h3>
+            <span class="text-sm font-semibold ${mesa.status === 'Livre' ? 'text-green-700' : 'text-red-700'}">${mesa.status}</span>
+            ${ocupiedInfo}
+        `;
+        mesasContainer.appendChild(card);
+    });
+
+    // Adiciona event listeners para abrir o modal de detalhes da mesa
+    document.querySelectorAll('.table-card').forEach(card => {
+        card.addEventListener('click', () => abrirModalMesaDetalhes(card.dataset.mesaNumero));
+    });
+}
+
+// Função para carregar as mesas do Firebase e renderizar
+function carregarMesasDoFirebase() {
+    mesasRef.once('value', (snapshot) => {
+        const mesasData = snapshot.val() || {};
+        // Se não houver mesas, configura um número padrão (ex: 10)
+        if (Object.keys(mesasData).length === 0) {
+            numMesasInput.value = 10; // Define o valor padrão para o input
+            btnConfigurarMesas.click(); // Simula o clique para inicializar
+        } else {
+            // Se já existirem mesas, ajusta o input para o número de mesas existentes
+            numMesasInput.value = Object.keys(mesasData).length;
+            renderMesas(mesasData);
+        }
+    }, (error) => {
+        console.error("Erro ao carregar mesas iniciais:", error);
+        mesasContainer.innerHTML = '<p class="text-red-600">Erro ao carregar mesas.</p>';
+    });
+}
+
+
+// Abre o modal de detalhes da mesa
+function abrirModalMesaDetalhes(mesaNumero) {
+    currentEditingTableId = mesaNumero; // Guarda a mesa que está sendo editada
+
+    mesasRef.child(mesaNumero).once('value', (snapshot) => {
+        const mesa = snapshot.val();
+        if (!mesa) {
+            alert('Mesa não encontrada.');
+            return;
+        }
+
+        modalMesaNumero.textContent = mesa.numero;
+        mesaDetalhesStatus.textContent = mesa.status;
+        mesaDetalhesStatus.className = `font-semibold ${mesa.status === 'Livre' ? 'text-green-600' : 'text-red-600'}`;
+        mesaDetalhesCliente.textContent = mesa.cliente || 'N/A';
+        mesaDetalhesGarcom.textContent = mesa.garcom || 'N/A';
+        mesaDetalhesObs.textContent = mesa.observacoes || 'N/A';
+        mesaDetalhesTotal.textContent = `R$ ${mesa.total.toFixed(2)}`;
+
+        mesaDetalhesItens.innerHTML = '';
+        if (mesa.pedido && mesa.pedido.length > 0) {
+            mesa.pedido.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'flex justify-between items-center bg-gray-50 p-2 rounded';
+                itemDiv.innerHTML = `
+                    <span>${item.quantity}x ${item.name}</span>
+                    <span>R$ ${item.price.toFixed(2)}</span>
+                `;
+                mesaDetalhesItens.appendChild(itemDiv);
+            });
+        } else {
+            mesaDetalhesItens.innerHTML = '<p class="text-gray-500">Nenhum item adicionado a esta mesa.</p>';
+        }
+
+        // Reseta o formulário de pagamento
+        pagamentoCheckout.value = '';
+        trocoCheckoutInput.value = '';
+        trocoCheckoutGroup.classList.add('hidden');
+
+        // Mostra/esconde botões com base no status da mesa
+        if (mesa.status === 'Livre') {
+            btnCancelarMesa.classList.add('hidden');
+            btnFecharMesa.classList.add('hidden');
+            // Futuramente: Botão para "Abrir Mesa / Iniciar Pedido"
+        } else {
+            btnCancelarMesa.classList.remove('hidden'); // Permitir cancelar pedido de mesa ocupada
+            btnFecharMesa.classList.remove('hidden');
+        }
+
+        modalMesaDetalhes.classList.remove('hidden');
+        modalMesaDetalhes.classList.add('flex');
+    });
+}
+
+// Fecha o modal de detalhes da mesa
+function fecharModalMesaDetalhes() {
+    modalMesaDetalhes.classList.add('hidden');
+    currentEditingTableId = null;
+}
+
+// Listener para o select de método de pagamento no modal
+pagamentoCheckout.addEventListener('change', (event) => {
+    if (event.target.value === 'Dinheiro') {
+        trocoCheckoutGroup.classList.remove('hidden');
+    } else {
+        trocoCheckoutGroup.classList.add('hidden');
+        trocoCheckoutInput.value = ''; // Limpa o troco se mudar de método
+    }
+});
+
+// Botão "Cancelar Pedido" (libera a mesa e exclui o pedido associado)
+btnCancelarMesa.addEventListener('click', () => {
+    if (!currentEditingTableId) return;
+
+    if (confirm(`Tem certeza que deseja cancelar o pedido da Mesa ${currentEditingTableId}? A mesa será liberada.`)) {
+        mesasRef.child(currentEditingTableId).update({
+            status: 'Livre',
+            cliente: '',
+            garcom: '',
+            observacoes: '',
+            pedido: null,
+            total: 0
+        })
+        .then(() => {
+            alert(`Pedido da Mesa ${currentEditingTableId} cancelado e mesa liberada.`);
+            fecharModalMesaDetalhes();
+        })
+        .catch(error => {
+            console.error("Erro ao cancelar pedido da mesa:", error);
+            alert("Erro ao cancelar pedido da mesa.");
+        });
+    }
+});
+
+// Botão "Fechar Conta" (finaliza o pedido da mesa)
+btnFecharMesa.addEventListener('click', () => {
+    if (!currentEditingTableId) return;
+
+    const metodoPagamento = pagamentoCheckout.value;
+    const trocoPara = parseFloat(trocoCheckoutInput.value) || 0;
+
+    if (!metodoPagamento) {
+        alert("Selecione um método de pagamento.");
+        return;
+    }
+
+    mesasRef.child(currentEditingTableId).once('value', (snapshot) => {
+        const mesa = snapshot.val();
+        if (!mesa || !mesa.pedido || mesa.pedido.length === 0) {
+            alert('Não há pedido ativo para fechar nesta mesa.');
+            return;
+        }
+
+        const totalPagar = mesa.total;
+        if (metodoPagamento === 'Dinheiro' && trocoPara < totalPagar) {
+            alert(`O valor do troco deve ser maior ou igual ao total do pedido (R$ ${totalPagar.toFixed(2)}).`);
+            return;
+        }
+
+        if (confirm(`Confirmar fechamento da conta da Mesa ${mesa.numero} no valor de R$ ${totalPagar.toFixed(2)} (${metodoPagamento})?`)) {
+            // Registra o pedido da mesa como um "pedido finalizado" no nó 'pedidos'
+            const novoPedidoId = database.ref('pedidos').push().key; // Gera uma nova chave para o pedido finalizado
+            const pedidoFinalizado = {
+                tipoAtendimento: 'Mesa',
+                mesaNumero: mesa.numero,
+                cliente: mesa.cliente,
+                garcom: mesa.garcom,
+                observacoes: mesa.observacoes,
+                cart: mesa.pedido, // Usa os itens do pedido da mesa
+                totalPedido: mesa.total,
+                pagamento: metodoPagamento,
+                dinheiroTotal: metodoPagamento === 'Dinheiro' ? trocoPara : null,
+                status: 'Finalizado',
+                timestamp: firebase.database.ServerValue.TIMESTAMP // Usa timestamp do servidor
+            };
+
+            database.ref('pedidos/' + novoPedidoId).set(pedidoFinalizado)
+                .then(() => {
+                    // Após registrar, libera a mesa
+                    return mesasRef.child(currentEditingTableId).update({
+                        status: 'Livre',
+                        cliente: '',
+                        garcom: '',
+                        observacoes: '',
+                        pedido: null,
+                        total: 0
+                    });
+                })
+                .then(() => {
+                    alert(`Conta da Mesa ${mesa.numero} fechada e mesa liberada!`);
+                    fecharModalMesaDetalhes();
+                })
+                .catch(error => {
+                    console.error("Erro ao fechar conta da mesa:", error);
+                    alert("Erro ao fechar conta da mesa.");
+                });
+        }
+    });
+});
+
+
+// Inicializa a primeira aba ao carregar a página
+btnAtivos.click();

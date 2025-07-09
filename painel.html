@@ -3,15 +3,15 @@
 
 <head>
     <meta charset="UTF-8">
-    <link rel="icon" type="image/png" sizes="16x16" href="assets/icon.jpg">
+    <link rel="icon" type="image/png" sizes="16k16" href="assets/icon.jpg">
     <title>Painel Bonanza</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <script src="painel.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <script src="painel.js" defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        /* Adicione estilos para a transição da sidebar */
         .sidebar {
             transition: transform 0.3s ease-out;
         }
@@ -20,10 +20,25 @@
             background-color: rgba(0, 0, 0, 0.5);
             backdrop-filter: blur(2px);
         }
-        /* Estilos para os gráficos responsivos - AQUI ESTÁ A ALTURA FIXA! */
-        .report-section canvas {
-            max-width: 100%;
-            height: 300px; /* Altura fixa para todos os gráficos, ajuste se necessário */
+
+        .table-card {
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .table-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .table-status-free {
+            background-color: #d1fae5; /* Green-100 */
+            border-color: #34d399; /* Green-500 */
+        }
+
+        .table-status-occupied {
+            background-color: #fee2e2; /* Red-100 */
+            border-color: #ef4444; /* Red-500 */
         }
     </style>
 </head>
@@ -61,9 +76,9 @@
                 <i class="fas fa-clock mr-2"></i> Editar Horário
             </button>
 
-            <button id="btn-gerenciar-usuarios"
+            <button id="btn-gerenciar-mesas"
                 class="py-3 px-4 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-600 transition w-full text-left">
-                <i class="fas fa-users mr-2"></i> Gerenciar Usuários
+                <i class="fas fa-chair mr-2"></i> Gerenciar Mesas
             </button>
 
             <button id="btn-configuracoes-gerais"
@@ -262,7 +277,8 @@
 
                         <div class="space-y-4">
                             <div>
-                                <label for="novo-nome" class="block font-medium text-sm text-gray-700 mb-1">Nome</label>
+                                <label for="novo-nome"
+                                    class="block font-medium text-sm text-gray-700 mb-1">Nome</label>
                                 <input id="novo-nome" type="text"
                                     class="w-full border rounded p-2 focus:ring-2 ring-blue-500"
                                     placeholder="Nome do produto" />
@@ -342,14 +358,70 @@
                 </div>
             </div>
 
-            <div id="aba-gerenciar-usuarios" class="hidden">
+            <div id="aba-gerenciar-mesas" class="hidden">
                 <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">
-                    Gerenciar Usuários</h2>
-                <div class="bg-white p-6 rounded shadow-md">
-                    <p class="text-gray-600">Conteúdo para gerenciamento de usuários...</p>
+                    Gerenciar Mesas para Atendimento Presencial</h2>
+
+                <div class="mb-6">
+                    <label for="num-mesas" class="block text-sm font-medium text-gray-700 mb-2">Número de Mesas (1 a 20):</label>
+                    <div class="flex gap-2">
+                        <input type="number" id="num-mesas" min="1" max="20" value="10"
+                            class="w-24 p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        <button id="btn-configurar-mesas" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                            Configurar Mesas
+                        </button>
+                    </div>
+                </div>
+
+                <div id="mesas-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    </div>
+            </div>
+            <div id="modal-mesa-detalhes" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+                <div class="bg-white rounded-lg shadow-lg w-full max-w-2xl p-6 relative mx-4 overflow-y-auto max-h-[90vh]">
+                    <h2 class="text-xl font-bold mb-4">Mesa <span id="modal-mesa-numero"></span> - Detalhes do Pedido</h2>
+                    <button type="button" class="absolute top-4 right-4 text-gray-600 hover:text-gray-900 text-2xl" onclick="fecharModalMesaDetalhes()">
+                        <i class="fas fa-times"></i>
+                    </button>
+
+                    <div id="mesa-detalhes-info" class="space-y-3 text-gray-700 mb-6">
+                        <p><strong>Status:</strong> <span id="mesa-detalhes-status" class="font-semibold"></span></p>
+                        <p><strong>Cliente:</strong> <span id="mesa-detalhes-cliente"></span></p>
+                        <p><strong>Garçom:</strong> <span id="mesa-detalhes-garcom"></span></p>
+                        <p><strong>Observações:</strong> <span id="mesa-detalhes-obs"></span></p>
+                        <p><strong>Total do Pedido:</strong> <span id="mesa-detalhes-total" class="font-bold text-lg text-green-600"></span></p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mb-3">Itens do Pedido:</h3>
+                    <div id="mesa-detalhes-itens" class="space-y-2 mb-6 border p-3 rounded-md max-h-48 overflow-y-auto">
+                        </div>
+
+                    <div class="flex flex-col gap-4">
+                        <div>
+                            <label for="pagamento-checkout" class="block text-sm font-medium text-gray-700">Método de Pagamento:</label>
+                            <select id="pagamento-checkout" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                                <option value="">Selecione...</option>
+                                <option value="Pix">Pix</option>
+                                <option value="Cartão">Cartão</option>
+                                <option value="Dinheiro">Dinheiro</option>
+                            </select>
+                        </div>
+                        <div id="troco-checkout-group" class="hidden">
+                            <label for="troco-checkout" class="block text-sm font-medium text-gray-700">Troco para (opcional):</label>
+                            <input type="number" id="troco-checkout" min="0" step="0.01" placeholder="Valor recebido"
+                                class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-3 mt-6">
+                        <button id="btn-cancelar-mesa" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
+                            Cancelar Pedido
+                        </button>
+                        <button id="btn-fechar-mesa" class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                            Fechar Conta
+                        </button>
+                    </div>
                 </div>
             </div>
-
             <div id="aba-configuracoes-gerais" class="hidden">
                 <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">
                     Configurações Gerais</h2>
@@ -360,69 +432,77 @@
 
             <div id="aba-relatorios" class="hidden">
                 <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">
-                    Relatórios</h2>
+                    Relatórios de Vendas</h2>
 
-                <div class="bg-white p-6 rounded shadow-md space-y-8">
-                    <div class="flex flex-wrap gap-3 mb-4">
-                        <button id="btn-hoje"
-                            class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300 transition text-sm">Hoje</button>
-                        <button id="btn-ultimos-7-dias"
-                            class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300 transition text-sm">Últimos
-                            7 Dias</button>
-                        <button id="btn-ultimo-mes"
-                            class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300 transition text-sm">Último
-                            Mês</button>
-                        <button id="btn-ultimos-3-meses"
-                            class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300 transition text-sm">Últimos
-                            3 Meses</button>
-                    </div>
-
-                    <div class="flex flex-col sm:flex-row gap-4 mb-6">
-                        <div class="flex flex-col flex-1">
-                            <label for="relatorio-data-inicio" class="font-medium text-sm mb-1">Data Início:</label>
+                <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700">Filtro de Período</h3>
+                    <div class="flex flex-wrap items-end gap-4 mb-4">
+                        <div class="flex-1 min-w-[150px]">
+                            <label for="relatorio-data-inicio" class="block text-sm font-medium text-gray-700">Data
+                                Início:</label>
                             <input type="date" id="relatorio-data-inicio"
-                                class="border rounded px-4 py-2 focus:ring-2 ring-blue-400 w-full" />
+                                class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                         </div>
-                        <div class="flex flex-col flex-1">
-                            <label for="relatorio-data-fim" class="font-medium text-sm mb-1">Data Fim:</label>
+                        <div class="flex-1 min-w-[150px]">
+                            <label for="relatorio-data-fim" class="block text-sm font-medium text-gray-700">Data
+                                Fim:</label>
                             <input type="date" id="relatorio-data-fim"
-                                class="border rounded px-4 py-2 focus:ring-2 ring-blue-400 w-full" />
+                                class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <button id="btn-gerar-relatorios"
-                            class="bg-blue-600 text-white px-6 py-2 mt-2 sm:mt-0 rounded-lg font-semibold hover:bg-blue-700 w-full sm:w-auto">Gerar
-                            Relatórios</button>
+                            class="mt-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            Gerar Relatórios
+                        </button>
                     </div>
 
-                    <div class="report-section h-96 pb-14">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-3">Produtos Mais Vendidos (Top 5)</h3>
-                        <div id="top-produtos-summary" class="text-gray-700 mb-2"></div>
-                        <canvas id="top-produtos-chart"></canvas>
-                        <div id="top-produtos-container" class="space-y-2 text-gray-600 hidden"></div>
+                    <div class="flex flex-wrap gap-2 mt-4">
+                        <button id="btn-hoje"
+                            class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Hoje</button>
+                        <button id="btn-ultimos-7-dias"
+                            class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Últimos 7
+                            Dias</button>
+                        <button id="btn-ultimo-mes"
+                            class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Último Mês</button>
+                        <button id="btn-ultimos-3-meses"
+                            class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Últimos 3
+                            Meses</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-lg font-semibold mb-4 text-gray-700">Top Produtos Vendidos</h3>
+                        <div id="top-produtos-summary" class="mb-4 text-gray-800"></div>
+                        <div class="relative h-80">
+                            <canvas id="top-produtos-chart"></canvas>
+                        </div>
                     </div>
 
-                    <div class="report-section h-96 pb-14">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-3">Vendas por Dia da Semana</h3>
-                        <div id="vendas-por-dia-summary" class="text-gray-700 mb-2"></div>
-                        <canvas id="vendas-por-dia-chart"></canvas>
-                        <div id="vendas-por-dia-container" class="space-y-2 text-gray-600 hidden"></div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-lg font-semibold mb-4 text-gray-700">Vendas por Dia da Semana</h3>
+                        <div id="vendas-por-dia-summary" class="mb-4 text-gray-800"></div>
+                        <div class="relative h-80">
+                            <canvas id="vendas-por-dia-chart"></canvas>
+                        </div>
                     </div>
 
-                    <div class="report-section h-96 pb-14">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-3">Horários de Pico (Pedidos por Hora)</h3>
-                        <div id="horarios-pico-summary" class="text-gray-700 mb-2"></div>
-                        <canvas id="horarios-pico-chart"></canvas>
-                        <div id="horarios-pico-container" class="space-y-2 text-gray-600 hidden"></div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-lg font-semibold mb-4 text-gray-700">Horários de Pico</h3>
+                        <div id="horarios-pico-summary" class="mb-4 text-gray-800"></div>
+                        <div class="relative h-80">
+                            <canvas id="horarios-pico-chart"></canvas>
+                        </div>
                     </div>
 
-                    <div class="report-section h-96 pb-14">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-3">Métodos de Pagamento Mais Usados</h3>
-                        <div id="metodos-pagamento-summary" class="text-gray-700 mb-2"></div>
-                        <canvas id="metodos-pagamento-chart"></canvas>
-                        <div id="metodos-pagamento-container" class="space-y-2 text-gray-600 hidden"></div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-lg font-semibold mb-4 text-gray-700">Métodos de Pagamento</h3>
+                        <div id="metodos-pagamento-summary" class="mb-4 text-gray-800"></div>
+                        <div class="relative h-80">
+                            <canvas id="metodos-pagamento-chart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
-
         </div>
     </div>
 </body>
