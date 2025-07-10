@@ -1255,7 +1255,15 @@ applycupom.addEventListener('click', () => {
     database.ref(`cupons/${codigoDigitado}`).once('value', (snapshot) => {
         // Verifica se o cupom existe
         if (!snapshot.exists()) {
-            Toastify({ text: "CUPOM INVÁLIDO!", duration: 3000, gravity: "top", position: "right", style: { background: "#ef4444" } }).showToast();
+            Toastify({ 
+              text: "CUPOM INVÁLIDO!",
+              duration: 3000,
+              gravity: "top",
+              position: "right",
+              style: {
+                 background: "#ef4444" 
+              } 
+            }).showToast();
             cupomInput.value = "";
             return;
         }
@@ -1265,29 +1273,69 @@ applycupom.addEventListener('click', () => {
 
         // Verifica se o cupom tá ativo
         if (!cupom.ativo) {
-            Toastify({ text: "Este cupom não está mais ativo.", duration: 3000, gravity: "top", position: "right", style: { background: "#ef4444" } }).showToast();
+            Toastify({ 
+              text: "Este cupom não está mais ativo.",
+              duration: 3000,
+              gravity: "top",
+              position: "right",
+              style: { 
+                  background: "#ef4444" 
+              }
+            }).showToast();
             return;
         }
 
         // Se tá na validade
         if (hoje.getTime() > cupom.validade) {
-            Toastify({ text: "Este cupom expirou!", duration: 3000, gravity: "top", position: "right", style: { background: "#ef4444" } }).showToast();
+            Toastify({
+              text: "Este cupom expirou!",
+              duration: 3000,
+              gravity: "top",
+              position: "right",
+              style: { 
+                background: "#ef4444" 
+              } 
+            }).showToast();
             return;
         }
         
         // Se o valor necessario foi atingido
         const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
         if (cupom.valorMinimo && subtotal < cupom.valorMinimo) {
-            Toastify({ text: `Este cupom requer um pedido mínimo de R$ ${cupom.valorMinimo.toFixed(2)}`, duration: 4000, gravity: "top", position: "right", style: { background: "#ffc107" } }).showToast();
+            Toastify({
+              text: `Este cupom requer um pedido mínimo de R$ ${cupom.valorMinimo.toFixed(2)}`,
+              duration: 4000,
+              gravity: "top",
+              position: "right",
+              style: {
+                background: "#ffc107"
+              }
+            }).showToast();
             return;
         }
 
         // Se o cliente já usou
         database.ref(`cupons_usados/${clienteId}/${codigoDigitado}`).once('value', (snapshotUso) => {
             if (snapshotUso.exists()) {
-                Toastify({ text: "Você já utilizou este cupom!", duration: 3000, gravity: "top", position: "right", style: { background: "#ef4444" } }).showToast();
+                Toastify({
+                  text: "Você já utilizou este cupom!",
+                  duration: 3000,
+                  gravity: "top",
+                  position: "right",
+                  style: {
+                    background: "#ef4444" 
+                  } 
+                }).showToast();
             } else {
-                Toastify({ text: "Cupom aplicado com sucesso!", duration: 3000, gravity: "top", position: "right", style: { background: "#22c55e" } }).showToast();
+                Toastify({
+                  text: "Cupom aplicado com sucesso!",
+                  duration: 3000,
+                  gravity: "top",
+                  position: "right",
+                  style: {
+                    background: "#22c55e" 
+                  } 
+                }).showToast();
                 
                 cupomAplicado = cupom; // Armazena o cupom válido na variável de estado
                 
