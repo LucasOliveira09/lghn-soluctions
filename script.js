@@ -1297,3 +1297,4 @@ applycupom.addEventListener('click', () => {
         }
     });
 });
+//Remover essa ultima linha em outro commit
