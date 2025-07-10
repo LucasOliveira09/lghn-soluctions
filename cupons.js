@@ -108,9 +108,9 @@ function getCookie(name) {
 // --- Conteúdo Principal do Script (Executado após o carregamento do DOM) ---
 document.addEventListener("DOMContentLoaded", () => {
     // --- Elementos do DOM ---
-    const phoneInputSection = document.getElementById('phone-input-section'); // New: Wrapper for input
-    const phoneDisplaySection = document.getElementById('phone-display-section'); // New: Wrapper for display
-    const displayedPhone = document.getElementById('displayed-phone'); // New: Element to show phone
+    const phoneInputSection = document.getElementById('phone-input-section');
+    const phoneDisplaySection = document.getElementById('phone-display-section');
+    const displayedPhone = document.getElementById('displayed-phone');
 
     const customerPhoneInput = document.getElementById('customer-phone');
     const phoneError = document.getElementById('phone-error');
@@ -126,13 +126,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const nextCouponText = document.getElementById('next-coupon-text');
     const progressStepsWrapper = document.getElementById('progress-steps-wrapper');
 
-    // Elementos da Sidebar
+    // Elementos da Sidebar (Esses IDs devem estar no seu HTML, no rewards.html)
     const menuButton = document.getElementById('menu-button');
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('overlay');
     const closeSidebarButton = document.getElementById('close-sidebar-button');
 
-    // --- Lógica da Sidebar ---
+    // --- Lógica da Sidebar (Garanta que seu rewards.html tenha os IDs corretos para isso) ---
     if (menuButton) {
         menuButton.addEventListener('click', () => {
             sidebar.classList.add('active');
@@ -158,6 +158,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // --- Função para Atualizar a Visualização de Progresso ---
+    /**
+     * Atualiza a visualização do progresso do cliente em direção ao próximo cupom.
+     * @param {number} completedOrders O número total de pedidos finalizados do cliente.
+     * @param {number} threshold O número de pedidos necessários para um cupom (e.g., 10).
+     */
     function updateProgressVisualization(completedOrders, threshold) {
         progressStepsWrapper.innerHTML = ''; // Limpa passos anteriores
         const currentMilestoneOrders = completedOrders % threshold; // Pedidos dentro do ciclo atual (0-9)
@@ -165,10 +170,11 @@ document.addEventListener("DOMContentLoaded", () => {
         completedOrdersText.innerHTML = `Pedidos finalizados: <span class="font-bold">${completedOrders}</span>`;
 
         let ordersUntilNextCoupon = threshold - currentMilestoneOrders;
+        // Ajusta para quando atinge exatamente um marco
         if (ordersUntilNextCoupon === threshold && completedOrders > 0 && completedOrders % threshold === 0) {
-            ordersUntilNextCoupon = 0;
+            ordersUntilNextCoupon = 0; // Significa que acabou de ganhar ou está pronto para ganhar
         } else if (completedOrders === 0) {
-            ordersUntilNextCoupon = threshold;
+            ordersUntilNextCoupon = threshold; // Se 0 pedidos, precisa do threshold completo para o primeiro cupom
         }
 
         if (ordersUntilNextCoupon === 0) {
@@ -181,22 +187,25 @@ document.addEventListener("DOMContentLoaded", () => {
             nextCouponText.classList.remove('text-yellow-400');
         }
 
+        // Cria os passos para o ciclo atual (e.g., 10 passos para um threshold de 10)
         for (let i = 1; i <= threshold; i++) {
             const stepDiv = document.createElement('div');
             stepDiv.classList.add('progress-step');
-            stepDiv.textContent = i;
+            stepDiv.textContent = i; // Exibe o número do pedido dentro do ciclo
 
+            // Determina se o passo deve estar ativo
             if (completedOrders > 0 && completedOrders % threshold === 0 && i <= threshold) {
-                 stepDiv.classList.add('active');
+                 stepDiv.classList.add('active'); // Se for um múltiplo exato do threshold, todos os passos estão ativos
             } else if (i <= currentMilestoneOrders) {
-                stepDiv.classList.add('active');
+                stepDiv.classList.add('active'); // Caso contrário, ativa os passos até a contagem atual no ciclo
             }
 
             progressStepsWrapper.appendChild(stepDiv);
 
-            if (i < threshold) {
+            if (i < threshold) { // Adiciona linha entre os passos, mas não após o último
                 const lineDiv = document.createElement('div');
                 lineDiv.classList.add('progress-line');
+                // A linha deve estar ativa se o passo atual já foi atingido
                 if (completedOrders > 0 && completedOrders % threshold === 0 && i < threshold) {
                     lineDiv.classList.add('active');
                 } else if (i < currentMilestoneOrders) {
@@ -205,15 +214,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 progressStepsWrapper.appendChild(lineDiv);
             }
         }
-        progressContainer.classList.remove('hidden');
+        progressContainer.classList.remove('hidden'); // Mostra a seção de progresso
     }
 
     // --- Lógica Principal de Cupons (Verifica e Gera) ---
+    /**
+     * Verifica os pedidos do cliente e gera um cupom se os critérios forem atendidos.
+     * @param {string} clienteTelefone O número de telefone do cliente.
+     */
     async function checkAndGenerateCoupon(clienteTelefone) {
         showToast("Verificando seus pedidos...", "warning");
         noCouponMessage.classList.add('hidden');
         couponDisplayArea.classList.add('hidden');
-        progressContainer.classList.add('hidden');
+        progressContainer.classList.add('hidden'); // Oculta o progresso enquanto busca os dados
 
         try {
             const pedidosSnapshot = await database.ref('pedidos')
@@ -234,7 +247,7 @@ document.addEventListener("DOMContentLoaded", () => {
             console.log(`Pedidos finalizados para ${clienteTelefone}: ${completedOrdersCount}`);
 
             const threshold = 10;
-            updateProgressVisualization(completedOrdersCount, threshold);
+            updateProgressVisualization(completedOrdersCount, threshold); // Atualiza a visualização ANTES de qualquer toast de erro
 
             if (completedOrdersCount === 0) {
                 showToast("Você ainda não tem pedidos finalizados para ganhar cupons.", "warning");
@@ -253,25 +266,29 @@ document.addEventListener("DOMContentLoaded", () => {
             const issuedCouponsSnapshot = await database.ref(`cupons_emitidos/${clienteTelefone}`).once('value');
             const issuedCoupons = issuedCouponsSnapshot.val() || {};
 
-            let generatedThisSession = false;
-            let foundExistingActiveCoupon = null;
+            const allCuponsSnapshot = await database.ref('cupons').once('value'); // Busca todos os cupons
+            const allCupons = allCuponsSnapshot.val() || {};
 
+            let generatedThisSession = false;
+            let foundExistingActiveAndUnusedCoupon = null;
+
+            // 1. Tenta gerar um NOVO cupom se um marco for atingido e ainda não emitido
             for (let i = 1; i <= couponsToIssue; i++) {
                 const couponMilestoneId = `milestone_${i * threshold}`;
 
-                if (!issuedCoupons[couponMilestoneId]) {
+                if (!issuedCoupons[couponMilestoneId]) { // Se este cupom de marco ainda não foi emitido
                     const newCouponCode = generateMeaningfulCouponCode();
-                    const validityDays = 30;
+                    const validityDays = 30; // Cupom válido por 30 dias
                     const validityTimestamp = Date.now() + (validityDays * 24 * 60 * 60 * 1000);
 
                     const couponData = {
                         codigo: newCouponCode,
                         tipo: "porcentagem",
-                        valor: 10,
-                        ativo: true,
+                        valor: 10, // 10% de desconto
+                        ativo: true, // Novos cupons são sempre ativos
                         validade: validityTimestamp,
                         emitidoEm: Date.now(),
-                        clienteTelefone: clienteTelefone,
+                        clienteTelefone: clienteTelefone, // CORRIGIDO: nome da propriedade
                         milestone: couponMilestoneId
                     };
 
@@ -283,40 +300,44 @@ document.addEventListener("DOMContentLoaded", () => {
                     noCouponMessage.classList.add('hidden');
                     showToast("Parabéns! Você ganhou um novo cupom!", "success");
                     generatedThisSession = true;
-                    break;
+                    break; // Gera apenas um novo cupom por verificação
                 }
             }
 
+            // 2. Se nenhum novo cupom foi gerado, verifica se há cupons existentes ativos e NÃO UTILIZADOS
             if (!generatedThisSession) {
-                const availableCustomerCouponsSnapshot = await database.ref('cupons')
-                    .orderByChild('clienteTelefone')
-                    .equalTo(clienteTelefone)
-                    .once('value');
-
-                const couponChecks = [];
-                availableCustomerCouponsSnapshot.forEach(couponSnap => {
-                    const coupon = couponSnap.val();
-                    if (coupon.ativo && Date.now() < coupon.validade && coupon.clienteTelefone === clienteTelefone) {
-                        couponChecks.push(
-                            database.ref(`cupons_usados/${clienteTelefone}/${coupon.codigo}`).once('value').then(usedSnapshot => {
-                                if (!usedSnapshot.exists()) {
-                                    return coupon;
-                                }
-                                return null;
-                            })
-                        );
+                const clientSpecificCupons = [];
+                // Filtra todos os cupons globais para encontrar aqueles emitidos especificamente para este cliente
+                for (const code in allCupons) {
+                    if (allCupons.hasOwnProperty(code) && allCupons[code].clienteTelefone === clienteTelefone) {
+                        clientSpecificCupons.push({ id: code, ...allCupons[code] });
                     }
+                }
+
+                // Verifica o status de cada cupom específico do cliente
+                const couponChecks = clientSpecificCupons.map(async (coupon) => {
+                    // Verifica se está ativo E não expirou
+                    if (coupon.ativo && Date.now() < coupon.validade) {
+                        // Verifica se este CÓDIGO de cupom específico foi marcado como usado por este cliente
+                        const usedSnapshot = await database.ref(`cupons_usados/${clienteTelefone}/${coupon.id}`).once('value');
+                        if (!usedSnapshot.exists()) { // Se o cupom NÃO FOI usado
+                            return coupon; // Retorna o cupom se não foi usado
+                        }
+                    }
+                    return null; // Retorna null se não atender aos critérios ou já foi usado
                 });
 
                 const results = await Promise.all(couponChecks);
-                foundExistingActiveCoupon = results.find(coupon => coupon !== null);
+                // Encontra o primeiro cupom ativo e não utilizado na lista
+                foundExistingActiveAndUnusedCoupon = results.find(coupon => coupon !== null);
 
-                if (foundExistingActiveCoupon) {
-                    couponCodeSpan.textContent = foundExistingActiveCoupon.codigo;
+                if (foundExistingActiveAndUnusedCoupon) {
+                    couponCodeSpan.textContent = foundExistingActiveAndUnusedCoupon.codigo;
                     couponDisplayArea.classList.remove('hidden');
                     noCouponMessage.classList.add('hidden');
                     showToast("Você tem um cupom de recompensa ativo!", "success");
                 } else {
+                    // Se nenhum novo cupom foi gerado e nenhum cupom ativo/não utilizado foi encontrado
                     showToast("Você já possui todos os cupons de recompensa disponíveis ou eles expiraram/foram usados.", "warning");
                     noCouponMessage.classList.remove('hidden');
                 }
@@ -330,30 +351,29 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-
     // --- Listeners de Evento e Carregamento Inicial ---
 
-    // Auto-populate and check phone number on page load
-    let storedPhone = getCookie('clienteId');
-    if (!storedPhone) {
+    // Auto-preenche e verifica o número de telefone ao carregar a página
+    let storedPhone = getCookie('clienteId'); // Tenta do cookie primeiro
+    if (!storedPhone) { // Se não encontrar no cookie, tenta no localStorage (fallback)
         storedPhone = localStorage.getItem('clienteId');
     }
 
     if (storedPhone && customerPhoneInput) {
         customerPhoneInput.value = storedPhone;
-        // Hide input section and show display section
+        // Oculta a seção de input e mostra a seção de exibição
         phoneInputSection.classList.add('hidden');
         phoneDisplaySection.classList.remove('hidden');
-        displayedPhone.textContent = storedPhone; // Display the phone number
+        displayedPhone.textContent = storedPhone; // Exibe o número de telefone
         
-        // Trigger coupon check automatically
+        // Dispara a verificação de cupons automaticamente
         checkAndGenerateCoupon(storedPhone);
     } else {
-        // If no phone found, ensure input is visible and display section is hidden
+        // Se nenhum telefone for encontrado, garante que o input esteja visível e a seção de exibição oculta
         phoneInputSection.classList.remove('hidden');
         phoneDisplaySection.classList.add('hidden');
-        noCouponMessage.classList.remove('hidden'); // Show "no coupon" message by default
-        updateProgressVisualization(0, 10); // Show empty progress
+        noCouponMessage.classList.remove('hidden'); // Exibe a mensagem "nenhum cupom" por padrão
+        updateProgressVisualization(0, 10); // Exibe o progresso vazio
     }
 
 
@@ -384,28 +404,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
 }); // Fim do DOMContentLoaded
 
-const scrollbar = document.getElementById('scrollbar')
 const menuButton = document.getElementById('menu-button');
 const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('overlay');
 
+if (menuButton) { // Verificação para garantir que o elemento existe
+    menuButton.addEventListener('click', () => {
+        sidebar.classList.remove('-translate-x-full');
+        overlay.classList.remove('hidden');
+        if (scrollbar) scrollbar.classList.add('opacity-25'); // Apenas se scrollbar existir
+    });
+}
 
-// sidebar
+if (overlay) { // Verificação para garantir que o elemento existe
+    overlay.addEventListener('click', () => {
+        sidebar.classList.add('-translate-x-full');
+        overlay.classList.add('hidden');
+        if (scrollbar) scrollbar.classList.remove('opacity-25'); // Apenas se scrollbar existir
+    });
+}
 
-menuButton.addEventListener('click', () => {
-    sidebar.classList.remove('-translate-x-full');
-    overlay.classList.remove('hidden');
-    scrollbar.classList.add('opacity-25')
-  });
-
-  overlay.addEventListener('click', () => {
-    sidebar.classList.add('-translate-x-full');
-    overlay.classList.add('hidden');
-    scrollbar.classList.remove('opacity-25')
-  });
-
-  document.getElementById('close-sidebar-button').addEventListener('click', () => {
-    sidebar.classList.add('-translate-x-full');
-    overlay.classList.add('hidden');
-    scrollbar.classList.remove('opacity-25')
-});
+const closeSidebarButton = document.getElementById('close-sidebar-button'); // Declare aqui
+if (closeSidebarButton) { // Verificação para garantir que o elemento existe
+    closeSidebarButton.addEventListener('click', () => {
+        sidebar.classList.add('-translate-x-full');
+        overlay.classList.add('hidden');
+        if (scrollbar) scrollbar.classList.remove('opacity-25'); // Apenas se scrollbar existir
+    });
+}

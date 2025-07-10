@@ -41,8 +41,11 @@ const confirmTotal = document.getElementById('confirm-total');
 const menuButton = document.getElementById('menu-button');
 const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('overlay');
+const cupomInput = document.getElementById('cupom'); // Added this
+const applycupom = document.getElementById('apply-cupom'); // Added this
 
-const FRETE_VALOR = 5.00; 
+
+const FRETE_VALOR = 5.00;
 
 let cart = [];
 
@@ -52,146 +55,145 @@ carregarProdutos()
 
 
 function carregarProdutos() {
-    // Carregar pizzas
-    database.ref('produtos/pizzas').on('value', (snapshot) => {
+  // Carregar pizzas
+  database.ref('produtos/pizzas').on('value', (snapshot) => {
     const listaSalgadas = document.getElementById('lista-pizzas-salgadas');
     const listaDoces = document.getElementById('lista-pizzas-doces');
     listaSalgadas.innerHTML = '';
     listaDoces.innerHTML = '';
 
     snapshot.forEach((pizzaSnap) => {
-        const pizza = pizzaSnap.val();
-        if (pizza.ativo) {
-            const card = criarItemCardapio(pizza, 'pizza');
-            if (pizza.tipo === 'doce') {
-                listaDoces.innerHTML += card;
-            } else {
-                listaSalgadas.innerHTML += card;
-            }
+      const pizza = pizzaSnap.val();
+      if (pizza.ativo) {
+        const card = criarItemCardapio(pizza, 'pizza');
+        if (pizza.tipo === 'doce') {
+          listaDoces.innerHTML += card;
+        } else {
+          listaSalgadas.innerHTML += card;
         }
+      }
     });
 
     atualizarOpcoesMeiaMeia(snapshot);
     adicionarEventosBotoes();
-});
+  });
 
-    // Carregar bebidas
-    database.ref('produtos/bebidas').on('value', (snapshot) => {
-        const listaBebidas = document.getElementById('lista-bebidas');
-        listaBebidas.innerHTML = '';
-        
-        
-        snapshot.forEach((bebidaSnap) => {
-            const bebida = bebidaSnap.val();
-            if (bebida.ativo) {
-                listaBebidas.innerHTML += criarItemCardapio(bebida, 'bebida');
-            }
-        });
-        adicionarEventosBotoes();
+  // Carregar bebidas
+  database.ref('produtos/bebidas').on('value', (snapshot) => {
+    const listaBebidas = document.getElementById('lista-bebidas');
+    listaBebidas.innerHTML = '';
+
+
+    snapshot.forEach((bebidaSnap) => {
+      const bebida = bebidaSnap.val();
+      if (bebida.ativo) {
+        listaBebidas.innerHTML += criarItemCardapio(bebida, 'bebida');
+      }
     });
+    adicionarEventosBotoes();
+  });
 
-    // Carregar esfirras
-    database.ref('produtos/esfirras').on('value', (snapshot) => {
-        const listaSalgadas = document.getElementById('lista-esfirras-salgadas');
-        const listaDoces = document.getElementById('lista-esfirras-doces');
-        listaSalgadas.innerHTML = '';
-        listaDoces.innerHTML = '';
-
-        
+  // Carregar esfirras
+  database.ref('produtos/esfirras').on('value', (snapshot) => {
+    const listaSalgadas = document.getElementById('lista-esfirras-salgadas');
+    const listaDoces = document.getElementById('lista-esfirras-doces');
+    listaSalgadas.innerHTML = '';
+    listaDoces.innerHTML = '';
 
 
-        snapshot.forEach((esfirraSnap) => {
-            const esfirra = esfirraSnap.val();
-            if (esfirra.ativo) {
-                const card = criarItemCardapio(esfirra, 'esfirra');
-                if (esfirra.tipo === 'doce') {
-                listaDoces.innerHTML += card;
-                } else {
-                listaSalgadas.innerHTML += card;
-            }
-            }
-        });
-        adicionarEventosBotoes();
-    });
 
-    // Carregar lanches
-    database.ref('produtos/calzone').on('value', (snapshot) => {
-        const listaLanches = document.getElementById('lista-lanches');
-        listaLanches.innerHTML = '';
-        
-        snapshot.forEach((lancheSnap) => {
-            const lanche = lancheSnap.val();
-            if (lanche.ativo) {
-                listaLanches.innerHTML += criarItemCardapio(lanche, 'lanche');
-            }
-        });
-        adicionarEventosBotoes();
-    });
-
-    // Carregar promoções
-    database.ref('produtos/promocoes').on('value', (snapshot) => {
-        const listaPromocoes = document.getElementById('lista-promocoes');
-        listaPromocoes.innerHTML = '';
-        
-        let temPromocaoAtiva = false;
-        
-        snapshot.forEach((promoSnap) => {
-            const promo = promoSnap.val();
-            if (promo.ativo) {
-                temPromocaoAtiva = true;
-                listaPromocoes.innerHTML += criarItemCardapio(promo, 'promocao');
-            }
-        });
-
-        // Mostrar/ocultar seção e botão de promoções
-        const secaoPromocoes = document.getElementById('show-promocoes');
-        const btnPromocoes = document.getElementById('btn-promocoes');
-        
-        if (temPromocaoAtiva) {
-            secaoPromocoes.classList.remove("hidden");
-            btnPromocoes.classList.remove("hidden");
+    snapshot.forEach((esfirraSnap) => {
+      const esfirra = esfirraSnap.val();
+      if (esfirra.ativo) {
+        const card = criarItemCardapio(esfirra, 'esfirra');
+        if (esfirra.tipo === 'doce') {
+          listaDoces.innerHTML += card;
         } else {
-            secaoPromocoes.classList.add("hidden");
-            btnPromocoes.classList.add("hidden");
-        }  
+          listaSalgadas.innerHTML += card;
+        }
+      }
+    });
+    adicionarEventosBotoes();
+  });
+
+  // Carregar lanches
+  database.ref('produtos/calzone').on('value', (snapshot) => {
+    const listaLanches = document.getElementById('lista-lanches');
+    listaLanches.innerHTML = '';
+
+    snapshot.forEach((lancheSnap) => {
+      const lanche = lancheSnap.val();
+      if (lanche.ativo) {
+        listaLanches.innerHTML += criarItemCardapio(lanche, 'lanche');
+      }
+    });
+    adicionarEventosBotoes();
+  });
+
+  // Carregar promoções
+  database.ref('produtos/promocoes').on('value', (snapshot) => {
+    const listaPromocoes = document.getElementById('lista-promocoes');
+    listaPromocoes.innerHTML = '';
+
+    let temPromocaoAtiva = false;
+
+    snapshot.forEach((promoSnap) => {
+      const promo = promoSnap.val();
+      if (promo.ativo) {
+        temPromocaoAtiva = true;
+        listaPromocoes.innerHTML += criarItemCardapio(promo, 'promocao');
+      }
     });
 
-    database.ref('produtos/novidades').on('value', (snapshot) => {
-        const listaNovidades = document.getElementById('lista-novidades');
-        listaNovidades.innerHTML = '';
-        
-        let temNovidadeAtiva = false;
-        
-        snapshot.forEach((noviSnap) => {
-            const novi = noviSnap.val();
-            if (novi.ativo) {
-                temNovidadeAtiva = true;
-                listaNovidades.innerHTML += criarItemCardapio(novi, 'novidade');
-            }
-        });
+    // Mostrar/ocultar seção e botão de promoções
+    const secaoPromocoes = document.getElementById('show-promocoes');
+    const btnPromocoes = document.getElementById('btn-promocoes');
 
-        // Mostrar/ocultar seção e botão de promoções
-        const secaoNovidades = document.getElementById('show-novidades');
-        const btnNovidades = document.getElementById('btn-novidades');
-        
-        if (temNovidadeAtiva) {
-            secaoNovidades.classList.remove("hidden");
-            btnNovidades.classList.remove("hidden");
-        } else {
-            secaoNovidades.classList.add("hidden");
-            btnNovidades.classList.add("hidden");
-        }  
+    if (temPromocaoAtiva) {
+      secaoPromocoes.classList.remove("hidden");
+      btnPromocoes.classList.remove("hidden");
+    } else {
+      secaoPromocoes.classList.add("hidden");
+      btnPromocoes.classList.add("hidden");
+    }
+  });
+
+  database.ref('produtos/novidades').on('value', (snapshot) => {
+    const listaNovidades = document.getElementById('lista-novidades');
+    listaNovidades.innerHTML = '';
+
+    let temNovidadeAtiva = false;
+
+    snapshot.forEach((noviSnap) => {
+      const novi = noviSnap.val();
+      if (novi.ativo) {
+        temNovidadeAtiva = true;
+        listaNovidades.innerHTML += criarItemCardapio(novi, 'novidade');
+      }
     });
+
+    // Mostrar/ocultar seção e botão de promoções
+    const secaoNovidades = document.getElementById('show-novidades');
+    const btnNovidades = document.getElementById('btn-novidades');
+
+    if (temNovidadeAtiva) {
+      secaoNovidades.classList.remove("hidden");
+      btnNovidades.classList.remove("hidden");
+    } else {
+      secaoNovidades.classList.add("hidden");
+      btnNovidades.classList.add("hidden");
+    }
+  });
 }
 
 function criarItemCardapio(item, tipo) {
-    const botaoClass = tipo === 'pizza' ? 'open-modal-btn' : 'add-to-cart-btn';
-    const nome = item.nome || item.titulo;
-    const descricao = item.descricao || '';
-    const preco = item.preco.toFixed(2);
-    const imagem = item.imagem || 'assets/default.png';
-    
-    return `
+  const botaoClass = tipo === 'pizza' ? 'open-modal-btn' : 'add-to-cart-btn';
+  const nome = item.nome || item.titulo;
+  const descricao = item.descricao || '';
+  const preco = item.preco.toFixed(2);
+  const imagem = item.imagem || 'assets/default.png';
+
+  return `
   <div class="flex gap-4 p-3 border border-[#3a3a3a] rounded-xl shadow bg-[#111] hover:shadow-md transition-shadow text-[#f5f0e6] font-[Cinzel]">
     <img src="${imagem}" alt="${nome}" class="w-20 h-20 rounded-lg object-cover hover:scale-105 hover:rotate-1 transition-transform duration-300" />
     <div class="flex-1">
@@ -212,131 +214,139 @@ function criarItemCardapio(item, tipo) {
 
 
 function adicionarEventosBotoes() {
-    // Botões de pizza (abrem modal de personalização)
-    document.querySelectorAll('.open-modal-btn').forEach(button => {
-        button.removeEventListener('click', handleOpenPizzaModal); // Remove event listener antigo
-        button.addEventListener('click', handleOpenPizzaModal);
-    });
+  // Botões de pizza (abrem modal de personalização)
+  document.querySelectorAll('.open-modal-btn').forEach(button => {
+    button.removeEventListener('click', handleOpenPizzaModal); // Remove event listener antigo
+    button.addEventListener('click', handleOpenPizzaModal);
+  });
+  // Botões de adicionar ao carrinho (para não-pizzas)
+  document.querySelectorAll('.add-to-cart-btn').forEach(button => {
+    button.removeEventListener('click', handleAddToCart); // Remove event listener antigo
+    button.addEventListener('click', handleAddToCart);
+  });
 }
 
 // Adicione esta função para atualizar as opções de meia-meia
 function atualizarOpcoesMeiaMeia(snapshot) {
-    const containerMeiaMeia = document.querySelector('#pizza-modal .half-btn[data-half=""]').parentNode;
-    
-    // Limpar opções exceto a primeira ("Não")
-    while (containerMeiaMeia.children.length > 1) {
-        containerMeiaMeia.removeChild(containerMeiaMeia.lastChild);
+  const containerMeiaMeia = document.querySelector('#pizza-modal .half-btn[data-half=""]').parentNode;
+
+  // Limpar opções exceto a primeira ("Não")
+  while (containerMeiaMeia.children.length > 1) {
+    containerMeiaMeia.removeChild(containerMeiaMeia.lastChild);
+  }
+
+  // Adicionar opções de pizzas disponíveis
+  snapshot.forEach((pizzaSnap) => {
+    const pizza = pizzaSnap.val();
+    if (pizza.ativo) {
+      const botaoMeiaMeia = document.createElement('button');
+      botaoMeiaMeia.className = 'half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left';
+      botaoMeiaMeia.setAttribute('data-half', pizza.nome);
+      botaoMeiaMeia.setAttribute('data-price', pizza.preco);
+      botaoMeiaMeia.textContent = pizza.nome;
+
+      botaoMeiaMeia.addEventListener('click', function() {
+        document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+        this.classList.add('bg-green-500', 'text-white');
+        selectedHalf = this.getAttribute('data-half');
+        selectedHalfPrice = parseFloat(this.getAttribute('data-price'));
+        updatePizzaPricePreview();
+      });
+
+      containerMeiaMeia.appendChild(botaoMeiaMeia);
     }
-    
-    // Adicionar opções de pizzas disponíveis
-    snapshot.forEach((pizzaSnap) => {
-        const pizza = pizzaSnap.val();
-        if (pizza.ativo) {
-            const botaoMeiaMeia = document.createElement('button');
-            botaoMeiaMeia.className = 'half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left';
-            botaoMeiaMeia.setAttribute('data-half', pizza.nome);
-            botaoMeiaMeia.setAttribute('data-price', pizza.preco);
-            botaoMeiaMeia.textContent = pizza.nome;
-            
-            botaoMeiaMeia.addEventListener('click', function() {
-                document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
-                this.classList.add('bg-green-500', 'text-white');
-                selectedHalf = this.getAttribute('data-half');
-                selectedHalfPrice = parseFloat(this.getAttribute('data-price'));
-                updatePizzaPricePreview();
-            });
-            
-            containerMeiaMeia.appendChild(botaoMeiaMeia);
-        }
-    });
+  });
 }
 
 function handleAddToCart() {
-    const name = this.getAttribute('data-name');
-    const price = parseFloat(this.getAttribute('data-price'));
-    addToCart(name, price);
+  const name = this.getAttribute('data-name');
+  const price = parseFloat(this.getAttribute('data-price'));
+  addToCart(name, price);
 }
 
 function handleOpenPizzaModal() {
-    const name = this.getAttribute('data-name');
-    const price = parseFloat(this.getAttribute('data-price'));
-    
-    selectedPizza = { name, price };
-    selectedSize = "Grande";
-    selectedHalf = "";
-    selectedHalfPrice = 0;
-    wantsCrust = "Não";
-    crustFlavor = "";
+  const name = this.getAttribute('data-name');
+  const price = parseFloat(this.getAttribute('data-price'));
 
-    resetSelections();
-    document.getElementById('modal-title').textContent = selectedPizza.name;
-    document.getElementById('pizza-modal').style.display = 'flex';
-    updatePizzaPricePreview();
+  selectedPizza = {
+    name,
+    price
+  };
+  selectedSize = "Grande";
+  selectedHalf = "";
+  selectedHalfPrice = 0;
+  wantsCrust = "Não";
+  crustFlavor = "";
+
+  resetSelections();
+  document.getElementById('modal-title').textContent = selectedPizza.name;
+  document.getElementById('pizza-modal').style.display = 'flex';
+  updatePizzaPricePreview();
 }
 
 // Adicione este código no final do seu arquivo, após o DOM estar carregado
 document.addEventListener('DOMContentLoaded', function() {
-    // Adiciona eventos após um pequeno delay para garantir que o DOM esteja pronto
-    setTimeout(() => {
-        adicionarEventosBotoes();
-    }, 1000);
+  // Adiciona eventos após um pequeno delay para garantir que o DOM esteja pronto
+  setTimeout(() => {
+    adicionarEventosBotoes();
+  }, 1000);
 });
 
 
 cartBtn.addEventListener("click", function() {
-    updateCartModal()
-    cartModal.style.display = "flex"
+  updateCartModal()
+  cartModal.style.display = "flex"
 })
 
-cartModal.addEventListener("click", function(event){
-    if(event.target === cartModal){
-        cartModal.style.display = "none"
-    }
-})
-
-closeModalBtn.addEventListener("click", function(){
+cartModal.addEventListener("click", function(event) {
+  if (event.target === cartModal) {
     cartModal.style.display = "none"
+  }
+})
+
+closeModalBtn.addEventListener("click", function() {
+  cartModal.style.display = "none"
 })
 
 
-document.addEventListener("click", function(event){
+document.addEventListener("click", function(event) {
   let parentButton = event.target.closest(".add-to-cart-btn")
 
-  if(parentButton){
-      const name = parentButton.getAttribute('data-name')
-      const price = parseFloat(parentButton.getAttribute('data-price'))
-      
-      addToCart(name, price)
+  if (parentButton) {
+    const name = parentButton.getAttribute('data-name')
+    const price = parseFloat(parentButton.getAttribute('data-price'))
+
+    addToCart(name, price)
   }
 })
 
 
-function addToCart(name, price){
-    const existingItem = cart.find(item => item.name === name)
+function addToCart(name, price) {
+  const existingItem = cart.find(item => item.name === name)
 
-    if(existingItem){
-        existingItem.quantity += 1;
-    } else {
-        cart.push({
-        name,
-        price,
-        quantity: 1,                    
+  if (existingItem) {
+    existingItem.quantity += 1;
+  } else {
+    cart.push({
+      name,
+      price,
+      quantity: 1,
     })
-    }
+  }
 
-    updateCartModal()
+  updateCartModal()
 }
 
 
 function updateCartModal() {
-    cartItemsContainer.innerHTML = "";
-    let total = 0;
+  cartItemsContainer.innerHTML = "";
+  let total = 0;
 
-    cart.forEach(item => {
-        const cartItemElement = document.createElement("div");
-        cartItemElement.classList.add("flex", "justify-between", "mb-4", "flex-col");
+  cart.forEach(item => {
+    const cartItemElement = document.createElement("div");
+    cartItemElement.classList.add("flex", "justify-between", "mb-4", "flex-col");
 
-        cartItemElement.innerHTML = `
+    cartItemElement.innerHTML = `
             <div class="bg-gray-100 p-4 rounded-xl shadow flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div class="flex-1">
                     <p class="font-semibold text-base text-gray-900">${item.name}</p>
@@ -353,170 +363,170 @@ function updateCartModal() {
                 </div>
             </div>
         `;
-        total += item.price * item.quantity;
-        cartItemsContainer.appendChild(cartItemElement);
-    });
+    total += item.price * item.quantity;
+    cartItemsContainer.appendChild(cartItemElement);
+  });
 
-    let finalTotal = total;
-    let discountAmount = 0;
+  let finalTotal = total;
+  let discountAmount = 0;
 
-    if (cupomAplicado) {
-        if (cupomAplicado.tipo === "porcentagem") {
-            discountAmount = total * (cupomAplicado.valor / 100);
-        } else if (cupomAplicado.tipo === "fixo") {
-            discountAmount = cupomAplicado.valor;
-        }
-        finalTotal = Math.max(0, total - discountAmount); // Ensure total doesn't go below zero
+  if (cupomAplicado) {
+    if (cupomAplicado.tipo === "porcentagem") {
+      discountAmount = total * (cupomAplicado.valor / 100);
+    } else if (cupomAplicado.tipo === "fixo") {
+      discountAmount = cupomAplicado.valor;
     }
+    finalTotal = Math.max(0, total - discountAmount); // Ensure total doesn't go below zero
+  }
 
-    cartTotal.textContent = finalTotal.toLocaleString("pt-BR", {
-        style: "currency",
-        currency: "BRL"
-    });
+  cartTotal.textContent = finalTotal.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  });
 
-    // Optionally, display the discount amount if a coupon is applied
-    if (cupomAplicado && discountAmount > 0) {
-        const discountElement = document.createElement("p");
-        discountElement.classList.add("text-sm", "text-green-600", "mt-2", "font-bold");
-        discountElement.textContent = `Desconto Cupom: - R$ ${discountAmount.toFixed(2)}`;
-        cartItemsContainer.appendChild(discountElement); // Or append it near the total
-    }
+  // Optionally, display the discount amount if a coupon is applied
+  if (cupomAplicado && discountAmount > 0) {
+    const discountElement = document.createElement("p");
+    discountElement.classList.add("text-sm", "text-green-600", "mt-2", "font-bold");
+    discountElement.textContent = `Desconto Cupom: - R$ ${discountAmount.toFixed(2)}`;
+    cartItemsContainer.appendChild(discountElement); // Or append it near the total
+  }
 
-    cartCounter.innerHTML = cart.length;
+  cartCounter.innerHTML = cart.length;
 }
 
-cartItemsContainer.addEventListener("click", function(event){
-    if(event.target.classList.contains("remove-btn")){
-        const name = event.target.getAttribute('data-name')
+cartItemsContainer.addEventListener("click", function(event) {
+  if (event.target.classList.contains("remove-btn")) {
+    const name = event.target.getAttribute('data-name')
 
-        removeItemCart(name);
+    removeItemCart(name);
+  }
+
+  if (event.target.classList.contains("quantity-btn") || event.target.closest(".quantity-btn")) {
+    const button = event.target.closest(".quantity-btn");
+    const name = button.getAttribute('data-name');
+    const action = button.getAttribute('data-action');
+
+    const item = cart.find(i => i.name === name);
+
+    if (item) {
+      if (action === "increase") {
+        item.quantity += 1;
+      } else if (action === "decrease" && item.quantity > 1) {
+        item.quantity -= 1;
+      } else if (action === "decrease" && item.quantity === 1) {
+        cart.splice(cart.indexOf(item), 1);
+      }
     }
 
-     if (event.target.classList.contains("quantity-btn") || event.target.closest(".quantity-btn")) {
-        const button = event.target.closest(".quantity-btn");
-        const name = button.getAttribute('data-name');
-        const action = button.getAttribute('data-action');
+    updateCartModal();
+  }
 
-        const item = cart.find(i => i.name === name);
 
-        if (item) {
-            if (action === "increase") {
-                item.quantity += 1;
-            } else if (action === "decrease" && item.quantity > 1) {
-                item.quantity -= 1;
-            } else if (action === "decrease" && item.quantity === 1) {
-                cart.splice(cart.indexOf(item), 1);
-            }
-        }
-
-        updateCartModal();
-    }
-
-    
 })
 
 function removeItemCart(name) {
-    const index = cart.findIndex(item => item.name === name);
+  const index = cart.findIndex(item => item.name === name);
 
-    if(index !== -1){
-        const item = cart[index];
+  if (index !== -1) {
+    const item = cart[index];
 
-        if(item.quantity > 1){
-            item.quantity -= 1;
-            updateCartModal()
-            return;
-        }
-
-        cart.splice(index, 1);
-        updateCartModal()
+    if (item.quantity > 1) {
+      item.quantity -= 1;
+      updateCartModal()
+      return;
     }
+
+    cart.splice(index, 1);
+    updateCartModal()
+  }
 }
 
-checkoutBtn.addEventListener("click", function () {
- 
-    // Continua se estiver aberto
-    if (cart.length === 0) {
-      Toastify({
-        text: "Carrinho está vazio!",
-        duration: 3000,
-        close: true,
-        gravity: "top",
-        position: "left",
-        stopOnFocus: true,
-        style: {
-          background: "#ef4444",
-        },
-      }).showToast();
-      return;
-    } else {
-      atualizarConfirmacao();
-      confirmModal.classList.remove("hidden");
-    }
-  
+checkoutBtn.addEventListener("click", function() {
+
+  // Continua se estiver aberto
+  if (cart.length === 0) {
+    Toastify({
+      text: "Carrinho está vazio!",
+      duration: 3000,
+      close: true,
+      gravity: "top",
+      position: "left",
+      stopOnFocus: true,
+      style: {
+        background: "#ef4444",
+      },
+    }).showToast();
+    return;
+  } else {
+    atualizarConfirmacao();
+    confirmModal.classList.remove("hidden");
+  }
+
 });
 
- function getStatusMessage(horarios) {
-    const agora = new Date();
-    const dia = agora.getDay(); // 0 = domingo, ..., 6 = sábado
-    const hora = agora.getHours();
-    const diaConfig = horarios[dia];
+function getStatusMessage(horarios) {
+  const agora = new Date();
+  const dia = agora.getDay(); // 0 = domingo, ..., 6 = sábado
+  const hora = agora.getHours();
+  const diaConfig = horarios[dia];
 
-    if (!diaConfig || !diaConfig.aberto) {
-      return {
-        aberto: false,
-        mensagem: "Fechado hoje"
-      };
-    }
-
-    if (hora >= diaConfig.inicio && hora < diaConfig.fim) {
-      return {
-        aberto: true,
-        mensagem: `Aberto agora (fecha às ${diaConfig.fim}h)`
-      };
-    } else {
-      return {
-        aberto: false,
-        mensagem: `Fechado agora (abre às ${diaConfig.inicio}h)`
-      };
-    }
+  if (!diaConfig || !diaConfig.aberto) {
+    return {
+      aberto: false,
+      mensagem: "Fechado hoje"
+    };
   }
 
-  // ✅ Atualiza visual do span com cores e texto
-  function atualizarStatusVisual() {
-    const spanItem = document.getElementById("date-span");
+  if (hora >= diaConfig.inicio && hora < diaConfig.fim) {
+    return {
+      aberto: true,
+      mensagem: `Aberto agora (fecha às ${diaConfig.fim}h)`
+    };
+  } else {
+    return {
+      aberto: false,
+      mensagem: `Fechado agora (abre às ${diaConfig.inicio}h)`
+    };
+  }
+}
 
-    firebase.database().ref("config/horarios").once("value")
-      .then(snapshot => {
-        if (snapshot.exists()) {
-          const horarios = snapshot.val();
-          const status = getStatusMessage(horarios);
+// ✅ Atualiza visual do span com cores e texto
+function atualizarStatusVisual() {
+  const spanItem = document.getElementById("date-span");
 
-          if (status.aberto) {
-            spanItem.classList.remove("bg-red-500", "bg-red-600");
-            spanItem.classList.add("bg-green-600");
-          } else {
-            spanItem.classList.remove("bg-green-500", "bg-green-600");
-            spanItem.classList.add("bg-red-600");
-          }
+  firebase.database().ref("config/horarios").once("value")
+    .then(snapshot => {
+      if (snapshot.exists()) {
+        const horarios = snapshot.val();
+        const status = getStatusMessage(horarios);
 
-          spanItem.textContent = status.mensagem;
+        if (status.aberto) {
+          spanItem.classList.remove("bg-red-500", "bg-red-600");
+          spanItem.classList.add("bg-green-600");
         } else {
-          spanItem.textContent = "Horários não configurados.";
+          spanItem.classList.remove("bg-green-500", "bg-green-600");
+          spanItem.classList.add("bg-red-600");
         }
-      })
-      .catch(error => {
-        console.error("Erro ao buscar horários:", error);
-        spanItem.textContent = "Erro ao carregar status.";
-      });
-  }
 
-  // ✅ Executa ao carregar e a cada minuto
-  document.addEventListener("DOMContentLoaded", () => {
-    atualizarStatusVisual();
-    setInterval(atualizarStatusVisual, 60000); // atualiza a cada minuto
-  });
+        spanItem.textContent = status.mensagem;
+      } else {
+        spanItem.textContent = "Horários não configurados.";
+      }
+    })
+    .catch(error => {
+      console.error("Erro ao buscar horários:", error);
+      spanItem.textContent = "Erro ao carregar status.";
+    });
+}
 
- function atualizarEntrega() {
+// ✅ Executa ao carregar e a cada minuto
+document.addEventListener("DOMContentLoaded", () => {
+  atualizarStatusVisual();
+  setInterval(atualizarStatusVisual, 60000); // atualiza a cada minuto
+});
+
+function atualizarEntrega() {
   const retirada = document.getElementById("retirada");
   const entrega = document.getElementById("entrega");
   const enderecoSection = document.getElementById("address-section");
@@ -540,7 +550,7 @@ checkoutBtn.addEventListener("click", function () {
   atualizarConfirmacao();
 }
 
-  function atualizarPagamento() {
+function atualizarPagamento() {
   const pagPix = document.getElementById("pagPix");
   const pagCartao = document.getElementById("pagCartao");
   const pagDinheiro = document.getElementById("pagDinheiro");
@@ -565,248 +575,201 @@ checkoutBtn.addEventListener("click", function () {
   atualizarConfirmacao?.();
 }
 
-  
+// Event listeners for delivery and payment methods
+document.getElementById('retirada').addEventListener('change', atualizarEntrega);
+document.getElementById('entrega').addEventListener('change', atualizarEntrega);
+document.getElementById('pagPix').addEventListener('change', atualizarPagamento);
+document.getElementById('pagCartao').addEventListener('change', atualizarPagamento);
+document.getElementById('pagDinheiro').addEventListener('change', atualizarPagamento);
 
-  function enviarPedido() {
-    let tipoEntrega = "";
-    if (document.getElementById("retirada").checked) tipoEntrega = "Retirada";
-    if (document.getElementById("entrega").checked) tipoEntrega = "Entrega";
 
-    let endereco = {};
-
-    if (tipoEntrega === "Entrega") {
-      endereco.ruas = document.getElementById("rua").value;
-      endereco.bairros = document.getElementById("bairro").value;
-      endereco.numeros = document.getElementById("numero").value;
-    }
-
-    let pagamento = "";
-    if (document.getElementById("pagPix").checked) pagamento = "Pix";
-    if (document.getElementById("pagCartao").checked) pagamento = "Cartão";
-    if (document.getElementById("pagDinheiro").checked) pagamento = "Dinheiro";
-
-    let dinheiroTotal = null;
-    if (pagamento === "Dinheiro") {
-      dinheiroTotal = document.getElementById("troco").value;
-    }
-
-    let observacao = document.getElementById('observation').value;
-
-    let totalPedido = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-    let pedido = { endereco, cart, observacao, tipoEntrega, pagamento, dinheiroTotal, totalPedido };
-
-    console.log(pedido)
-  }
+// Envia, codigo final:::-----------------------------------
 
 
 
-  // Envia, codigo final:::-----------------------------------
-
-
-
-rua.addEventListener("input",  function(event){
+rua.addEventListener("input", function(event) {
   let inputValue = event.target.value;
 
-  if(inputValue !== ""){
+  if (inputValue !== "") {
     rua.classList.remove("border-red-500")
     ruaWarn.classList.add("hidden")
   }
 })
 
-bairro.addEventListener("input",  function(event){
+bairro.addEventListener("input", function(event) {
   let inputValue = event.target.value;
 
-  if(inputValue !== ""){
+  if (inputValue !== "") {
     bairro.classList.remove("border-red-500")
     bairroWarn.classList.add("hidden")
   }
 })
 
-numero.addEventListener("input",  function(event){
+numero.addEventListener("input", function(event) {
   let inputValue = event.target.value;
 
-  if(inputValue !== ""){
+  if (inputValue !== "") {
     numero.classList.remove("border-red-500")
     numeroWarn.classList.add("hidden")
   }
 })
 
-nomeInput.addEventListener("input",  function(event){
+nomeInput.addEventListener("input", function(event) {
   let inputValue = event.target.value;
 
-  if(inputValue !== ""){
+  if (inputValue !== "") {
     nomeInput.classList.remove("border-red-500")
     nomeWarn.classList.add("hidden")
   }
 })
 
-telefoneInput.addEventListener("input",  function(event){
+telefoneInput.addEventListener("input", function(event) {
   let inputValue = event.target.value;
 
-  if(inputValue !== ""){
+  if (inputValue !== "") {
     telefoneInput.classList.remove("border-red-500")
     telefoneWarn.classList.add("hidden")
   }
 })
 
-document.getElementById('troco').addEventListener("input",  function(event){
+document.getElementById('troco').addEventListener("input", function(event) {
   let inputValue = event.target.value;
 
-  if(inputValue !== ""){
+  if (inputValue !== "") {
     document.getElementById('troco').classList.remove("border-red-500")
-    document.getElementById('troco-warn').classList.add("hidden")
+    document.getElementById('troco-aste').classList.add("hidden")
   }
 })
 
 
 
-submitBtn.addEventListener("click", function(){
+submitBtn.addEventListener("click", function() {
   //verificação de pedido:
 
-  let verEnder = ""
+  let verEnder = false; // Use boolean for clarity
   let tipoEntrega = "";
-    if (document.getElementById("retirada").checked) tipoEntrega = "Retirada";
-    if (document.getElementById("entrega").checked) tipoEntrega = "Entrega";
+  if (document.getElementById("retirada").checked) tipoEntrega = "Retirada";
+  if (document.getElementById("entrega").checked) tipoEntrega = "Entrega";
 
   let pagamento = "";
-    if (document.getElementById("pagPix").checked) pagamento = "Pix";
-    if (document.getElementById("pagCartao").checked) pagamento = "Cartão";
-    if (document.getElementById("pagDinheiro").checked) pagamento = "Dinheiro";
+  if (document.getElementById("pagPix").checked) pagamento = "Pix";
+  if (document.getElementById("pagCartao").checked) pagamento = "Cartão";
+  if (document.getElementById("pagDinheiro").checked) pagamento = "Dinheiro";
 
-    let checkTel = telefoneInput.value;
-    let checkNome = nomeInput.value;
+  let checkTel = telefoneInput.value;
+  let checkNome = nomeInput.value;
 
-    let trocoInput = document.getElementById('troco').value
-  
+  let trocoInput = document.getElementById('troco').value
+
   // Nome
 
-  if(checkNome === "") {
+  if (checkNome === "") {
     nomeWarn.classList.remove("hidden");
     nomeInput.classList.add("border-red-500");
     return;
   }
 
 
-    // Telefone
+  // Telefone
 
-  if(checkTel === ""){
+  if (checkTel === "") {
     telefoneWarn.classList.remove("hidden");
     telefoneInput.classList.add("border-red-500");
     return;
   }
 
-    //entrega ========
-  if(tipoEntrega === ""){
-  Toastify({
-  text: "Preencha da tipo da entrega!",
-  duration: 3000,
-  close: true,
-  gravity: "top", // `top` or `bottom`
-  position: "left", // `left`, `center` or `right`
-  stopOnFocus: true, // Prevents dismissing of toast on hover
-  style: {
-    background: "#ef4444",
-  },
-}).showToast();
-    return;
-  } 
- 
-
-  if (tipoEntrega === "Entrega") {
-      let endereco = {};
-      endereco.ruas = document.getElementById("rua").value;
-      endereco.bairros = document.getElementById("bairro").value;
-      endereco.numeros = document.getElementById("numero").value;
-      
-      
-
-      if(endereco.ruas === "") {
-        ruaWarn.classList.remove("hidden");
-        rua.classList.add("border-red-500")
-        verEnder = "visto"
-      }
-
-      if(endereco.bairros === "") {
-        bairroWarn.classList.remove("hidden");
-        bairro.classList.add("border-red-500")
-        verEnder = "visto"
-      }
-
-      if(endereco.numeros === "") {
-        numeroWarn.classList.remove("hidden");
-        numero.classList.add("border-red-500")
-        verEnder = "visto"
-      }
-
-      if(verEnder === "visto") {
-        return;
-      }
-    }
-  
-  
-
-  // pagamento
-  if(pagamento === ""){
-  Toastify({
-  text: "Preencha a forma de pagamento!",
-  duration: 3000,
-  close: true,
-  gravity: "top",
-  position: "left",
-  stopOnFocus: true,
-  style: {
-    background: "#ef4444",
-  },
-}).showToast();
+  //entrega ========
+  if (tipoEntrega === "") {
+    Toastify({
+      text: "Preencha o tipo da entrega!",
+      duration: 3000,
+      close: true,
+      gravity: "top", // `top` or `bottom`
+      position: "left", // `left`, `center` or `right`
+      stopOnFocus: true, // Prevents dismissing of toast on hover
+      style: {
+        background: "#ef4444",
+      },
+    }).showToast();
     return;
   }
 
-  if(pagamento === "Dinheiro"){
-    if(trocoInput === ""){
+
+  if (tipoEntrega === "Entrega") {
+    let enderecoRua = document.getElementById("rua").value;
+    let enderecoBairro = document.getElementById("bairro").value;
+    let enderecoNumero = document.getElementById("numero").value;
+
+
+    if (enderecoRua === "") {
+      ruaWarn.classList.remove("hidden");
+      rua.classList.add("border-red-500")
+      verEnder = true
+    }
+
+    if (enderecoBairro === "") {
+      bairroWarn.classList.remove("hidden");
+      bairro.classList.add("border-red-500")
+      verEnder = true
+    }
+
+    if (enderecoNumero === "") {
+      numeroWarn.classList.remove("hidden");
+      numero.classList.add("border-red-500")
+      verEnder = true
+    }
+
+    if (verEnder) {
+      return;
+    }
+  }
+
+
+  // pagamento
+  if (pagamento === "") {
+    Toastify({
+      text: "Preencha a forma de pagamento!",
+      duration: 3000,
+      close: true,
+      gravity: "top",
+      position: "left",
+      stopOnFocus: true,
+      style: {
+        background: "#ef4444",
+      },
+    }).showToast();
+    return;
+  }
+
+  if (pagamento === "Dinheiro") {
+    if (trocoInput === "") {
       document.getElementById('troco').classList.add("border-red-500")
       document.getElementById('troco-aste').classList.remove("hidden")
       return;
     }
   }
 
-
-  const clienteId = localStorage.getItem('clienteId') || gerarIdAleatorio();
-cart.forEach(item => {
-  let: totalPedido = item.price* item.quantity;
-});
-localStorage.setItem('clienteId', clienteId); // salvar se for primeira vez
-
-const pedido = {
-  clienteId: clienteId,
-  data: new Date().toISOString(),
-  itens: cart,
-  total: totalPedido,
-  status: 'Aguardando'
-};
-
-   enviarPedido()
-   const pedidoFormatado = montarPedido();
-   enviarPedidoParaPainel(pedidoFormatado);
-   zerarCarrinho()
+  const pedidoFormatado = montarPedido();
+  enviarPedidoParaPainel(pedidoFormatado);
+  zerarCarrinho(); // Moved zerarCarrinho here to ensure it only runs after successful send
 })
 
-backBtn.addEventListener("click", function(){
-    document.getElementById('confirm-modal').classList.add("hidden")
+backBtn.addEventListener("click", function() {
+  document.getElementById('confirm-modal').classList.add("hidden")
 })
 
- 
+
 //-------------------------------------------------
 
-function zerarCarrinho(){
-    cart = [];
-    document.getElementById('confirm-modal').classList.add("hidden");
-    cartModal.style.display = "none";
-    updateCartModal();
-    cupomAplicado = null; // Reset the applied coupon
-    cupomInput.disabled = false; // Re-enable input
-    applycupom.disabled = false; // Re-enable button
-    cupomInput.value = ""; // Clear coupon input
+function zerarCarrinho() {
+  cart = [];
+  document.getElementById('confirm-modal').classList.add("hidden");
+  cartModal.style.display = "none";
+  updateCartModal();
+  cupomAplicado = null; // Reset the applied coupon
+  if (cupomInput) cupomInput.disabled = false; // Re-enable input
+  if (applycupom) applycupom.disabled = false; // Re-enable button
+  if (cupomInput) cupomInput.value = ""; // Clear coupon input
 }
 
 
@@ -819,8 +782,16 @@ let wantsCrust = "Não";
 let crustFlavor = "";
 
 function resetSelections() {
-  document.querySelectorAll('.size-btn, .half-btn, .crust-btn, .crust-flavor-btn')
-    .forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+  document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+  document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+  document.querySelectorAll('.crust-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+  document.querySelectorAll('.crust-flavor-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+
+  // Set default selected state
+  document.querySelector('.size-btn[data-size="Grande"]').classList.add('bg-green-500', 'text-white');
+  document.querySelector('.half-btn[data-half=""]').classList.add('bg-green-500', 'text-white'); // Assuming "Não" is the default for half
+  document.querySelector('.crust-btn[data-crust="Não"]').classList.add('bg-green-500', 'text-white'); // Assuming "Não" is the default for crust
+
   document.getElementById('crust-flavor-section').classList.add('hidden');
 }
 
@@ -830,11 +801,18 @@ function updatePizzaPricePreview() {
   let basePrice = selectedPizza.price;
 
   if (selectedHalf && selectedHalf !== selectedPizza.name) {
-    basePrice = Math.max(selectedPizza.price, selectedHalfPrice); // valor da mais cara
+    basePrice = (selectedPizza.price + selectedHalfPrice) / 2; // MÉDIA dos preços
   }
 
-  let priceMultiplier = selectedSize === "Broto" ? 0.6 : 1;
-  let finalPrice = basePrice * priceMultiplier;
+  if (selectedSize === "Broto") {
+    if (selectedHalf === "Costela" || selectedHalf === "Costela turbinada" || selectedPizza.name === "Costela" || selectedPizza.name === "Costela turbinada") {
+      basePrice = 35
+    } else {
+      basePrice = 30
+    }
+  }
+  let finalPrice = basePrice
+
 
   if (wantsCrust === "Sim" && crustFlavor) {
     finalPrice += selectedSize === "Broto" ? 10 : 12;
@@ -931,8 +909,8 @@ document.getElementById('confirm-pizza').addEventListener('click', () => {
 
   nameFinal += ` (${selectedSize})`;
 
-  if(selectedSize === "Broto") {
-    if(selectedHalf === "Costela" || selectedHalf === "Costela turbinada" || selectedPizza.name === "Costela" || selectedPizza.name === "Costela turbinada" ){
+  if (selectedSize === "Broto") {
+    if (selectedHalf === "Costela" || selectedHalf === "Costela turbinada" || selectedPizza.name === "Costela" || selectedPizza.name === "Costela turbinada") {
       basePrice = 35
     } else {
       basePrice = 30
@@ -957,100 +935,64 @@ document.getElementById('confirm-pizza').addEventListener('click', () => {
   updateCartModal();
 });
 
-function updatePizzaPricePreview() {
-  if (!selectedPizza) return;
-
-  let basePrice = selectedPizza.price;
-
-  if (selectedHalf && selectedHalf !== selectedPizza.name) {
-    basePrice = (selectedPizza.price + selectedHalfPrice) / 2; // MÉDIA dos preços
-  }
-
-  if(selectedSize === "Broto") {
-    if(selectedHalf === "Costela" || selectedHalf === "Costela turbinada" || selectedPizza.name === "Costela" || selectedPizza.name === "Costela turbinada" ){
-      basePrice = 35
-    } else {
-      basePrice = 30
-    }
-  }
-  let finalPrice = basePrice
-
-  if (wantsCrust === "Sim" && crustFlavor) {
-    finalPrice += selectedSize === "Broto" ? 10 : 12;
-  }
-
-  const preview = document.getElementById('pizza-price-preview');
-  preview.textContent = `Valor: R$ ${finalPrice.toFixed(2).replace('.', ',')}`;
-}
-
-function resetSelections() {
-  document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
-  document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
-
-  document.querySelector('.size-btn[data-size="Grande"]').classList.add('bg-green-500', 'text-white');
-  document.querySelector('.half-btn[data-half=""]').classList.add('bg-green-500', 'text-white');
-}
-
-
-
 
 function atualizarConfirmacao() {
-    confirmCartItems.innerHTML = "";
+  confirmCartItems.innerHTML = "";
 
-    let subtotal = 0;
+  let subtotal = 0;
 
-    cart.forEach(item => {
-        const itemContainer = document.createElement('div');
-        itemContainer.classList.add('mb-4');
+  cart.forEach(item => {
+    const itemContainer = document.createElement('div');
+    itemContainer.classList.add('mb-4');
 
-        const topBorder = document.createElement('div');
-        topBorder.classList.add('h-[1px]', 'bg-gray-300', 'mb-2');
-        itemContainer.appendChild(topBorder);
+    const topBorder = document.createElement('div');
+    topBorder.classList.add('h-[1px]', 'bg-gray-300', 'mb-2');
+    itemContainer.appendChild(topBorder);
 
-        const itemContent = document.createElement('div');
-        itemContent.classList.add('flex', 'justify-between', 'items-center');
-        itemContent.innerHTML = `
+    const itemContent = document.createElement('div');
+    itemContent.classList.add('flex', 'justify-between', 'items-center');
+    itemContent.innerHTML = `
             <div>
                 <p class="font-medium">${item.quantity}x ${item.name}</p>
                 <p class="text-sm text-gray-600">Subtotal: R$ ${(item.price * item.quantity).toFixed(2)}</p>
             </div>
         `;
-        itemContainer.appendChild(itemContent);
+    itemContainer.appendChild(itemContent);
 
-        const bottomBorder = document.createElement('div');
-        bottomBorder.classList.add('h-[1px]', 'bg-gray-300', 'mt-2');
-        itemContainer.appendChild(bottomBorder);
+    const bottomBorder = document.createElement('div');
+    bottomBorder.classList.add('h-[1px]', 'bg-gray-300', 'mt-2');
+    itemContainer.appendChild(bottomBorder);
 
-        confirmCartItems.appendChild(itemContainer);
+    confirmCartItems.appendChild(itemContainer);
 
-        subtotal += item.price * item.quantity;
-    });
+    subtotal += item.price * item.quantity;
+  });
 
-    let totalComFrete = subtotal;
-    const entregaSelecionada = document.getElementById("entrega").checked;
-    if (entregaSelecionada) {
-        totalComFrete += FRETE_VALOR;
+  let totalComFrete = subtotal;
+  const entregaSelecionada = document.getElementById("entrega").checked;
+  if (entregaSelecionada) {
+    totalComFrete += FRETE_VALOR;
+  }
+
+  let discountAmount = 0;
+  if (cupomAplicado) {
+    if (cupomAplicado.tipo === "porcentagem") {
+      discountAmount = subtotal * (cupomAplicado.valor / 100);
+    } else if (cupomAplicado.tipo === "fixo") {
+      discountAmount = cupomAplicado.valor;
     }
+    totalComFrete = Math.max(0, totalComFrete - discountAmount);
+  }
 
-    let discountAmount = 0;
-    if (cupomAplicado) {
-        if (cupomAplicado.tipo === "porcentagem") {
-            discountAmount = subtotal * (cupomAplicado.valor / 100);
-        } else if (cupomAplicado.tipo === "fixo") {
-            discountAmount = cupomAplicado.valor;
-        }
-        totalComFrete = Math.max(0, totalComFrete - discountAmount);
-    }
+  let totalText = `Total: R$ ${totalComFrete.toFixed(2)}`;
+  if (entregaSelecionada) {
+    totalText += ` (Inclui frete de R$ ${FRETE_VALOR.toFixed(2)})`;
+  }
+  if (cupomAplicado && discountAmount > 0) {
+    totalText += ` - Cupom: R$ ${discountAmount.toFixed(2)}`;
+  }
 
-    let totalText = `Total: R$ ${totalComFrete.toFixed(2)}`;
-    if (entregaSelecionada) {
-        totalText += ` (Inclui frete de R$ ${FRETE_VALOR.toFixed(2)})`;
-    }
-    if (cupomAplicado && discountAmount > 0) {
-        totalText += ` - Cupom: R$ ${discountAmount.toFixed(2)}`;
-    }
-
-    confirmTotal.textContent = totalText;
+  confirmTotal.textContent = totalText;
 }
 
 let telefone = ""
@@ -1065,130 +1007,152 @@ function setCookie(name, value, days) {
   document.cookie = name + "=" + (value || "") + expires + "; path=/";
 }
 
-function enviarPedidoParaPainel(pedido) {
-    const pedidosRef = database.ref('pedidos');
-    const configRef = database.ref('config/ultimoPedidoId');
+// FIX: Corrected enviarPedidoParaPainel function
+async function enviarPedidoParaPainel(pedido) {
+  const pedidosRef = database.ref('pedidos');
+  const configRef = database.ref('config/ultimoPedidoId');
 
-    configRef.transaction((current) => {
-        return (current || 1000) + 1; // starts at 1001 if empty
-    })
-    .then((result) => {
-        const novoId = result.snapshot.val(); // this will be the numeric ID
-        pedido.status = 'Aguardando';
-        pedido.timestamp = Date.now();
-
-        return pedidosRef.child(novoId).set(pedido)
-            .then(() => novoId); // returns the new ID
-    })
-    .then((pedidoId) => {
-        console.log('Pedido enviado com sucesso!', pedidoId);
-
-        const phoneNumber = telefoneInput.value;
-        localStorage.setItem('clienteId', phoneNumber);
-        setCookie('clienteId', phoneNumber, 60);
-
-        // Mark the coupon as used for this customer
-        if (cupomAplicado) {
-            const codigoDigitado = cupomInput.value.trim();
-            database.ref(`cupons_usados/${phoneNumber}/${codigoDigitado}`).set(true)
-                .then(() => {
-                    console.log(`Cupom ${codigoDigitado} marcado como usado para ${phoneNumber}`);
-                    cupomAplicado = null; // Clear the applied coupon
-                    cupomInput.disabled = false; // Re-enable input
-                    applycupom.disabled = false; // Re-enable button
-                    cupomInput.value = ""; // Clear coupon input
-                })
-                .catch((error) => {
-                    console.error('Erro ao marcar cupom como usado:', error);
-                });
-        }
-
-        mostrarPedidoSucessoComLogo();
-        window.location.href = `status.html?pedidoId=${pedidoId}`;
-    })
-    .catch((error) => {
-        console.error('Erro ao enviar pedido: ', error);
+  try {
+    const result = await configRef.transaction((current) => {
+      // Increment the last order ID or start from 1001 if none exists
+      return (current || 1000) + 1;
     });
+
+    const novoId = result.snapshot.val(); // Get the new order ID
+    pedido.status = 'Aguardando'; // Set initial status
+    pedido.timestamp = Date.now(); // Record timestamp
+
+    // Set the order data under the new ID
+    await pedidosRef.child(novoId).set(pedido);
+    console.log('Pedido enviado com sucesso!', novoId);
+
+    const phoneNumber = telefoneInput.value;
+    localStorage.setItem('clienteId', phoneNumber);
+    setCookie('clienteId', phoneNumber, 60);
+
+    // FIX: Only mark coupon as used for this customer, do NOT deactivate it globally
+    if (cupomAplicado) {
+      const cupomCode = cupomAplicado.codigo; // Make sure cupomAplicado has 'codigo' property
+      // Mark this coupon as used for this specific phone number
+      await database.ref(`cupons_usados/${phoneNumber}/${cupomCode}`).set(true);
+      console.log(`Cupom ${cupomCode} marcado como usado para ${phoneNumber}`);
+
+      // Reset coupon state in the UI and variable after successful use
+      cupomAplicado = null;
+      if (cupomInput) {
+        cupomInput.disabled = false;
+        cupomInput.value = "";
+      }
+      if (applycupom) {
+        applycupom.disabled = false;
+      }
+    }
+
+    mostrarPedidoSucessoComLogo();
+    // Redirect to status page with the new order ID
+    window.location.href = `status.html?pedidoId=${novoId}`;
+
+  } catch (error) {
+    console.error('Erro ao enviar pedido ou processar cupom: ', error);
+    Toastify({
+      text: "Erro ao finalizar pedido. Por favor, tente novamente.",
+      duration: 3000,
+      close: true,
+      gravity: "top",
+      position: "center",
+      style: {
+        background: "#ef4444",
+      },
+    }).showToast();
+  }
 }
 
 
+
+// FIX: montatPedido function updated for clarity in total calculation
 function montarPedido() {
-    let tipoEntrega = document.getElementById("retirada").checked ? "Retirada" : "Entrega";
+  let tipoEntrega = document.getElementById("retirada").checked ? "Retirada" : "Entrega";
 
-    let endereco = {};
-    if (tipoEntrega === "Entrega") {
-        endereco = {
-            rua: rua.value,
-            bairro: bairro.value,
-            numero: numero.value
-        };
-    }
-
-    telefone = document.getElementById('telefone').value;
-    let nomeCliente = document.getElementById('nome-cliente').value;
-    let referencia = document.getElementById('referencia').value;
-
-    let pagamento = "";
-    if (document.getElementById("pagPix").checked) pagamento = "Pix";
-    if (document.getElementById("pagCartao").checked) pagamento = "Cartão";
-    if (document.getElementById("pagDinheiro").checked) pagamento = "Dinheiro";
-
-    let dinheiroTotal = pagamento === "Dinheiro" ? document.getElementById("troco").value : null;
-
-    let observacao = observationInput.value;
-
-    // Calculate subtotal FIRST
-    let subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-    // Calculate total with freight, if applicable
-    let totalPedido = subtotal + (tipoEntrega === "Entrega" ? FRETE_VALOR : 0);
-
-    // NOW, apply coupon discount if one is active
-    if (cupomAplicado) {
-        let discountAmount = 0;
-        if (cupomAplicado.tipo === "porcentagem") {
-            discountAmount = subtotal * (cupomAplicado.valor / 100);
-        } else if (cupomAplicado.tipo === "fixo") {
-            discountAmount = cupomAplicado.valor;
-        }
-        totalPedido = Math.max(0, totalPedido - discountAmount); // Ensure total doesn't go below zero
-    }
-
-    return {
-        endereco,
-        cart,
-        observacao,
-        tipoEntrega,
-        pagamento,
-        dinheiroTotal,
-        totalPedido, // This will now include the discount
-        telefone,
-        nomeCliente,
-        referencia,
-        // Optionally, send coupon details if it was applied
-        cupomAplicado: cupomAplicado ? {
-            codigo: cupomAplicado.codigo, // Assuming 'codigo' is the coupon code
-            valor: cupomAplicado.valor,
-            tipo: cupomAplicado.tipo
-        } : null
+  let endereco = {};
+  if (tipoEntrega === "Entrega") {
+    endereco = {
+      rua: rua.value,
+      bairro: bairro.value,
+      numero: numero.value
     };
+  }
+
+  telefone = document.getElementById('telefone').value;
+  let nomeCliente = document.getElementById('nome-cliente').value;
+  let referencia = document.getElementById('referencia').value;
+
+  let pagamento = "";
+  if (document.getElementById("pagPix").checked) pagamento = "Pix";
+  if (document.getElementById("pagCartao").checked) pagamento = "Cartão";
+  if (document.getElementById("pagDinheiro").checked) pagamento = "Dinheiro";
+
+  let dinheiroTotal = pagamento === "Dinheiro" ? document.getElementById("troco").value : null;
+
+  let observacao = observationInput.value;
+
+  // Calculate subtotal FIRST (before freight and discount)
+  let subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  // Initialize total with subtotal
+  let totalPedido = subtotal;
+
+  // Add freight if applicable
+  if (tipoEntrega === "Entrega") {
+    totalPedido += FRETE_VALOR;
+  }
+
+  // NOW, apply coupon discount if one is active
+  if (cupomAplicado) {
+    let discountAmount = 0;
+    if (cupomAplicado.tipo === "porcentagem") {
+      discountAmount = subtotal * (cupomAplicado.valor / 100);
+    } else if (cupomAplicado.tipo === "fixo") {
+      discountAmount = cupomAplicado.valor;
+    }
+    totalPedido = Math.max(0, totalPedido - discountAmount); // Ensure total doesn't go below zero
+  }
+
+  return {
+    endereco,
+    cart,
+    observacao,
+    tipoEntrega,
+    pagamento,
+    dinheiroTotal,
+    totalPedido, // This will now include the discount and freight
+    telefone,
+    nomeCliente,
+    referencia,
+    // Optionally, send coupon details if it was applied
+    cupomAplicado: cupomAplicado ? {
+      codigo: cupomAplicado.codigo, // Assuming 'codigo' is the coupon code
+      valor: cupomAplicado.valor,
+      tipo: cupomAplicado.tipo,
+      valorMinimo: cupomAplicado.valorMinimo || 0 // Include minimum value for clarity
+    } : null
+  };
 }
 
 function mostrarPedidoSucessoComLogo() {
   Toastify({
     text: `
-      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
-        <img src="assets/logo.png" alt="Logo" style="width: 200px; height: 200px; margin-bottom: 20px; border-radius: 10px;" />
-        <span style="font-size: 20px; font-weight: bold; color: #ffffff;">Pedido realizado com sucesso!</span>
-      </div>
-    `,
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+          <img src="assets/logo.png" alt="Logo" style="width: 200px; height: 200px; margin-bottom: 20px; border-radius: 10px;" />
+          <span style="font-size: 20px; font-weight: bold; color: #ffffff;">Pedido realizado com sucesso!</span>
+        </div>
+      `,
     duration: 3000,
     close: true,
-    gravity: "center", 
+    gravity: "center",
     position: "center",
-    backgroundColor: "rgba(0,0,0,0.8)",  // fundo translúcido
+    backgroundColor: "rgba(0,0,0,0.8)", // fundo translúcido
     stopOnFocus: true,
-    escapeMarkup: false,  // permite o HTML dentro do text
+    escapeMarkup: false, // permite o HTML dentro do text
     style: {
       borderRadius: "15px",
       padding: "30px 20px",
@@ -1205,7 +1169,7 @@ const scrollIndicator = document.getElementById('scroll-indicator');
 // Ao clicar no indicador, rola para a direita
 scrollIndicator.addEventListener('click', () => {
   scrollContainer.scrollBy({
-    left: 300, 
+    left: 300,
     behavior: 'smooth'
   });
 });
@@ -1272,7 +1236,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-  function gerarIdAleatorio() {
+function gerarIdAleatorio() {
   return 'cliente-' + Math.random().toString(36).substring(2, 12);
 }
 
@@ -1283,186 +1247,185 @@ const scrollbar = document.getElementById('scrollbar')
 // sidebar
 
 menuButton.addEventListener('click', () => {
-    sidebar.classList.remove('-translate-x-full');
-    overlay.classList.remove('hidden');
-    scrollbar.classList.add('opacity-25')
-  });
+  sidebar.classList.remove('-translate-x-full');
+  overlay.classList.remove('hidden');
+  scrollbar.classList.add('opacity-25')
+});
 
-  overlay.addEventListener('click', () => {
-    sidebar.classList.add('-translate-x-full');
-    overlay.classList.add('hidden');
-    scrollbar.classList.remove('opacity-25')
-  });
+overlay.addEventListener('click', () => {
+  sidebar.classList.add('-translate-x-full');
+  overlay.classList.add('hidden');
+  scrollbar.classList.remove('opacity-25')
+});
 
-  document.getElementById('close-sidebar-button').addEventListener('click', () => {
-    sidebar.classList.add('-translate-x-full');
-    overlay.classList.add('hidden');
-    scrollbar.classList.remove('opacity-25')
+document.getElementById('close-sidebar-button').addEventListener('click', () => {
+  sidebar.classList.add('-translate-x-full');
+  overlay.classList.add('hidden');
+  scrollbar.classList.remove('opacity-25')
 });
 
 
 // cupom
 
-  // cupom maiúsculo
-const cupomInput = document.getElementById('cupom');
-  if (cupomInput) {
-    cupomInput.addEventListener('input', function() {
-      this.value = this.value.toUpperCase();
-    });
+// cupom maiúsculo
+// const cupomInput = document.getElementById('cupom'); // Defined above
+if (cupomInput) {
+  cupomInput.addEventListener('input', function() {
+    this.value = this.value.toUpperCase();
+  });
+}
+
+// const applycupom = document.getElementById('apply-cupom'); // Defined above
+applycupom.addEventListener('click', () => {
+  const codigoDigitado = cupomInput.value.trim();
+  const clienteId = telefoneInput.value.trim(); // Phone number as customer ID
+
+  if (codigoDigitado === '') {
+    Toastify({
+      text: "Por favor, insira um código de cupom.",
+      duration: 3000,
+      close: true,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "#ffc107"
+      }
+    }).showToast();
+    return;
   }
 
-const applycupom = document.getElementById('apply-cupom');
-applycupom.addEventListener('click', () => {
-    const codigoDigitado = cupomInput.value.trim();
-    const clienteId = telefoneInput.value.trim(); // Phone number as customer ID
+  if (clienteId === '') {
+    Toastify({
+      text: "Informe seu telefone antes de aplicar um cupom.",
+      duration: 3000,
+      close: true,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "#ffc107"
+      }
+    }).showToast();
+    telefoneWarn.classList.remove("hidden");
+    telefoneInput.classList.add("border-red-500");
+    return;
+  }
 
-    if (codigoDigitado === '') {
-        Toastify({
-            text: "Por favor, insira um código de cupom.",
-            duration: 3000,
-            close: true,
-            gravity: "top",
-            position: "right",
-            style: {
-                background: "#ffc107"
-            }
-        }).showToast();
-        return;
+  // Prevent applying multiple coupons
+  if (cupomAplicado) {
+    Toastify({
+      text: "Um cupom já foi aplicado.",
+      duration: 3000,
+      close: true,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "#ffc107"
+      }
+    }).showToast();
+    return;
+  }
+
+  // Busca o cupom no Firebase
+  database.ref(`cupons/${codigoDigitado}`).once('value', (snapshot) => {
+    // Verifica se o cupom existe
+    if (!snapshot.exists()) {
+      Toastify({
+        text: "CUPOM INVÁLIDO!",
+        duration: 3000,
+        close: true,
+        gravity: "top",
+        position: "right",
+        style: {
+          background: "#ef4444"
+        }
+      }).showToast();
+      cupomInput.value = "";
+      return;
     }
 
-    if (clienteId === '') {
-        Toastify({
-            text: "Informe seu telefone antes de aplicar um cupom.",
-            duration: 3000,
-            close: true,
-            gravity: "top",
-            position: "right",
-            style: {
-                background: "#ffc107"
-            }
-        }).showToast();
-        telefoneWarn.classList.remove("hidden");
-        telefoneInput.classList.add("border-red-500");
-        return;
+    const cupom = snapshot.val();
+    const hoje = new Date();
+
+    // Verifica se o cupom tá ativo
+    if (!cupom.ativo) {
+      Toastify({
+        text: "Este cupom não está mais ativo.",
+        duration: 3000,
+        close: true,
+        gravity: "top",
+        position: "right",
+        style: {
+          background: "#ef4444"
+        }
+      }).showToast();
+      return;
     }
 
-    // Prevent applying multiple coupons
-    if (cupomAplicado) {
-        Toastify({
-            text: "Um cupom já foi aplicado.",
-            duration: 3000,
-            close: true,
-            gravity: "top",
-            position: "right",
-            style: {
-                background: "#ffc107"
-            }
-        }).showToast();
-        return;
+    // Se tá na validade
+    if (hoje.getTime() > cupom.validade) {
+      Toastify({
+        text: "Este cupom expirou!",
+        duration: 3000,
+        close: true,
+        gravity: "top",
+        position: "right",
+        style: {
+          background: "#ef4444"
+        }
+      }).showToast();
+      return;
     }
 
-    // Busca o cupom no Firebase
-    database.ref(`cupons/${codigoDigitado}`).once('value', (snapshot) => {
-        // Verifica se o cupom existe
-        if (!snapshot.exists()) {
-            Toastify({
-                text: "CUPOM INVÁLIDO!",
-                duration: 3000,
-                close: true,
-                gravity: "top",
-                position: "right",
-                style: {
-                    background: "#ef4444"
-                }
-            }).showToast();
-            cupomInput.value = "";
-            return;
+    // Se o valor necessario foi atingido
+    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    if (cupom.valorMinimo && subtotal < cupom.valorMinimo) {
+      Toastify({
+        text: `Este cupom requer um pedido mínimo de R$ ${cupom.valorMinimo.toFixed(2)}`,
+        duration: 4000,
+        close: true,
+        gravity: "top",
+        position: "right",
+        style: {
+          background: "#ffc107"
         }
+      }).showToast();
+      return;
+    }
 
-        const cupom = snapshot.val();
-        const hoje = new Date();
+    // Se o cliente já usou este cupom
+    database.ref(`cupons_usados/${clienteId}/${codigoDigitado}`).once('value', (snapshotUso) => {
+      if (snapshotUso.exists()) {
+        Toastify({
+          text: "Você já utilizou este cupom!",
+          duration: 3000,
+          close: true,
+          gravity: "top",
+          position: "right",
+          style: {
+            background: "#ef4444"
+          }
+        }).showToast();
+      } else {
+        // CUPOM APLICADO COM SUCESSO!
+        Toastify({
+          text: "Cupom aplicado com sucesso!",
+          duration: 3000,
+          close: true,
+          gravity: "top",
+          position: "right",
+          style: {
+            background: "#22c55e"
+          }
+        }).showToast();
 
-        // Verifica se o cupom tá ativo
-        if (!cupom.ativo) {
-            Toastify({
-                text: "Este cupom não está mais ativo.",
-                duration: 3000,
-                close: true,
-                gravity: "top",
-                position: "right",
-                style: {
-                    background: "#ef4444"
-                }
-            }).showToast();
-            return;
-        }
+        cupomAplicado = cupom; // Store the valid coupon
+        cupomInput.disabled = true;
+        applycupom.disabled = true;
 
-        // Se tá na validade
-        if (hoje.getTime() > cupom.validade) {
-            Toastify({
-                text: "Este cupom expirou!",
-                duration: 3000,
-                close: true,
-                gravity: "top",
-                position: "right",
-                style: {
-                    background: "#ef4444"
-                }
-            }).showToast();
-            return;
-        }
-
-        // Se o valor necessario foi atingido
-        const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        if (cupom.valorMinimo && subtotal < cupom.valorMinimo) {
-            Toastify({
-                text: `Este cupom requer um pedido mínimo de R$ ${cupom.valorMinimo.toFixed(2)}`,
-                duration: 4000,
-                close: true,
-                gravity: "top",
-                position: "right",
-                style: {
-                    background: "#ffc107"
-                }
-            }).showToast();
-            return;
-        }
-
-        // Se o cliente já usou este cupom
-        database.ref(`cupons_usados/${clienteId}/${codigoDigitado}`).once('value', (snapshotUso) => {
-            if (snapshotUso.exists()) {
-                Toastify({
-                    text: "Você já utilizou este cupom!",
-                    duration: 3000,
-                    close: true,
-                    gravity: "top",
-                    position: "right",
-                    style: {
-                        background: "#ef4444"
-                    }
-                }).showToast();
-            } else {
-                // CUPOM APLICADO COM SUCESSO!
-                Toastify({
-                    text: "Cupom aplicado com sucesso!",
-                    duration: 3000,
-                    close: true,
-                    gravity: "top",
-                    position: "right",
-                    style: {
-                        background: "#22c55e"
-                    }
-                }).showToast();
-
-                cupomAplicado = cupom; // Store the valid coupon
-                cupomInput.disabled = true;
-                applycupom.disabled = true;
-
-                // Important: Recalculate and display the new total with the discount
-                updateCartModal();
-                atualizarConfirmacao();
-            }
-        });
+        // Important: Recalculate and display the new total with the discount
+        updateCartModal();
+        atualizarConfirmacao();
+      }
     });
+  });
 });
-
