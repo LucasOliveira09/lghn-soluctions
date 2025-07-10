@@ -46,6 +46,8 @@ const FRETE_VALOR = 5.00;
 
 let cart = [];
 
+let cupomAplicado = null;
+
 carregarProdutos()
 
 
@@ -328,39 +330,57 @@ function addToCart(name, price){
 
 function updateCartModal() {
     cartItemsContainer.innerHTML = "";
-    let total = 0
+    let total = 0;
 
     cart.forEach(item => {
         const cartItemElement = document.createElement("div");
-        cartItemElement.classList.add("flex", "justify-between", "mb-4", "flex-col")
+        cartItemElement.classList.add("flex", "justify-between", "mb-4", "flex-col");
 
         cartItemElement.innerHTML = `
-  <div class="bg-gray-100 p-4 rounded-xl shadow flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-    <div class="flex-1">
-      <p class="font-semibold text-base text-gray-900">${item.name}</p>
-      <div class="flex items-center gap-3 mt-2">
-        <button class="quantity-btn bg-red-500 text-white w-9 h-9 rounded-full text-lg hover:bg-red-600" data-name="${item.name}" data-action="decrease">
-          <i class="fa-solid fa-minus"></i>
-        </button>
-        <span class="text-lg font-bold">${item.quantity}</span>
-        <button class="quantity-btn bg-green-500 text-white w-9 h-9 rounded-full text-lg hover:bg-green-600" data-name="${item.name}" data-action="increase">
-          <i class="fa-solid fa-plus"></i>
-        </button>
-      </div>
-      <p class="text-sm text-gray-700 mt-2">Preço: R$ ${item.price.toFixed(2)}</p>
-    </div>
-  </div>
-`;
+            <div class="bg-gray-100 p-4 rounded-xl shadow flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex-1">
+                    <p class="font-semibold text-base text-gray-900">${item.name}</p>
+                    <div class="flex items-center gap-3 mt-2">
+                        <button class="quantity-btn bg-red-500 text-white w-9 h-9 rounded-full text-lg hover:bg-red-600" data-name="${item.name}" data-action="decrease">
+                            <i class="fa-solid fa-minus"></i>
+                        </button>
+                        <span class="text-lg font-bold">${item.quantity}</span>
+                        <button class="quantity-btn bg-green-500 text-white w-9 h-9 rounded-full text-lg hover:bg-green-600" data-name="${item.name}" data-action="increase">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-700 mt-2">Preço: R$ ${item.price.toFixed(2)}</p>
+                </div>
+            </div>
+        `;
+        total += item.price * item.quantity;
+        cartItemsContainer.appendChild(cartItemElement);
+    });
 
+    let finalTotal = total;
+    let discountAmount = 0;
 
-    total += item.price * item.quantity;
-    cartItemsContainer.appendChild(cartItemElement)
-    })
+    if (cupomAplicado) {
+        if (cupomAplicado.tipo === "porcentagem") {
+            discountAmount = total * (cupomAplicado.valor / 100);
+        } else if (cupomAplicado.tipo === "fixo") {
+            discountAmount = cupomAplicado.valor;
+        }
+        finalTotal = Math.max(0, total - discountAmount); // Ensure total doesn't go below zero
+    }
 
-    cartTotal.textContent = total.toLocaleString("pt-BR", {
+    cartTotal.textContent = finalTotal.toLocaleString("pt-BR", {
         style: "currency",
         currency: "BRL"
     });
+
+    // Optionally, display the discount amount if a coupon is applied
+    if (cupomAplicado && discountAmount > 0) {
+        const discountElement = document.createElement("p");
+        discountElement.classList.add("text-sm", "text-green-600", "mt-2", "font-bold");
+        discountElement.textContent = `Desconto Cupom: - R$ ${discountAmount.toFixed(2)}`;
+        cartItemsContainer.appendChild(discountElement); // Or append it near the total
+    }
 
     cartCounter.innerHTML = cart.length;
 }
@@ -779,10 +799,14 @@ backBtn.addEventListener("click", function(){
 //-------------------------------------------------
 
 function zerarCarrinho(){
-  cart = []
-  document.getElementById('confirm-modal').classList.add("hidden")
-  cartModal.style.display = "none"
-  updateCartModal()
+    cart = [];
+    document.getElementById('confirm-modal').classList.add("hidden");
+    cartModal.style.display = "none";
+    updateCartModal();
+    cupomAplicado = null; // Reset the applied coupon
+    cupomInput.disabled = false; // Re-enable input
+    applycupom.disabled = false; // Re-enable button
+    cupomInput.value = ""; // Clear coupon input
 }
 
 
@@ -971,44 +995,62 @@ function resetSelections() {
 
 
 function atualizarConfirmacao() {
-  confirmCartItems.innerHTML = "";
-  
-  let subtotal = 0;
-  
-  cart.forEach(item => {
-    const itemContainer = document.createElement('div');
-    itemContainer.classList.add('mb-4');
+    confirmCartItems.innerHTML = "";
 
-    const topBorder = document.createElement('div');
-    topBorder.classList.add('h-[1px]', 'bg-gray-300', 'mb-2');
-    itemContainer.appendChild(topBorder);
+    let subtotal = 0;
 
-    const itemContent = document.createElement('div');
-    itemContent.classList.add('flex', 'justify-between', 'items-center');
-    itemContent.innerHTML = `
-      <div>
-        <p class="font-medium">${item.quantity}x ${item.name}</p>
-        <p class="text-sm text-gray-600">Subtotal: R$ ${(item.price * item.quantity).toFixed(2)}</p>
-      </div>
-    `;
-    itemContainer.appendChild(itemContent);
+    cart.forEach(item => {
+        const itemContainer = document.createElement('div');
+        itemContainer.classList.add('mb-4');
 
-    const bottomBorder = document.createElement('div');
-    bottomBorder.classList.add('h-[1px]', 'bg-gray-300', 'mt-2');
-    itemContainer.appendChild(bottomBorder);
+        const topBorder = document.createElement('div');
+        topBorder.classList.add('h-[1px]', 'bg-gray-300', 'mb-2');
+        itemContainer.appendChild(topBorder);
 
-    confirmCartItems.appendChild(itemContainer);
-    
-    subtotal += item.price * item.quantity;
-  });
+        const itemContent = document.createElement('div');
+        itemContent.classList.add('flex', 'justify-between', 'items-center');
+        itemContent.innerHTML = `
+            <div>
+                <p class="font-medium">${item.quantity}x ${item.name}</p>
+                <p class="text-sm text-gray-600">Subtotal: R$ ${(item.price * item.quantity).toFixed(2)}</p>
+            </div>
+        `;
+        itemContainer.appendChild(itemContent);
 
-  let totalComFrete = subtotal;
-  const entregaSelecionada = document.getElementById("entrega").checked;
-  if (entregaSelecionada) {
-    totalComFrete += FRETE_VALOR;
-  }
+        const bottomBorder = document.createElement('div');
+        bottomBorder.classList.add('h-[1px]', 'bg-gray-300', 'mt-2');
+        itemContainer.appendChild(bottomBorder);
 
-  confirmTotal.textContent = `Total: R$ ${totalComFrete.toFixed(2)}${entregaSelecionada ? ` (Inclui frete de R$ ${FRETE_VALOR.toFixed(2)})` : ''}`;
+        confirmCartItems.appendChild(itemContainer);
+
+        subtotal += item.price * item.quantity;
+    });
+
+    let totalComFrete = subtotal;
+    const entregaSelecionada = document.getElementById("entrega").checked;
+    if (entregaSelecionada) {
+        totalComFrete += FRETE_VALOR;
+    }
+
+    let discountAmount = 0;
+    if (cupomAplicado) {
+        if (cupomAplicado.tipo === "porcentagem") {
+            discountAmount = subtotal * (cupomAplicado.valor / 100);
+        } else if (cupomAplicado.tipo === "fixo") {
+            discountAmount = cupomAplicado.valor;
+        }
+        totalComFrete = Math.max(0, totalComFrete - discountAmount);
+    }
+
+    let totalText = `Total: R$ ${totalComFrete.toFixed(2)}`;
+    if (entregaSelecionada) {
+        totalText += ` (Inclui frete de R$ ${FRETE_VALOR.toFixed(2)})`;
+    }
+    if (cupomAplicado && discountAmount > 0) {
+        totalText += ` - Cupom: R$ ${discountAmount.toFixed(2)}`;
+    }
+
+    confirmTotal.textContent = totalText;
 }
 
 let telefone = ""
@@ -1024,35 +1066,48 @@ function setCookie(name, value, days) {
 }
 
 function enviarPedidoParaPainel(pedido) {
-  const pedidosRef = database.ref('pedidos');
-  const configRef = database.ref('config/ultimoPedidoId');
+    const pedidosRef = database.ref('pedidos');
+    const configRef = database.ref('config/ultimoPedidoId');
 
-  configRef.transaction((current) => {
-      return (current || 1000) + 1; // starts at 1001 if empty
+    configRef.transaction((current) => {
+        return (current || 1000) + 1; // starts at 1001 if empty
     })
     .then((result) => {
-      const novoId = result.snapshot.val(); // this will be the numeric ID
-      pedido.status = 'Aguardando';
-      pedido.timestamp = Date.now();
+        const novoId = result.snapshot.val(); // this will be the numeric ID
+        pedido.status = 'Aguardando';
+        pedido.timestamp = Date.now();
 
-      return pedidosRef.child(novoId).set(pedido)
-        .then(() => novoId); // returns the new ID
+        return pedidosRef.child(novoId).set(pedido)
+            .then(() => novoId); // returns the new ID
     })
     .then((pedidoId) => {
-      console.log('Pedido enviado com sucesso!', pedidoId);
+        console.log('Pedido enviado com sucesso!', pedidoId);
 
-      // Save client ID (phone number) to localStorage
-      const phoneNumber = telefoneInput.value; // Assuming telefoneInput is accessible here
-      localStorage.setItem('clienteId', phoneNumber);
+        const phoneNumber = telefoneInput.value;
+        localStorage.setItem('clienteId', phoneNumber);
+        setCookie('clienteId', phoneNumber, 60);
 
-      // Set cookie with client ID (phone number)
-      setCookie('clienteId', phoneNumber, 60); // Save for 60 days
+        // Mark the coupon as used for this customer
+        if (cupomAplicado) {
+            const codigoDigitado = cupomInput.value.trim();
+            database.ref(`cupons_usados/${phoneNumber}/${codigoDigitado}`).set(true)
+                .then(() => {
+                    console.log(`Cupom ${codigoDigitado} marcado como usado para ${phoneNumber}`);
+                    cupomAplicado = null; // Clear the applied coupon
+                    cupomInput.disabled = false; // Re-enable input
+                    applycupom.disabled = false; // Re-enable button
+                    cupomInput.value = ""; // Clear coupon input
+                })
+                .catch((error) => {
+                    console.error('Erro ao marcar cupom como usado:', error);
+                });
+        }
 
-      mostrarPedidoSucessoComLogo();
-      window.location.href = `status.html?pedidoId=${pedidoId}`;
+        mostrarPedidoSucessoComLogo();
+        window.location.href = `status.html?pedidoId=${pedidoId}`;
     })
     .catch((error) => {
-      console.error('Erro ao enviar pedido: ', error);
+        console.error('Erro ao enviar pedido: ', error);
     });
 }
 
@@ -1203,6 +1258,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 const scrollbar = document.getElementById('scrollbar')
 
+
+
 // sidebar
 
 menuButton.addEventListener('click', () => {
@@ -1237,48 +1294,66 @@ const cupomInput = document.getElementById('cupom');
 const applycupom = document.getElementById('apply-cupom');
 applycupom.addEventListener('click', () => {
     const codigoDigitado = cupomInput.value.trim();
-    const clienteId = telefoneInput.value.trim();
+    const clienteId = telefoneInput.value.trim(); // Phone number as customer ID
 
     if (codigoDigitado === '') {
         Toastify({
-          text: "Por favor, insira um código de cupom.",
-          duration: 3000,
-          gravity: "top",
-          position: "right",
-          style: {
-            background: "#ffc107"
-          }
+            text: "Por favor, insira um código de cupom.",
+            duration: 3000,
+            close: true,
+            gravity: "top",
+            position: "right",
+            style: {
+                background: "#ffc107"
+            }
         }).showToast();
         return;
     }
 
     if (clienteId === '') {
         Toastify({
-          text: "Informe seu telefone antes de aplicar um cupom.",
-          duration: 3000,
-          gravity: "top",
-          position: "right",
-          style: {
-            background: "#ffc107" 
-          }
+            text: "Informe seu telefone antes de aplicar um cupom.",
+            duration: 3000,
+            close: true,
+            gravity: "top",
+            position: "right",
+            style: {
+                background: "#ffc107"
+            }
         }).showToast();
         telefoneWarn.classList.remove("hidden");
         telefoneInput.classList.add("border-red-500");
         return;
     }
-    
+
+    // Prevent applying multiple coupons
+    if (cupomAplicado) {
+        Toastify({
+            text: "Um cupom já foi aplicado.",
+            duration: 3000,
+            close: true,
+            gravity: "top",
+            position: "right",
+            style: {
+                background: "#ffc107"
+            }
+        }).showToast();
+        return;
+    }
+
     // Busca o cupom no Firebase
     database.ref(`cupons/${codigoDigitado}`).once('value', (snapshot) => {
         // Verifica se o cupom existe
         if (!snapshot.exists()) {
-            Toastify({ 
-              text: "CUPOM INVÁLIDO!",
-              duration: 3000,
-              gravity: "top",
-              position: "right",
-              style: {
-                background: "#ef4444" 
-              } 
+            Toastify({
+                text: "CUPOM INVÁLIDO!",
+                duration: 3000,
+                close: true,
+                gravity: "top",
+                position: "right",
+                style: {
+                    background: "#ef4444"
+                }
             }).showToast();
             cupomInput.value = "";
             return;
@@ -1289,14 +1364,15 @@ applycupom.addEventListener('click', () => {
 
         // Verifica se o cupom tá ativo
         if (!cupom.ativo) {
-            Toastify({ 
-              text: "Este cupom não está mais ativo.",
-              duration: 3000,
-              gravity: "top",
-              position: "right",
-              style: { 
-                background: "#ef4444" 
-              }
+            Toastify({
+                text: "Este cupom não está mais ativo.",
+                duration: 3000,
+                close: true,
+                gravity: "top",
+                position: "right",
+                style: {
+                    background: "#ef4444"
+                }
             }).showToast();
             return;
         }
@@ -1304,63 +1380,69 @@ applycupom.addEventListener('click', () => {
         // Se tá na validade
         if (hoje.getTime() > cupom.validade) {
             Toastify({
-              text: "Este cupom expirou!",
-              duration: 3000,
-              gravity: "top",
-              position: "right",
-              style: { 
-                background: "#ef4444" 
-              } 
-            }).showToast();
-            return;
-        }
-        
-        // Se o valor necessario foi atingido
-        const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        if (cupom.valorMinimo && subtotal < cupom.valorMinimo) {
-            Toastify({
-              text: `Este cupom requer um pedido mínimo de R$ ${cupom.valorMinimo.toFixed(2)}`,
-              duration: 4000,
-              gravity: "top",
-              position: "right",
-              style: {
-                background: "#ffc107"
-              }
+                text: "Este cupom expirou!",
+                duration: 3000,
+                close: true,
+                gravity: "top",
+                position: "right",
+                style: {
+                    background: "#ef4444"
+                }
             }).showToast();
             return;
         }
 
-        // Se o cliente já usou
+        // Se o valor necessario foi atingido
+        const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        if (cupom.valorMinimo && subtotal < cupom.valorMinimo) {
+            Toastify({
+                text: `Este cupom requer um pedido mínimo de R$ ${cupom.valorMinimo.toFixed(2)}`,
+                duration: 4000,
+                close: true,
+                gravity: "top",
+                position: "right",
+                style: {
+                    background: "#ffc107"
+                }
+            }).showToast();
+            return;
+        }
+
+        // Se o cliente já usou este cupom
         database.ref(`cupons_usados/${clienteId}/${codigoDigitado}`).once('value', (snapshotUso) => {
             if (snapshotUso.exists()) {
                 Toastify({
-                  text: "Você já utilizou este cupom!",
-                  duration: 3000,
-                  gravity: "top",
-                  position: "right",
-                  style: {
-                    background: "#ef4444" 
-                  } 
+                    text: "Você já utilizou este cupom!",
+                    duration: 3000,
+                    close: true,
+                    gravity: "top",
+                    position: "right",
+                    style: {
+                        background: "#ef4444"
+                    }
                 }).showToast();
             } else {
+                // CUPOM APLICADO COM SUCESSO!
                 Toastify({
-                  text: "Cupom aplicado com sucesso!",
-                  duration: 3000,
-                  gravity: "top",
-                  position: "right",
-                  style: {
-                    background: "#22c55e" 
-                  } 
+                    text: "Cupom aplicado com sucesso!",
+                    duration: 3000,
+                    close: true,
+                    gravity: "top",
+                    position: "right",
+                    style: {
+                        background: "#22c55e"
+                    }
                 }).showToast();
-                
-                cupomAplicado = cupom; // Armazena o cupom válido na variável de estado
-                
-                // Desativa o input e o botão para não aplicar outro cupom
+
+                cupomAplicado = cupom; // Store the valid coupon
                 cupomInput.disabled = true;
                 applycupom.disabled = true;
-                
-                // Atualizar o carrinho e a tela com desconto...
+
+                // Important: Recalculate and display the new total with the discount
+                updateCartModal();
+                atualizarConfirmacao();
             }
         });
     });
 });
+
