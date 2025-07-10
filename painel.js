@@ -463,15 +463,15 @@ function estilizaBotaoAtivo(botaoAtivo, ...inativos) {
 
 // Event Listeners para os botões do menu hamburguer
 btnAtivos.addEventListener('click', () => {
-    ativaAba(abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios);
-    estilizaBotaoAtivo(btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios);
+    ativaAba(abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios, abaGerenciarCupom);
+    estilizaBotaoAtivo(btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios, btnGerenciarCupom);
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
 });
 
 btnFinalizados.addEventListener('click', () => {
-    ativaAba(abaFinalizados, abaAtivos, EditarCardapio, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios);
-    estilizaBotaoAtivo(btnFinalizados, btnAtivos, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios);
+    ativaAba(abaFinalizados, abaAtivos, EditarCardapio, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios, abaGerenciarCupom);
+    estilizaBotaoAtivo(btnFinalizados, btnAtivos, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios, btnGerenciarCupom);
 
     const hoje = new Date();
     const seteDiasAtras = new Date(hoje);
@@ -486,24 +486,24 @@ btnFinalizados.addEventListener('click', () => {
 });
 
 btnEditarCardapio.addEventListener('click', () => {
-    ativaAba(EditarCardapio, abaFinalizados, abaAtivos, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios);
-    estilizaBotaoAtivo(btnEditarCardapio, btnAtivos, btnFinalizados, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios);
+    ativaAba(EditarCardapio, abaFinalizados, abaAtivos, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios, abaGerenciarCupom);
+    estilizaBotaoAtivo(btnEditarCardapio, btnAtivos, btnFinalizados, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios, btnGerenciarCupom);
     carregarItensCardapio(categoriaSelect.value, searchInput.value);
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
 });
 
 btnEditarHorario.addEventListener('click', () => {
-    ativaAba(editarHorario, abaFinalizados, abaAtivos, EditarCardapio, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios);
-    estilizaBotaoAtivo(btnEditarHorario, btnAtivos, btnFinalizados, btnEditarCardapio, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios);
+    ativaAba(editarHorario, abaFinalizados, abaAtivos, EditarCardapio, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios, abaGerenciarCupom);
+    estilizaBotaoAtivo(btnEditarHorario, btnAtivos, btnFinalizados, btnEditarCardapio, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios, btnGerenciarCupom);
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
 });
 
 // Novo Event Listener para o botão Gerenciar Mesas
 btnGerenciarMesas.addEventListener('click', () => {
-    ativaAba(abaGerenciarMesas, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaConfiguracoesGerais, abaRelatorios);
-    estilizaBotaoAtivo(btnGerenciarMesas, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnConfiguracoesGerais, btnRelatorios);
+    ativaAba(abaGerenciarMesas, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaConfiguracoesGerais, abaRelatorios, abaGerenciarCupom);
+    estilizaBotaoAtivo(btnGerenciarMesas, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnConfiguracoesGerais, btnRelatorios, btnGerenciarCupom);
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
     carregarMesasDoFirebase(); // Carrega as mesas quando a aba é ativada
@@ -511,8 +511,8 @@ btnGerenciarMesas.addEventListener('click', () => {
 
 
 btnConfiguracoesGerais.addEventListener('click', () => {
-    ativaAba(abaConfiguracoesGerais, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarMesas, abaRelatorios);
-    estilizaBotaoAtivo(btnConfiguracoesGerais, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnRelatorios);
+    ativaAba(abaConfiguracoesGerais, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarMesas, abaRelatorios, abaGerenciarCupom);
+    estilizaBotaoAtivo(btnConfiguracoesGerais, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnRelatorios, btnGerenciarCupom);
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
 });
@@ -582,8 +582,8 @@ btnUltimos3Meses.addEventListener('click', () => {
 
 
 btnRelatorios.addEventListener('click', () => {
-    ativaAba(abaRelatorios, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais);
-    estilizaBotaoAtivo(btnRelatorios, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais);
+    ativaAba(abaRelatorios, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaGerenciarCupom);
+    estilizaBotaoAtivo(btnRelatorios, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnGerenciarCupom);
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
 
