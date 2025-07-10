@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meus Cupons de Recompensa</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/k7ujTnHg4CGR2D7kSs0v4LLanw2qksYuRlEzO+tcaEPQogQ0KaoGN26/zrn20ImR1DfuLWnOo7aBA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <style>
+        body {
+            font-family: 'Cinzel', serif; /* Or your preferred font */
+            background-color: #1a202c; /* Dark background from your original style */
+            color: #f5f0e6; /* Light text color */
+        }
+        .coupon-box {
+            background-color: #2d3748; /* Slightly lighter dark background */
+            border: 1px dashed #4a5568;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); /* Subtle shadow */
+        }
+        .input-style {
+            background-color: #2d3748;
+            border: 1px solid #4a5568;
+            color: #f5f0e6;
+        }
+        /* Sidebar styles */
+        .sidebar {
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(-100%);
+        }
+        .sidebar.active {
+            transform: translateX(0);
+        }
+        .overlay {
+            background-color: rgba(0, 0, 0, 0.7);
+            transition: opacity 0.3s ease-in-out;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Styles for the new progress path */
+        .progress-step {
+            width: 40px; /* Size of the circle */
+            height: 40px;
+            background-color: #4a5568; /* Default inactive color */
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #a0aec0;
+            transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
+            flex-shrink: 0; /* Prevent shrinking */
+            border: 2px solid #3d4a5d; /* Border for contrast */
+        }
+        .progress-step.active {
+            background-color: #22c55e; /* Active color */
+            color: #ffffff;
+            border-color: #1b9b4f; /* Darker border for active */
+        }
+        .progress-line {
+            height: 4px;
+            flex-grow: 1; /* Make line fill space */
+            background-color: #4a5568; /* Default inactive color */
+            margin: 0 -2px; /* Overlap with circles slightly */
+            transition: background-color 0.3s ease-in-out;
+        }
+        .progress-line.active {
+            background-color: #22c55e; /* Active color */
+        }
+
+        /* Added for the new dynamic phone display */
+        .phone-display-box {
+            background-color: #2d3748;
+            border: 1px solid #4a5568;
+            padding: 12px 16px;
+            border-radius: 0.25rem; /* Matches input style */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.125rem; /* Tailwind text-lg */
+            font-weight: bold;
+            color: #f5f0e6;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-4">
+
+    <!-- Sidebar -->
+<div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-[#0E0C0A] shadow-lg transform -translate-x-full transition-transform duration-300 z-[999]">
+  <div class="p-7">
+
+  
+  <div class="flex items-center justify-between mb-8">
+            <h2 class="text-2xl font-bold text-white">Navegação</h2>
+            <button id="close-sidebar-button" class="text-gray-400 hover:text-white transition-colors">
+                <i class="fa-solid fa-times text-2xl"></i>
+            </button>
+        </div>
+        <nav class="flex flex-col space-y-4">
+            <a href="index.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                <i class="fa-solid fa-pizza-slice"></i>
+                <span>Cardápio</span>
+            </a>
+            <a href="status.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>Meus Pedidos</span>
+            </a>
+            <!-- Adicione mais links conforme necessário -->
+            <a href="cupons.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                <i class="fa-solid fa-info-circle"></i>
+                <span>Cupons</span>
+            </a>
+            <a href="#" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                <i class="fa-solid fa-phone"></i>
+                <span>Contato</span>
+            </a>
+        </nav>
+        </div>
+</div>
+
+<!-- Overlay ao abrir a sidebar -->
+<div id="overlay" class="fixed inset-0 bg-black opacity-50 hidden z-40"></div>
+
+<button id="menu-button" class="absolute top-4 right-4 z-20 text-yellow-50 hover:scale-110 transition-transform duration-200">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  </button>
+    <main class="w-full max-w-md bg-[#111] p-6 rounded-lg shadow-lg relative z-10">
+        <h1 class="text-3xl font-bold text-center mb-6 text-[#f5f0e6]">Meus Cupons de Recompensa</h1>
+
+        <div id="phone-input-section" class="mb-4">
+            <label for="customer-phone" class="block text-gray-300 text-sm font-bold mb-2">
+                Seu Telefone (com DDD, apenas números):
+            </label>
+            <input type="tel" id="customer-phone"
+                   class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-300 leading-tight focus:outline-none focus:shadow-outline input-style"
+                   placeholder="Ex: 85987654321" maxlength="11">
+            <p id="phone-error" class="text-red-500 text-xs italic hidden mt-1">Por favor, digite um telefone válido (10 ou 11 dígitos numéricos).</p>
+        </div>
+
+        <div id="phone-display-section" class="mb-4 hidden">
+            <label class="block text-gray-300 text-sm font-bold mb-2">
+                Seu Telefone:
+            </label>
+            <div id="displayed-phone" class="phone-display-box"></div>
+        </div>
+
+        <button id="check-coupons-btn"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full transition-colors duration-200 focus:outline-none focus:shadow-outline">
+            Verificar Cupons
+        </button>
+
+        <div id="progress-container" class="mt-8 mb-4 p-4 bg-gray-800 rounded-lg shadow-md hidden">
+            <h2 class="text-xl font-bold text-center text-[#f5f0e6] mb-4">Seu Progresso de Recompensa</h2>
+            <p id="completed-orders-text" class="text-center text-gray-300 mb-2">Pedidos finalizados: <span class="font-bold text-lg">0</span></p>
+            <p id="next-coupon-text" class="text-center text-green-400 font-semibold mb-4">Próximo cupom em <span class="font-bold text-lg">10</span> pedidos!</p>
+
+            <div id="progress-steps-wrapper" class="flex items-center justify-between relative overflow-x-auto py-2">
+                </div>
+            <p class="text-xs text-gray-500 text-center mt-4">Você ganha um cupom de 10% a cada 10 pedidos finalizados!</p>
+        </div>
+        <div id="coupon-display-area" class="mt-8 p-4 coupon-box rounded-lg hidden">
+            <h2 class="text-xl font-bold mb-4 text-[#f5f0e6] text-center">Seu Cupom Disponível:</h2>
+            <div id="coupon-code-container" class="flex items-center justify-center p-4 bg-gray-800 rounded-md mb-4">
+                <span id="coupon-code" class="text-green-400 text-2xl font-bold select-all break-all text-center"></span>
+                <button id="copy-coupon-btn" class="ml-4 p-2 bg-gray-700 hover:bg-gray-600 rounded-md text-white">
+                    <i class="fa-regular fa-copy"></i> Copiar
+                </button>
+            </div>
+            <p class="text-sm text-gray-400 text-center">Use este cupom no seu próximo pedido para ganhar 10% de desconto!</p>
+            <p class="text-xs text-gray-500 text-center mt-2">Válido por 30 dias após a emissão.</p>
+        </div>
+
+        <p id="no-coupon-message" class="mt-8 text-center text-gray-400 hidden">
+            Nenhum cupom disponível no momento. Continue pedindo para ganhar mais!
+        </p>
+    </main>
+
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <script src="cupons.js"></script>
+</body>
+</html>
