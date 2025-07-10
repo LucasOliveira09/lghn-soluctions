@@ -1226,6 +1226,8 @@ menuButton.addEventListener('click', () => {
 
 // cupom
 
+const cupomteste = "TEST"; // cupom de teste para o exemplo
+
   // cupom maiúsculo
 const cupomInput = document.getElementById('cupom');
   if (cupomInput) {
@@ -1237,130 +1239,61 @@ const cupomInput = document.getElementById('cupom');
 const applycupom = document.getElementById('apply-cupom');
 applycupom.addEventListener('click', () => {
     const codigoDigitado = cupomInput.value.trim();
-    const clienteId = telefoneInput.value.trim();
+    const clienteId = telefoneInput.value.trim(); // Usa o telefone como ID do cliente
 
     if (codigoDigitado === '') {
         Toastify({
-          text: "Por favor, insira um código de cupom.",
-          duration: 3000,
-          gravity: "top",
-          position: "right",
-          style: {
-            background: "#ffc107"
-          }
+            text: "Insira um cupom!",
+            duration: 3000,
+            gravity: "top",
+            position: "right",
+            style: {
+                background: "#ffc107",
+            },
         }).showToast();
         return;
     }
 
     if (clienteId === '') {
         Toastify({
-          text: "Informe seu telefone antes de aplicar um cupom.",
-          duration: 3000,
-          gravity: "top",
-          position: "right",
-          style: {
-            background: "#ffc107" 
-          }
+            text: "Por favor, informe seu número de telefone antes de aplicar um cupom.",
+            duration: 3000,
+            gravity: "top",
+            position: "right",
+            style: {
+                background: "#ffc107",
+            },
         }).showToast();
         telefoneWarn.classList.remove("hidden");
         telefoneInput.classList.add("border-red-500");
         return;
     }
-    
-    // Busca o cupom no Firebase
-    database.ref(`cupons/${codigoDigitado}`).once('value', (snapshot) => {
-        // Verifica se o cupom existe
-        if (!snapshot.exists()) {
-            Toastify({ 
-              text: "CUPOM INVÁLIDO!",
-              duration: 3000,
-              gravity: "top",
-              position: "right",
-              style: {
-                background: "#ef4444" 
-              } 
-            }).showToast();
-            cupomInput.value = "";
-            return;
-        }
 
-        const cupom = snapshot.val();
-        const hoje = new Date();
-
-        // Verifica se o cupom tá ativo
-        if (!cupom.ativo) {
-            Toastify({ 
-              text: "Este cupom não está mais ativo.",
-              duration: 3000,
-              gravity: "top",
-              position: "right",
-              style: { 
-                background: "#ef4444" 
-              }
-            }).showToast();
-            return;
-        }
-
-        // Se tá na validade
-        if (hoje.getTime() > cupom.validade) {
-            Toastify({
-              text: "Este cupom expirou!",
-              duration: 3000,
-              gravity: "top",
-              position: "right",
-              style: { 
-                background: "#ef4444" 
-              } 
-            }).showToast();
-            return;
-        }
-        
-        // Se o valor necessario foi atingido
-        const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        if (cupom.valorMinimo && subtotal < cupom.valorMinimo) {
-            Toastify({
-              text: `Este cupom requer um pedido mínimo de R$ ${cupom.valorMinimo.toFixed(2)}`,
-              duration: 4000,
-              gravity: "top",
-              position: "right",
-              style: {
-                background: "#ffc107"
-              }
-            }).showToast();
-            return;
-        }
-
-        // Se o cliente já usou
-        database.ref(`cupons_usados/${clienteId}/${codigoDigitado}`).once('value', (snapshotUso) => {
-            if (snapshotUso.exists()) {
+    // Verifica no Firebase se este cliente já usou este cupom
+    database.ref(`cupons_usados/${clienteId}/${codigoDigitado}`).once('value', (snapshot) => {
+        if (snapshot.exists()) {
+            Toastify({ text: "Este cupom já foi utilizado!", duration: 3000, gravity: "top", position: "right", style: { background: "#ef4444" } }).showToast();
+        } else {
+            // Cupom não usado, verificar se é válido
+            if (codigoDigitado === cupomteste) {
                 Toastify({
-                  text: "Você já utilizou este cupom!",
+                  text: "Cupom aplicado!",
                   duration: 3000,
                   gravity: "top",
                   position: "right",
-                  style: {
-                    background: "#ef4444" 
-                  } 
+                  style: { 
+                    background: "#22c55e"
+                  },
                 }).showToast();
+                
+                // Marca o cupom como usado para este cliente no Firebase
+                // Depois trocar isso pra o cliente não perder o cupom se não quiser concluir o pedido, fazer funcionar com o botão de concluir
+                database.ref(`cupons_usados/${clienteId}/${codigoDigitado}`).set(true);
+                // add lógica para aplicar o desconto no carrinho
+
             } else {
-                Toastify({
-                  text: "Cupom aplicado com sucesso!",
-                  duration: 3000,
-                  gravity: "top",
-                  position: "right",
-                  style: {
-                    background: "#22c55e" 
-                  } 
-                }).showToast();
-                
-                cupomAplicado = cupom; // Armazena o cupom válido na variável de estado
-                
-                // Desativa o input e o botão para não aplicar outro cupom
-                cupomInput.disabled = true;
-                applycupom.disabled = true;
-                
-                // Atualizar o carrinho e a tela com desconto...
+                Toastify({ text: "Cupom inválido!", duration: 3000, gravity: "top", position: "right", style: { background: "#ef4444" } }).showToast();
             }
-        });
+        }
     });
 });
