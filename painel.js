@@ -48,6 +48,7 @@ const editarHorario = document.getElementById('editar-horario');
 const abaGerenciarMesas = document.getElementById('aba-gerenciar-mesas'); // Renomeado
 const abaConfiguracoesGerais = document.getElementById('aba-configuracoes-gerais');
 const abaRelatorios = document.getElementById('aba-relatorios');
+const abaGerenciarCupom = document.getElementById('aba-gerenciar-cupom');
 
 const produtosRef = database.ref('produtos');
 const searchInput = document.getElementById('search-input');
@@ -81,7 +82,6 @@ let horariosPicoChartInstance = null;
 let metodosPagamentoChartInstance = null;
 
 // Elementos para Gerenciar Cupons
-const abaGerenciarCupom = document.getElementById('aba-gerenciar-cupom');
 const btnSalvarCupom = document.getElementById('btn-salvar-cupom');
 const cupomCodigoInput = document.getElementById('cupom-codigo');
 const cupomValorInput = document.getElementById('cupom-valor');
