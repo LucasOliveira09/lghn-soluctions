@@ -1124,9 +1124,9 @@ function montarPedido() {
         };
     }
 
-    telefone = document.getElementById('telefone').value
-    let nomeCliente = document.getElementById('nome-cliente').value
-    let referencia = document.getElementById('referencia').value
+    telefone = document.getElementById('telefone').value;
+    let nomeCliente = document.getElementById('nome-cliente').value;
+    let referencia = document.getElementById('referencia').value;
 
     let pagamento = "";
     if (document.getElementById("pagPix").checked) pagamento = "Pix";
@@ -1137,8 +1137,22 @@ function montarPedido() {
 
     let observacao = observationInput.value;
 
+    // Calculate subtotal FIRST
     let subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    // Calculate total with freight, if applicable
     let totalPedido = subtotal + (tipoEntrega === "Entrega" ? FRETE_VALOR : 0);
+
+    // NOW, apply coupon discount if one is active
+    if (cupomAplicado) {
+        let discountAmount = 0;
+        if (cupomAplicado.tipo === "porcentagem") {
+            discountAmount = subtotal * (cupomAplicado.valor / 100);
+        } else if (cupomAplicado.tipo === "fixo") {
+            discountAmount = cupomAplicado.valor;
+        }
+        totalPedido = Math.max(0, totalPedido - discountAmount); // Ensure total doesn't go below zero
+    }
 
     return {
         endereco,
@@ -1147,10 +1161,16 @@ function montarPedido() {
         tipoEntrega,
         pagamento,
         dinheiroTotal,
-        totalPedido,
+        totalPedido, // This will now include the discount
         telefone,
         nomeCliente,
-        referencia
+        referencia,
+        // Optionally, send coupon details if it was applied
+        cupomAplicado: cupomAplicado ? {
+            codigo: cupomAplicado.codigo, // Assuming 'codigo' is the coupon code
+            valor: cupomAplicado.valor,
+            tipo: cupomAplicado.tipo
+        } : null
     };
 }
 
