@@ -1240,12 +1240,28 @@ applycupom.addEventListener('click', () => {
     const clienteId = telefoneInput.value.trim();
 
     if (codigoDigitado === '') {
-        Toastify({ text: "Por favor, insira um código de cupom.", duration: 3000, gravity: "top", position: "right", style: { background: "#ffc107" } }).showToast();
+        Toastify({
+          text: "Por favor, insira um código de cupom.",
+          duration: 3000,
+          gravity: "top",
+          position: "right",
+          style: {
+            background: "#ffc107"
+          }
+        }).showToast();
         return;
     }
 
     if (clienteId === '') {
-        Toastify({ text: "Informe seu telefone antes de aplicar um cupom.", duration: 3000, gravity: "top", position: "right", style: { background: "#ffc107" } }).showToast();
+        Toastify({
+          text: "Informe seu telefone antes de aplicar um cupom.",
+          duration: 3000,
+          gravity: "top",
+          position: "right",
+          style: {
+            background: "#ffc107" 
+          }
+        }).showToast();
         telefoneWarn.classList.remove("hidden");
         telefoneInput.classList.add("border-red-500");
         return;
@@ -1261,7 +1277,7 @@ applycupom.addEventListener('click', () => {
               gravity: "top",
               position: "right",
               style: {
-                 background: "#ef4444" 
+                background: "#ef4444" 
               } 
             }).showToast();
             cupomInput.value = "";
@@ -1279,7 +1295,7 @@ applycupom.addEventListener('click', () => {
               gravity: "top",
               position: "right",
               style: { 
-                  background: "#ef4444" 
+                background: "#ef4444" 
               }
             }).showToast();
             return;
