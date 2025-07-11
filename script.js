@@ -41,8 +41,8 @@ const confirmTotal = document.getElementById('confirm-total');
 const menuButton = document.getElementById('menu-button');
 const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('overlay');
-const cupomInput = document.getElementById('cupom'); // Added this
-const applycupom = document.getElementById('apply-cupom'); // Added this
+const cupomInput = document.getElementById('cupom');
+const applycupom = document.getElementById('apply-cupom');
 
 
 const FRETE_VALOR = 5.00;
@@ -216,12 +216,12 @@ function criarItemCardapio(item, tipo) {
 function adicionarEventosBotoes() {
   // Botões de pizza (abrem modal de personalização)
   document.querySelectorAll('.open-modal-btn').forEach(button => {
-    button.removeEventListener('click', handleOpenPizzaModal); // Remove event listener antigo
+    button.removeEventListener('click', handleOpenPizzaModal); // Remove event listener antigo para evitar duplicação
     button.addEventListener('click', handleOpenPizzaModal);
   });
   // Botões de adicionar ao carrinho (para não-pizzas)
   document.querySelectorAll('.add-to-cart-btn').forEach(button => {
-    button.removeEventListener('click', handleAddToCart); // Remove event listener antigo
+    button.removeEventListener('click', handleAddToCart); // Remove event listener antigo para evitar duplicação
     button.addEventListener('click', handleAddToCart);
   });
 }
@@ -309,16 +309,15 @@ closeModalBtn.addEventListener("click", function() {
 })
 
 
-document.addEventListener("click", function(event) {
-  let parentButton = event.target.closest(".add-to-cart-btn")
-
-  if (parentButton) {
-    const name = parentButton.getAttribute('data-name')
-    const price = parseFloat(parentButton.getAttribute('data-price'))
-
-    addToCart(name, price)
-  }
-})
+// **THIS GLOBAL EVENT LISTENER WAS REMOVED AS IT WAS CAUSING DUPLICATE ADDITIONS**
+// document.addEventListener("click", function(event) {
+//   let parentButton = event.target.closest(".add-to-cart-btn")
+//   if (parentButton) {
+//     const name = parentButton.getAttribute('data-name')
+//     const price = parseFloat(parentButton.getAttribute('data-price'))
+//     addToCart(name, price)
+//   }
+// })
 
 
 function addToCart(name, price) {
@@ -347,22 +346,22 @@ function updateCartModal() {
     cartItemElement.classList.add("flex", "justify-between", "mb-4", "flex-col");
 
     cartItemElement.innerHTML = `
-            <div class="bg-gray-100 p-4 rounded-xl shadow flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div class="flex-1">
-                    <p class="font-semibold text-base text-gray-900">${item.name}</p>
-                    <div class="flex items-center gap-3 mt-2">
-                        <button class="quantity-btn bg-red-500 text-white w-9 h-9 rounded-full text-lg hover:bg-red-600" data-name="${item.name}" data-action="decrease">
-                            <i class="fa-solid fa-minus"></i>
-                        </button>
-                        <span class="text-lg font-bold">${item.quantity}</span>
-                        <button class="quantity-btn bg-green-500 text-white w-9 h-9 rounded-full text-lg hover:bg-green-600" data-name="${item.name}" data-action="increase">
-                            <i class="fa-solid fa-plus"></i>
-                        </button>
+                <div class="bg-gray-100 p-4 rounded-xl shadow flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="flex-1">
+                        <p class="font-semibold text-base text-gray-900">${item.name}</p>
+                        <div class="flex items-center gap-3 mt-2">
+                            <button class="quantity-btn bg-red-500 text-white w-9 h-9 rounded-full text-lg hover:bg-red-600" data-name="${item.name}" data-action="decrease">
+                                <i class="fa-solid fa-minus"></i>
+                            </button>
+                            <span class="text-lg font-bold">${item.quantity}</span>
+                            <button class="quantity-btn bg-green-500 text-white w-9 h-9 rounded-full text-lg hover:bg-green-600" data-name="${item.name}" data-action="increase">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                        </div>
+                        <p class="text-sm text-gray-700 mt-2">Preço: R$ ${item.price.toFixed(2)}</p>
                     </div>
-                    <p class="text-sm text-gray-700 mt-2">Preço: R$ ${item.price.toFixed(2)}</p>
                 </div>
-            </div>
-        `;
+            `;
     total += item.price * item.quantity;
     cartItemsContainer.appendChild(cartItemElement);
   });
@@ -642,8 +641,8 @@ document.getElementById('troco').addEventListener("input", function(event) {
 })
 
 
-
-submitBtn.addEventListener("click", function() {
+// CORREÇÃO AQUI: Torna a função async e usa await
+submitBtn.addEventListener("click", async function() {
   //verificação de pedido:
 
   let verEnder = false; // Use boolean for clarity
@@ -750,8 +749,9 @@ submitBtn.addEventListener("click", function() {
   }
 
   const pedidoFormatado = montarPedido();
-  enviarPedidoParaPainel(pedidoFormatado);
-  zerarCarrinho(); // Moved zerarCarrinho here to ensure it only runs after successful send
+  // USAR AWAIT AQUI: Isso garante que enviarPedidoParaPainel termine antes de zerarCarrinho
+  await enviarPedidoParaPainel(pedidoFormatado);
+  zerarCarrinho(); // Agora esta função será chamada SÓ DEPOIS que o cupom for salvo
 })
 
 backBtn.addEventListener("click", function() {
@@ -952,11 +952,11 @@ function atualizarConfirmacao() {
     const itemContent = document.createElement('div');
     itemContent.classList.add('flex', 'justify-between', 'items-center');
     itemContent.innerHTML = `
-            <div>
-                <p class="font-medium">${item.quantity}x ${item.name}</p>
-                <p class="text-sm text-gray-600">Subtotal: R$ ${(item.price * item.quantity).toFixed(2)}</p>
-            </div>
-        `;
+                <div>
+                    <p class="font-medium">${item.quantity}x ${item.name}</p>
+                    <p class="text-sm text-gray-600">Subtotal: R$ ${(item.price * item.quantity).toFixed(2)}</p>
+                </div>
+            `;
     itemContainer.appendChild(itemContent);
 
     const bottomBorder = document.createElement('div');
@@ -1007,7 +1007,6 @@ function setCookie(name, value, days) {
   document.cookie = name + "=" + (value || "") + expires + "; path=/";
 }
 
-// FIX: Corrected enviarPedidoParaPainel function
 async function enviarPedidoParaPainel(pedido) {
   const pedidosRef = database.ref('pedidos');
   const configRef = database.ref('config/ultimoPedidoId');
@@ -1030,22 +1029,14 @@ async function enviarPedidoParaPainel(pedido) {
     localStorage.setItem('clienteId', phoneNumber);
     setCookie('clienteId', phoneNumber, 60);
 
-    // FIX: Only mark coupon as used for this customer, do NOT deactivate it globally
+    // This section marks the coupon as used for this specific customer
     if (cupomAplicado) {
-      const cupomCode = cupomAplicado.codigo; // Make sure cupomAplicado has 'codigo' property
-      // Mark this coupon as used for this specific phone number
+      const cupomCode = cupomAplicado.codigo; // Ensure cupomAplicado has 'codigo' property
       await database.ref(`cupons_usados/${phoneNumber}/${cupomCode}`).set(true);
       console.log(`Cupom ${cupomCode} marcado como usado para ${phoneNumber}`);
 
-      // Reset coupon state in the UI and variable after successful use
-      cupomAplicado = null;
-      if (cupomInput) {
-        cupomInput.disabled = false;
-        cupomInput.value = "";
-      }
-      if (applycupom) {
-        applycupom.disabled = false;
-      }
+      // Removed resetting cupomAplicado here. It will be reset in zerarCarrinho()
+      // after this async function fully completes.
     }
 
     mostrarPedidoSucessoComLogo();
@@ -1067,9 +1058,6 @@ async function enviarPedidoParaPainel(pedido) {
   }
 }
 
-
-
-// FIX: montatPedido function updated for clarity in total calculation
 function montarPedido() {
   let tipoEntrega = document.getElementById("retirada").checked ? "Retirada" : "Entrega";
 
@@ -1128,12 +1116,12 @@ function montarPedido() {
     telefone,
     nomeCliente,
     referencia,
-    // Optionally, send coupon details if it was applied
+    // Optionally, send coupon details if it.s applied
     cupomAplicado: cupomAplicado ? {
-      codigo: cupomAplicado.codigo, // Assuming 'codigo' is the coupon code
+      codigo: cupomAplicado.codigo,
       valor: cupomAplicado.valor,
       tipo: cupomAplicado.tipo,
-      valorMinimo: cupomAplicado.valorMinimo || 0 // Include minimum value for clarity
+      valorMinimo: cupomAplicado.valorMinimo || 0
     } : null
   };
 }
@@ -1150,9 +1138,9 @@ function mostrarPedidoSucessoComLogo() {
     close: true,
     gravity: "center",
     position: "center",
-    backgroundColor: "rgba(0,0,0,0.8)", // fundo translúcido
+    backgroundColor: "rgba(0,0,0,0.8)",
     stopOnFocus: true,
-    escapeMarkup: false, // permite o HTML dentro do text
+    escapeMarkup: false,
     style: {
       borderRadius: "15px",
       padding: "30px 20px",
@@ -1268,14 +1256,12 @@ document.getElementById('close-sidebar-button').addEventListener('click', () => 
 // cupom
 
 // cupom maiúsculo
-// const cupomInput = document.getElementById('cupom'); // Defined above
 if (cupomInput) {
   cupomInput.addEventListener('input', function() {
     this.value = this.value.toUpperCase();
   });
 }
 
-// const applycupom = document.getElementById('apply-cupom'); // Defined above
 applycupom.addEventListener('click', () => {
   const codigoDigitado = cupomInput.value.trim();
   const clienteId = telefoneInput.value.trim(); // Phone number as customer ID
@@ -1310,7 +1296,7 @@ applycupom.addEventListener('click', () => {
     return;
   }
 
-  // Prevent applying multiple coupons
+  // Prevent applying multiple coupons in the same order
   if (cupomAplicado) {
     Toastify({
       text: "Um cupom já foi aplicado.",
@@ -1392,11 +1378,11 @@ applycupom.addEventListener('click', () => {
       return;
     }
 
-    // Se o cliente já usou este cupom
+    // Se o cliente já usou este cupom (VERIFICAÇÃO PRINCIPAL DE REUSO)
     database.ref(`cupons_usados/${clienteId}/${codigoDigitado}`).once('value', (snapshotUso) => {
       if (snapshotUso.exists()) {
         Toastify({
-          text: "Você já utilizou este cupom!",
+          text: "Você já utilizou este cupom!", // <-- Message for already used coupon
           duration: 3000,
           close: true,
           gravity: "top",
@@ -1422,7 +1408,7 @@ applycupom.addEventListener('click', () => {
         cupomInput.disabled = true;
         applycupom.disabled = true;
 
-        // Important: Recalculate and display the new total with the discount
+        // Importante: Recalcula e exibe o novo total com o desconto
         updateCartModal();
         atualizarConfirmacao();
       }
