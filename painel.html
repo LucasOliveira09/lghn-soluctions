@@ -84,9 +84,16 @@
                 <i class="fas fa-check-circle mr-2"></i> Pedidos Finalizados
             </button>
 
+
+
             <button id="btn-editar-cardapio"
                 class="py-3 px-4 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-600 transition w-full text-left">
                 <i class="fas fa-edit mr-2"></i> Editar Cardápio
+            </button>
+
+            <button id="btn-gerenciar-chatbot"
+                class="py-3 px-4 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-600 transition w-full text-left">
+                <i class="fas fa-robot mr-2"></i> Gerenciar Chatbot
             </button>
 
             <button id="btn-editar-horario"
@@ -115,11 +122,17 @@
                 <i class="fa-solid fa-ticket-simple"></i> Gerenciar Cupons
             </button>
 
+            <button id="btn-gerenciar-estoque"
+                class="py-3 px-4 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-600 transition w-full text-left">
+                <i class="fas fa-warehouse mr-2"></i> Gerenciar Estoque
+            </button>
+
             <!--Add Garçom-->
             <button id="btn-gerenciar-garcom"
                 class="py-3 px-4 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-600 transition w-full text-left">
                 <i class="fa-solid fa-address-card"></i> Gerenciar Garçom
             </button>
+
         </div>
     </div>
 
@@ -488,6 +501,8 @@
                     </div>
                 </div>
             </div>
+
+            
             <div id="aba-configuracoes-gerais" class="hidden">
                 <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">
                     Configurações Gerais</h2>
@@ -612,7 +627,6 @@
                     <div id="lista-cupons-container" class="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"></div>
                 </div>
             </div>
-
             <!-- Garçom -->
             <div id="aba-gerenciar-garcom" class="hidden">
                 <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2 border-gray-300">Gerenciar Garçom</h2>
@@ -641,6 +655,209 @@
                 </div>
             </div>
         </div>
+
+        
+    <!-- Estoque -->
+      <div id="aba-gerenciar-estoque" class="hidden">
+    <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">
+        Estoque Inteligente: Análise e Gerenciamento
+    </h2>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h3 class="text-xl font-bold mb-4 text-gray-800">📊 Consumo de ONTEM (<span id="data-dia-anterior">Carregando...</span>)</h3>
+            <p class="text-gray-600 mb-3">Veja o gasto total de ingredientes em dinheiro e quantidade para o dia anterior.</p>
+            <div id="resumo-consumo-diario" class="space-y-2">
+                <p class="text-gray-700 font-semibold">Total Gasto: <span id="total-gasto-diario" class="text-blue-600">R$ 0.00</span></p>
+                <div id="lista-consumo-diario" class="max-h-40 overflow-y-auto custom-scrollbar border p-2 rounded bg-gray-50">
+                    <p class="text-gray-500 text-center">Nenhum consumo registrado para ontem.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h3 class="text-xl font-bold mb-4 text-gray-800">📈 Consumo do MÊS ATUAL (<span id="nome-mes-atual">Carregando...</span>)</h3>
+            <p class="text-gray-600 mb-3">Acompanhe o gasto total de ingredientes em dinheiro e quantidade para o mês.</p>
+            <div id="resumo-consumo-mensal" class="space-y-2">
+                <p class="text-gray-700 font-semibold">Total Gasto: <span id="total-gasto-mensal" class="text-blue-600">R$ 0.00</span></p>
+                <div id="lista-consumo-mensal" class="max-h-40 overflow-y-auto custom-scrollbar border p-2 rounded bg-gray-50">
+                    <p class="text-gray-500 text-center">Nenhum consumo registrado para este mês.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+        <h3 class="text-xl font-semibold mb-4 text-gray-700">Ações Essenciais e Alertas</h3>
+        <p class="text-gray-600 mb-4">Veja o que precisa comprar e resetar o consumo.</p>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <h4 class="text-lg font-semibold mb-3">🚨 Ingredientes para Comprar (<span id="ingredientes-ponto-pedido-count">0</span>)</h4>
+                <div id="ingredientes-ponto-pedido-list" class="space-y-2 max-h-40 overflow-y-auto custom-scrollbar border p-3 rounded-md bg-red-50">
+                    <p class="text-gray-600 text-center">Nenhum ingrediente abaixo do estoque mínimo.</p>
+                </div>
+            </div>
+            <div>
+                <button id="btn-resetar-consumo-diario" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 w-full mb-2">
+                    🔄 Resetar Consumo de Ontem (Manualmente)
+                </button>
+                <p class="text-xs text-gray-500 mb-3 text-center">Geralmente feito no início do dia.</p>
+                <button id="btn-resetar-consumo-mensal" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 w-full">
+                    🗓️ Resetar Consumo do Mês
+                </button>
+                <p class="text-xs text-gray-500 text-center">Geralmente feito no primeiro dia útil do mês.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-gray-200 p-4 rounded-lg shadow-inner text-center mb-6">
+        <button id="toggle-gerenciamento-avancado" class="bg-gray-600 text-white px-5 py-2 rounded-md hover:bg-gray-700">
+            Mostrar/Esconder Gerenciamento Detalhado
+        </button>
+    </div>
+
+    <div id="gerenciamento-detalhado-container" class="hidden">
+        <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+            <h3 class="text-xl font-semibold mb-4 text-gray-700">1. Cadastrar Ingredientes Base</h3>
+            <p class="text-gray-600 mb-4">Adicione seus ingredientes, a unidade de medida e o estoque mínimo.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label for="ingrediente-nome-detalhe" class="block text-sm font-medium text-gray-700">Nome:</label>
+                    <input type="text" id="ingrediente-nome-detalhe" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500" placeholder="Ex: Queijo Muçarela">
+                </div>
+                <div>
+                    <label for="ingrediente-unidade-detalhe" class="block text-sm font-medium text-gray-700">Unidade:</label>
+                    <input type="text" id="ingrediente-unidade-detalhe" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500" placeholder="Ex: kg, unidade">
+                </div>
+                <div>
+                    <label for="ingrediente-estoque-minimo-detalhe" class="block text-sm font-medium text-gray-700">Estoque Mínimo:</label>
+                    <input type="number" id="ingrediente-estoque-minimo-detalhe" min="0" step="0.01" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500" placeholder="0.00">
+                </div>
+                <div class="md:col-span-3">
+                    <button id="btn-salvar-ingrediente-detalhe" class="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 w-full">
+                        Salvar Ingrediente Base
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-8">
+                <h4 class="text-lg font-semibold mb-3">Estoque de Ingredientes (Quant. Atual Editável)</h4>
+                <div id="lista-ingredientes-detalhe-container" class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                    <p class="text-gray-600 col-span-full text-center">Nenhum ingrediente cadastrado.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+            <h3 class="text-xl font-semibold mb-4 text-gray-700">2. Registrar Compra de Ingredientes</h3>
+            <p class="text-gray-600 mb-4">Registre as compras para atualizar seu estoque e o custo de cada item.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label for="compra-data-detalhe" class="block text-sm font-medium text-gray-700">Data da Compra:</label>
+                    <input type="date" id="compra-data-detalhe" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="compra-fornecedor-detalhe" class="block text-sm font-medium text-gray-700">Fornecedor (Opcional):</label>
+                    <input type="text" id="compra-fornecedor-detalhe" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500" placeholder="Ex: Atacadão XPTO">
+                </div>
+            </div>
+            <h4 class="text-lg font-semibold mb-3">Itens desta Compra:</h4>
+            <div id="itens-compra-detalhe-list" class="space-y-2 mb-4 border p-3 rounded-md bg-gray-50">
+                <p class="text-gray-600 text-center">Nenhum item adicionado a esta compra.</p>
+            </div>
+            <div class="flex flex-wrap items-end gap-3 mb-4">
+                <div class="flex-1 min-w-[120px]">
+                    <label for="compra-ingrediente-select-detalhe" class="block text-sm font-medium text-gray-700">Ingrediente:</label>
+                    <select id="compra-ingrediente-select-detalhe" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        <option value="">Selecione um ingrediente</option>
+                    </select>
+                </div>
+                <div class="flex-1 min-w-[80px]">
+                    <label for="compra-quantidade-detalhe" class="block text-sm font-medium text-gray-700">Quantidade:</label>
+                    <input type="number" id="compra-quantidade-detalhe" min="0.001" step="0.001" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500" placeholder="0.000">
+                </div>
+                <div class="flex-1 min-w-[80px]">
+                    <label for="compra-preco-unitario-detalhe" class="block text-sm font-medium text-gray-700">Preço Unitário (R$):</label>
+                    <input type="number" id="compra-preco-unitario-detalhe" min="0.01" step="0.01" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500" placeholder="0.00">
+                </div>
+                <button id="btn-add-item-compra-detalhe" class="mt-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                    Adicionar Item à Lista
+                </button>
+            </div>
+            <div class="flex justify-end">
+                <button id="btn-registrar-compra-detalhe" class="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 disabled:opacity-50" disabled>
+                    Finalizar Registro de Compra
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+            <h3 class="text-xl font-semibold mb-4 text-gray-700">3. Configurar o que vai em Cada Produto (Receitas)</h3>
+            <p class="text-gray-600 mb-4">Aqui você diz quais ingredientes e qual quantidade exata (para uma porção) vai em cada item do seu cardápio.</p>
+            
+            <div class="flex flex-wrap items-end gap-4 mb-4">
+                <div class="flex-1 min-w-[200px]">
+                    <label for="receita-produto-select-categoria-detalhe" class="block text-sm font-medium text-gray-700">Categoria do Produto:</label>
+                    <select id="receita-produto-select-categoria-detalhe" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500">
+                        <option value="">-- Selecione uma Categoria --</option>
+                        <option value="pizzas">Pizzas</option>
+                        <option value="bebidas">Bebidas</option>
+                        <option value="esfirras">Esfirras</option>
+                        <option value="calzone">Calzones</option>
+                        <option value="promocoes">Promoções</option>
+                        <option value="novidades">Novidades</option>
+                    </select>
+                </div>
+                <div class="flex-1 min-w-[200px]">
+                    <label for="receita-produto-select-detalhe" class="block text-sm font-medium text-gray-700">Selecionar Produto:</label>
+                    <select id="receita-produto-select-detalhe" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500" disabled>
+                        <option value="">Selecione uma categoria primeiro</option>
+                    </select>
+                </div>
+                <div class="flex-1 min-w-[150px]" id="pizza-size-select-container-detalhe" style="display:none;">
+                    <label for="pizza-tamanho-select-detalhe" class="block text-sm font-medium text-gray-700">Tamanho da Pizza:</label>
+                    <select id="pizza-tamanho-select-detalhe" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500">
+                        <option value="grande">Grande</option>
+                        <option value="broto">Broto</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="receita-config-detalhe-container" class="border p-4 rounded-md bg-gray-50 hidden">
+                <h4 class="text-lg font-semibold mb-3">Receita para <span id="current-recipe-product-name-detalhe" class="text-blue-700"></span><span id="current-pizza-size-detalhe" class="ml-2 text-gray-500"></span></h4>
+                <div id="ingredientes-para-receita-detalhe-list" class="space-y-2 mb-4">
+                    <p class="text-gray-600">Nenhum ingrediente adicionado a esta receita.</p>
+                </div>
+                <div class="flex flex-wrap items-end gap-3">
+                    <div class="flex-1 min-w-[120px]">
+                        <label for="receita-ingrediente-select-detalhe" class="block text-sm font-medium text-gray-700">Ingrediente:</label>
+                        <select id="receita-ingrediente-select-detalhe" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                            <option value="">Selecione um ingrediente</option>
+                        </select>
+                    </div>
+                    <div class="flex-1 min-w-[80px]">
+                        <label for="receita-quantidade-detalhe" class="block text-sm font-medium text-gray-700">Quant. Usada (por 1 unid.):</label>
+                        <input type="number" id="receita-quantidade-detalhe" min="0.001" step="0.001" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="0.000">
+                    </div>
+                    <button id="btn-add-ingrediente-receita-detalhe" class="mt-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        Adicionar Ingrediente
+                    </button>
+                </div>
+                <div class="flex justify-end mt-4">
+                    <button id="btn-salvar-receita-detalhe" class="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 disabled:opacity-50" disabled>
+                        Salvar Receita
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
     </div>
 </body>
 
