@@ -2635,7 +2635,6 @@ function carregarCupons() {
         }
     });
 }
-
     // --- FUNÇÕES DE GERENCIAMENTO DETALHADO (Cadastrar Ingredientes) ---
     async function handleSalvarIngredienteDetalhe() {
         const nome = DOM.ingredienteNomeDetalheInput.value.trim();
