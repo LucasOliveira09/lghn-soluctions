@@ -30,6 +30,12 @@ let allIngredients = {}; // Armazena todos os ingredientes para referência ráp
 let currentRecipeProduct = null; // Produto atualmente selecionado para configurar a receita
 let currentPurchaseItems = []; // Array temporário para itens da compra (único para ambas as seções)
 
+// Variáveis para armazenar as instâncias dos gráficos
+let topProdutosChartInstance = null;
+let vendasPorDiaChartInstance = null;
+let horariosPicoChartInstance = null;
+let metodosPagamentoChartInstance = null;
+
 // --- LISTENERS GLOBAIS DO FIREBASE ---
 // Este listener é CRÍTICO pois atualiza 'allIngredients' e as listas de estoque/ponto de pedido.
 // Ele é disparado sempre que há uma mudança nos dados de 'ingredientes' no Firebase.
@@ -539,9 +545,9 @@ document.addEventListener('DOMContentLoaded', () => {
         btnConfiguracoesGerais: document.getElementById('btn-configuracoes-gerais'),
         btnRelatorios: document.getElementById('btn-relatorios'),
         btnGerenciarCupom: document.getElementById('btn-gerenciar-cupom'),
-
+        btnGerenciarGarcom: document.getElementById('btn-gerenciar-garcom'),
         btnGerenciarEstoque: document.getElementById('btn-gerenciar-estoque'),
-        abaGerenciarEstoque: document.getElementById('aba-gerenciar-estoque'),
+
 
         // Elementos da seção de ANÁLISE RÁPIDA
         dataDiaAnteriorSpan: document.getElementById('data-dia-anterior'),
@@ -596,6 +602,8 @@ document.addEventListener('DOMContentLoaded', () => {
         abaConfiguracoesGerais: document.getElementById('aba-configuracoes-gerais'),
         abaRelatorios: document.getElementById('aba-relatorios'),
         abaGerenciarCupom: document.getElementById('aba-gerenciar-cupom'),
+        abaGerenciarGarcom: document.getElementById('aba-gerenciar-garcom'),
+        abaGerenciarEstoque: document.getElementById('aba-gerenciar-estoque'),
 
         searchInput: document.getElementById('search-input'),
         categoriaSelect: document.getElementById('categoria-select'),
@@ -629,6 +637,12 @@ document.addEventListener('DOMContentLoaded', () => {
         validadeCupomInput: document.getElementById('validade-cupom'),
         listaCuponsContainer: document.getElementById('lista-cupons-container'),
 
+        // Elementos para gerenciar Garçons
+        btnSalvarGarcom: document.getElementById('btn-salvar-garcom'),
+        garcomNomeInput: document.getElementById('garcom-nome'),
+        garcomSenhaInput: document.getElementById('garcom-senha'),
+        listaGarconsContainer: document.getElementById('lista-garcons-container'),
+
         numMesasInput: document.getElementById('num-mesas'),
         btnConfigurarMesas: document.getElementById('btn-configurar-mesas'),
         mesasContainer: document.getElementById('mesas-container'),
@@ -660,15 +674,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Event Listeners para os botões do menu principal ---
     DOM.btnAtivos.addEventListener('click', () => {
-        ativaAba(DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque);
-        estilizaBotaoAtivo(DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque);
+        ativaAba(DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
+        estilizaBotaoAtivo(DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
         DOM.sidebar.classList.add('-translate-x-full');
         DOM.overlay.classList.add('hidden');
     });
 
     DOM.btnFinalizados.addEventListener('click', () => {
-        ativaAba(DOM.abaFinalizados, DOM.abaAtivos, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque);
-        estilizaBotaoAtivo(DOM.btnFinalizados, DOM.btnAtivos, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque);
+        ativaAba(DOM.abaFinalizados, DOM.abaAtivos, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
+        estilizaBotaoAtivo(DOM.btnFinalizados, DOM.btnAtivos, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
 
         const hoje = new Date();
         const seteDiasAtras = new Date(hoje);
@@ -683,46 +697,55 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     DOM.btnEditarCardapio.addEventListener('click', () => {
-        ativaAba(DOM.EditarCardapio, DOM.abaFinalizados, DOM.abaAtivos, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque);
-        estilizaBotaoAtivo(DOM.btnEditarCardapio, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque);
+        ativaAba(DOM.EditarCardapio, DOM.abaFinalizados, DOM.abaAtivos, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
+        estilizaBotaoAtivo(DOM.btnEditarCardapio, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
         carregarItensCardapio(DOM.categoriaSelect.value, DOM.searchInput.value);
         DOM.sidebar.classList.add('-translate-x-full');
         DOM.overlay.classList.add('hidden');
     });
 
     DOM.btnEditarHorario.addEventListener('click', () => {
-        ativaAba(DOM.editarHorario, DOM.abaFinalizados, DOM.abaAtivos, DOM.EditarCardapio, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque);
-        estilizaBotaoAtivo(DOM.btnEditarHorario, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque);
+        ativaAba(DOM.editarHorario, DOM.abaFinalizados, DOM.abaAtivos, DOM.EditarCardapio, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
+        estilizaBotaoAtivo(DOM.btnEditarHorario, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
         DOM.sidebar.classList.add('-translate-x-full');
         DOM.overlay.classList.add('hidden');
     });
 
     DOM.btnGerenciarMesas.addEventListener('click', () => {
-        ativaAba(DOM.abaGerenciarMesas, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque);
-        estilizaBotaoAtivo(DOM.btnGerenciarMesas, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque);
+        ativaAba(DOM.abaGerenciarMesas, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
+        estilizaBotaoAtivo(DOM.btnGerenciarMesas, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
         DOM.sidebar.classList.add('-translate-x-full');
         DOM.overlay.classList.add('hidden');
         carregarMesasDoFirebase();
     });
 
     DOM.btnConfiguracoesGerais.addEventListener('click', () => {
-        ativaAba(DOM.abaConfiguracoesGerais, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque);
-        estilizaBotaoAtivo(DOM.btnConfiguracoesGerais, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque);
+        ativaAba(DOM.abaConfiguracoesGerais, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
+        estilizaBotaoAtivo(DOM.btnConfiguracoesGerais, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
         DOM.sidebar.classList.add('-translate-x-full');
         DOM.overlay.classList.add('hidden');
     });
 
+    DOM.btnRelatorios.addEventListener('click', () => {
+        ativaAba(DOM.abaRelatorios, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
+        estilizaBotaoAtivo(DOM.btnRelatorios, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
+        DOM.sidebar.classList.add('-translate-x-full');
+        DOM.overlay.classList.add('hidden');
+        // Define o período padrão para os últimos 7 dias e gera os relatórios
+        setRelatorioDateRange(6, 0);
+    });
+
     DOM.btnGerenciarCupom.addEventListener('click', () => {
-        ativaAba(DOM.abaGerenciarCupom, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarEstoque);
-        estilizaBotaoAtivo(DOM.btnGerenciarCupom, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarEstoque);
+        ativaAba(DOM.abaGerenciarCupom, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
+        estilizaBotaoAtivo(DOM.btnGerenciarCupom, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
         DOM.sidebar.classList.add('-translate-x-full');
         DOM.overlay.classList.add('hidden');
         carregarCupons();
     });
 
     DOM.btnGerenciarEstoque.addEventListener('click', () => {
-        ativaAba(DOM.abaGerenciarEstoque, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom);
-        estilizaBotaoAtivo(DOM.btnGerenciarEstoque, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom);
+        ativaAba(DOM.abaGerenciarEstoque, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarGarcom);
+        estilizaBotaoAtivo(DOM.btnGerenciarEstoque, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarGarcom);
         DOM.sidebar.classList.add('-translate-x-full');
         DOM.overlay.classList.add('hidden');
 
@@ -742,6 +765,18 @@ document.addEventListener('DOMContentLoaded', () => {
         DOM.receitaConfigDetalheContainer.classList.add('hidden');
         DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'none';
     });
+
+    DOM.btnGerenciarGarcom.addEventListener('click', () => {
+        ativaAba(DOM.abaGerenciarGarcom, DOM.abaGerenciarCupom, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarEstoque);
+        estilizaBotaoAtivo(DOM.btnGerenciarGarcom, DOM.btnGerenciarCupom, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarEstoque);
+        DOM.sidebar.classList.add('-translate-x-full');
+        DOM.overlay.classList.add('hidden');
+        carregarGarcom();
+    });
+
+
+    // --- Event Listener para o botão de filtrar na aba de finalizados ---
+    DOM.btnFiltrar.addEventListener('click', aplicarFiltroDatas);
 
     // --- Event Listeners para Relatórios de Pedidos ---
     DOM.btnGerarRelatorios.addEventListener('click', gerarRelatorios);
@@ -3363,3 +3398,122 @@ function carregarCupons() {
         }
         DOM.totalGastoMensalSpan.textContent = `R$ ${totalCustoMes.toFixed(2)}`;
     }
+
+    // Garçons
+
+btnSalvarGarcom.addEventListener('click', async () => {
+    const nomeGarcom = garcomNomeInput.value.trim();
+    const senhaGarcom = garcomSenhaInput.value.trim();
+
+    if (!nomeGarcom || !senhaGarcom) {
+        alert("O nome e a senha do garçom são obrigatórios.");
+        return;
+    }
+
+    // Cria um e-mail "falso" para o Firebase Auth, garantindo que seja único.
+    // Remove espaços e caracteres especiais para formar um e-mail válido.
+    const emailGarcom = `${nomeGarcom.toLowerCase().replace(/\s+/g, '_')}@seu-restaurante.com`;
+
+    try {
+        // Cria o usuário no Firebase Authentication
+        const userCredential = await firebase.auth().createUserWithEmailAndPassword(emailGarcom, senhaGarcom);
+        const user = userCredential.user;
+
+        // Salva informações adicionais (como o nome de exibição) no Realtime Database
+        // usando o UID do usuário como chave.
+        await database.ref(`garcons_info/${user.uid}`).set({
+            nome: nomeGarcom,
+            email: emailGarcom
+        });
+
+        alert(`Garçom "${nomeGarcom}" adicionado com sucesso!`);
+        garcomNomeInput.value = '';
+        garcomSenhaInput.value = '';
+    } catch (error) {
+        console.error("Erro ao adicionar garçom:", error);
+        // Trata erros comuns do Firebase Auth
+        if (error.code === 'auth/email-already-in-use') {
+            alert('Erro: Já existe um garçom com este nome.');
+        } else if (error.code === 'auth/weak-password') {
+            alert('Erro: A senha deve ter pelo menos 6 caracteres.');
+        } else {
+            alert("Erro ao adicionar garçom: " + error.message);
+        }
+    }
+});
+
+// Função para carregar e exibir os garçons do Firebase
+function carregarGarcom() {
+    // Agora, lemos do novo nó 'garcons_info'
+    database.ref('garcons_info').on('value', (snapshot) => {
+        const garcons = snapshot.val();
+        listaGarconsContainer.innerHTML = '';
+
+        if (!garcons) {
+            listaGarconsContainer.innerHTML = '<p class="text-gray-600 col-span-full text-center">Nenhum garçom cadastrado.</p>';
+            return;
+        }
+
+        Object.entries(garcons).forEach(([uid, garcom]) => {
+            if (!garcom) return;
+
+            const garcomDiv = document.createElement('div');
+            garcomDiv.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col justify-between';
+
+            garcomDiv.innerHTML = `
+                <div class="flex-grow">
+                    <h3 class="text-lg font-semibold text-gray-800">${garcom.nome}</h3>
+                    <p class="text-sm text-gray-500">ID: ${uid}</p>
+                </div>
+                <div class="flex gap-2 mt-4">
+                    <button class="btn-reset-senha-garcom bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm flex-1" data-email="${garcom.email}" data-nome="${garcom.nome}">
+                        Redefinir Senha
+                    </button>
+                    <button class="btn-excluir-garcom bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm flex-1" data-uid="${uid}" data-nome="${garcom.nome}">
+                        Excluir
+                    </button>
+                </div>
+            `;
+            listaGarconsContainer.appendChild(garcomDiv);
+        });
+    });
+}
+
+listaGarconsContainer.addEventListener('click', (e) => {
+    const resetButton = e.target.closest('.btn-reset-senha-garcom');
+    const deleteButton = e.target.closest('.btn-excluir-garcom');
+
+    // Redefinir a senha
+    if (resetButton) {
+        const email = resetButton.dataset.email;
+        const nome = resetButton.dataset.nome;
+        if (confirm(`Deseja enviar um e-mail de redefinição de senha para ${nome}?`)) {
+            firebase.auth().sendPasswordResetEmail(email)
+                .then(() => {
+                    alert(`E-mail de redefinição de senha enviado para ${email}.`);
+                })
+                .catch((error) => {
+                    alert('Erro ao enviar e-mail: ' + error.message);
+                });
+        }
+    }
+
+    // Lógica para excluir
+    if (deleteButton) {
+        const uid = deleteButton.dataset.uid;
+        const nome = deleteButton.dataset.nome;
+        if (confirm(`Deseja realmente excluir o garçom ${nome}? Esta ação não pode ser desfeita.`)) {
+            // A exclusão de usuários é uma operação sensível.
+            // A forma ideal é usar o Admin SDK em uma Cloud Function.
+            // Como estamos no cliente, vamos apenas remover os dados do RTDB.
+            // ATENÇÃO: Isso deixará um usuário órfão no Firebase Authentication.
+            // Para uma solução completa, uma Cloud Function seria necessária para chamar admin.auth().deleteUser(uid).
+            database.ref(`garcons_info/${uid}`).remove()
+                .then(() => {
+                    alert(`Garçom ${nome} excluído do banco de dados. (Lembre-se de remover o usuário no painel do Firebase Authentication).`);
+                }).catch(error => {
+                    alert("Erro ao excluir dados do garçom: " + error.message);
+                });
+        }
+    }
+});
