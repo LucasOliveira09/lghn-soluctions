@@ -19,6 +19,8 @@ const promocoesRef = firebase.database().ref('promocoes');
 const mesasRef = database.ref('mesas');
 // Referência para cupons
 const cuponsRef = database.ref('cupons');
+// Referência para garcons
+const garconsRef = database.ref('garcons');
 
 const pedidosAtivosContainer = document.getElementById('pedidos-ativos-container');
 const pedidosFinalizadosContainer = document.getElementById('pedidos-finalizados-container');
@@ -39,6 +41,7 @@ const btnGerenciarMesas = document.getElementById('btn-gerenciar-mesas'); // Ren
 const btnConfiguracoesGerais = document.getElementById('btn-configuracoes-gerais');
 const btnRelatorios = document.getElementById('btn-relatorios');
 const btnGerenciarCupom = document.getElementById('btn-gerenciar-cupom');
+const btnGerenciarGarcom = document.getElementById('btn-gerenciar-garcom');
 
 // Abas (seções)
 const abaAtivos = document.getElementById('aba-ativos');
@@ -49,6 +52,7 @@ const abaGerenciarMesas = document.getElementById('aba-gerenciar-mesas'); // Ren
 const abaConfiguracoesGerais = document.getElementById('aba-configuracoes-gerais');
 const abaRelatorios = document.getElementById('aba-relatorios');
 const abaGerenciarCupom = document.getElementById('aba-gerenciar-cupom');
+const abaGerenciarGarcom = document.getElementById('aba-gerenciar-garcom');
 
 const produtosRef = database.ref('produtos');
 const searchInput = document.getElementById('search-input');
@@ -89,6 +93,12 @@ const cupomTipoSelect = document.getElementById('cupom-tipo');
 const cupomMinValorInput = document.getElementById('cupom-min-valor');
 const validadeCupomInput = document.getElementById('validade-cupom');
 const listaCuponsContainer = document.getElementById('lista-cupons-container');
+
+// Elementos para gerenciar Garçons
+const btnSalvarGarcom = document.getElementById('btn-salvar-garcom');
+const garcomNomeInput = document.getElementById('garcom-nome');
+const garcomSenhaInput = document.getElementById('garcom-senha');
+const listaGarconsContainer = document.getElementById('lista-garcons-container');
 
 
 // NOVOS ELEMENTOS para Gerenciamento de Mesas (no painel ADMIN)
@@ -463,15 +473,15 @@ function estilizaBotaoAtivo(botaoAtivo, ...inativos) {
 
 // Event Listeners para os botões do menu hamburguer
 btnAtivos.addEventListener('click', () => {
-    ativaAba(abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios, abaGerenciarCupom);
-    estilizaBotaoAtivo(btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios, btnGerenciarCupom);
+    ativaAba(abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios, abaGerenciarCupom, abaGerenciarGarcom);
+    estilizaBotaoAtivo(btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios, btnGerenciarCupom, btnGerenciarGarcom);
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
 });
 
 btnFinalizados.addEventListener('click', () => {
-    ativaAba(abaFinalizados, abaAtivos, EditarCardapio, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios, abaGerenciarCupom);
-    estilizaBotaoAtivo(btnFinalizados, btnAtivos, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios, btnGerenciarCupom);
+    ativaAba(abaFinalizados, abaAtivos, EditarCardapio, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios, abaGerenciarCupom, abaGerenciarGarcom);
+    estilizaBotaoAtivo(btnFinalizados, btnAtivos, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios, btnGerenciarCupom, btnGerenciarGarcom);
 
     const hoje = new Date();
     const seteDiasAtras = new Date(hoje);
@@ -486,24 +496,24 @@ btnFinalizados.addEventListener('click', () => {
 });
 
 btnEditarCardapio.addEventListener('click', () => {
-    ativaAba(EditarCardapio, abaFinalizados, abaAtivos, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios, abaGerenciarCupom);
-    estilizaBotaoAtivo(btnEditarCardapio, btnAtivos, btnFinalizados, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios, btnGerenciarCupom);
+    ativaAba(EditarCardapio, abaFinalizados, abaAtivos, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios, abaGerenciarCupom, abaGerenciarGarcom);
+    estilizaBotaoAtivo(btnEditarCardapio, btnAtivos, btnFinalizados, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios, btnGerenciarCupom, btnGerenciarGarcom);
     carregarItensCardapio(categoriaSelect.value, searchInput.value);
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
 });
 
 btnEditarHorario.addEventListener('click', () => {
-    ativaAba(editarHorario, abaFinalizados, abaAtivos, EditarCardapio, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios, abaGerenciarCupom);
-    estilizaBotaoAtivo(btnEditarHorario, btnAtivos, btnFinalizados, btnEditarCardapio, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios, btnGerenciarCupom);
+    ativaAba(editarHorario, abaFinalizados, abaAtivos, EditarCardapio, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios, abaGerenciarCupom, abaGerenciarGarcom);
+    estilizaBotaoAtivo(btnEditarHorario, btnAtivos, btnFinalizados, btnEditarCardapio, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios, btnGerenciarCupom, btnGerenciarGarcom);
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
 });
 
 // Novo Event Listener para o botão Gerenciar Mesas
 btnGerenciarMesas.addEventListener('click', () => {
-    ativaAba(abaGerenciarMesas, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaConfiguracoesGerais, abaRelatorios, abaGerenciarCupom);
-    estilizaBotaoAtivo(btnGerenciarMesas, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnConfiguracoesGerais, btnRelatorios, btnGerenciarCupom);
+    ativaAba(abaGerenciarMesas, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaConfiguracoesGerais, abaRelatorios, abaGerenciarCupom, abaGerenciarGarcom);
+    estilizaBotaoAtivo(btnGerenciarMesas, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnConfiguracoesGerais, btnRelatorios, btnGerenciarCupom, btnGerenciarGarcom);
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
     carregarMesasDoFirebase(); // Carrega as mesas quando a aba é ativada
@@ -511,18 +521,26 @@ btnGerenciarMesas.addEventListener('click', () => {
 
 
 btnConfiguracoesGerais.addEventListener('click', () => {
-    ativaAba(abaConfiguracoesGerais, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarMesas, abaRelatorios, abaGerenciarCupom);
-    estilizaBotaoAtivo(btnConfiguracoesGerais, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnRelatorios, btnGerenciarCupom);
+    ativaAba(abaConfiguracoesGerais, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarMesas, abaRelatorios, abaGerenciarCupom, abaGerenciarGarcom);
+    estilizaBotaoAtivo(btnConfiguracoesGerais, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnRelatorios, btnGerenciarCupom, btnGerenciarGarcom);
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
 });
 
 btnGerenciarCupom.addEventListener('click', () => {
-    ativaAba(abaGerenciarCupom, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios);
-    estilizaBotaoAtivo(btnGerenciarCupom, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios);
+    ativaAba(abaGerenciarCupom, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios, abaGerenciarGarcom);
+    estilizaBotaoAtivo(btnGerenciarCupom, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios, btnGerenciarGarcom);
     sidebar.classList.add('-translate-x-full');
     overlay.classList.add('hidden');
     carregarCupons(); // Carrega os cupons
+});
+
+btnGerenciarGarcom.addEventListener('click', () => {
+    ativaAba(abaGerenciarGarcom, abaAtivos, abaFinalizados, EditarCardapio, editarHorario, abaGerenciarMesas, abaConfiguracoesGerais, abaRelatorios, abaGerenciarCupom);
+    estilizaBotaoAtivo(btnGerenciarGarcom, btnAtivos, btnFinalizados, btnEditarCardapio, btnEditarHorario, btnGerenciarMesas, btnConfiguracoesGerais, btnRelatorios, btnGerenciarCupom);
+    sidebar.classList.add('-translate-x-full');
+    overlay.classList.add('hidden');
+    carregarGarcom(); // Carrega os garcons
 });
 
 
@@ -2232,8 +2250,7 @@ btnSalvarCupom.addEventListener('click', () => {
         tipo: tipo,
         valorMinimo: valorMinimo,
         validade: new Date(validade).getTime() + (23 * 60 * 60 * 1000 + 59 * 60 * 1000), // Fim do dia
-        ativo: true,
-        usos: 0
+        ativo: true
     };
 
     cuponsRef.child(codigo).set(cupomData)
@@ -2281,7 +2298,6 @@ function carregarCupons() {
                     <p class="text-gray-700">Desconto: <strong>${valorTexto}</strong></p>
                     <p class="text-gray-700">Validade: <strong>${new Date(cupom.validade).toLocaleDateString()}</strong></p>
                     ${cupom.valorMinimo > 0 ? `<p class="text-gray-700">Pedido Mínimo: <strong>R$ ${cupom.valorMinimo.toFixed(2)}</strong></p>` : ''}
-                    <p class="text-gray-700">Usos: <strong>${cupom.usos || 0}</strong></p>
                     <p class="font-medium ${statusClass}">Status: ${statusText}</p>
                 </div>
                 <div class="flex gap-2 mt-4">
@@ -2332,6 +2348,99 @@ document.addEventListener('input', (event) => {
         input.setSelectionRange(start, end); // Mantém a posição do cursor
     }
 });
+
+// Garçons
+
+btnSalvarGarcom.addEventListener('click', () => {
+    const nomeGarcom = garcomNomeInput.value.trim();
+    const senhaGarcom = garcomSenhaInput.value.trim(); // Pega a senha do input
+
+    // Verifica se ambos os campos foram preenchidos
+    if (!nomeGarcom || !senhaGarcom) {
+        alert("O nome e a senha do garçom são obrigatórios.");
+        return;
+    }
+
+    // Salva nome, senha no Firebase
+    garconsRef.push({ nome: nomeGarcom, senha: senhaGarcom })
+    .then(() => {
+        alert("Garçom adicionado com sucesso!");
+        garcomNomeInput.value = ''; // Limpa o campo de nome
+        garcomSenhaInput.value = ''; // Limpa o campo de senha
+    })
+    .catch(error => {
+        console.error("Erro ao adicionar garçom:", error);
+        alert("Erro ao adicionar garçom: " + error.message);
+    });
+});
+
+// Função para carregar e exibir os garçons do Firebase
+function carregarGarcom() {
+    garconsRef.on('value', (snapshot) => {
+        const garcons = snapshot.val();
+        const listaGarconsContainer = document.getElementById('listaGarconsContainer');
+        listaGarconsContainer.innerHTML = '';
+
+        if (!garcons) {
+            listaGarconsContainer.innerHTML = '<p class="text-gray-600 col-span-full text-center">Nenhum garçom cadastrado.</p>';
+            return;
+        }
+
+        Object.entries(garcons).forEach(([key, garcom]) => {
+            if (!garcom) return;
+
+            const garcomDiv = document.createElement('div');
+            garcomDiv.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col justify-between';
+
+            garcomDiv.innerHTML = `
+                <div class="flex-grow">
+                    <h3 class="text-lg font-semibold text-gray-800">${garcom.nome || 'Nome não encontrado'}</h3>
+                </div>
+                <div class="flex gap-2 mt-4">
+                    <button class="btn-editar-garcom bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm flex-1" data-key="${key}" data-nome-atual="${garcom.nome || ''}">
+                        Editar Senha
+                    </button>
+                    <button class="btn-excluir-garcom bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm flex-1" data-key="${key}">
+                        Excluir
+                    </button>
+                </div>
+            `;
+            listaGarconsContainer.appendChild(garcomDiv);
+        });
+    });
+}
+
+listaGarconsContainer.addEventListener('click', (e) => {
+    const editButton = e.target.closest('.btn-editar-garcom');
+    const deleteButton = e.target.closest('.btn-excluir-garcom');
+
+    // Editar a senha
+    if (editButton) {
+        const key = editButton.dataset.key;
+        const nomeAtual = editButton.dataset.nomeAtual;
+
+        const novaSenha = prompt(`Digite a NOVA senha para o garçom "${nomeAtual}":`);
+
+        if (novaSenha && novaSenha.trim() !== "") {
+            garconsRef.child(key).update({ senha: novaSenha.trim() })
+                .then(() => alert(`Senha do garçom "${nomeAtual}" atualizada com sucesso!`))
+                .catch(error => alert("Erro ao atualizar a senha: " + error.message));
+        } else {
+            alert("Nenhuma alteração foi feita. A senha permanece a mesma.");
+        }
+    }
+
+    // Lógica para excluir
+    if (deleteButton) {
+        const key = deleteButton.dataset.key;
+        if (confirm("Deseja realmente excluir este garçom?")) {
+            garconsRef.child(key).remove()
+                .then(() => alert("Garçom excluído com sucesso!"))
+                .catch(error => alert("Erro ao excluir garçom: " + error.message));
+        }
+    }
+});
+
 
 // Inicializa a primeira aba ao carregar a página
 document.addEventListener('DOMContentLoaded', () => {
