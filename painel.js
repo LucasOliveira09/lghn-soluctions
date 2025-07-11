@@ -2351,34 +2351,52 @@ document.addEventListener('input', (event) => {
 
 // Garçons
 
-btnSalvarGarcom.addEventListener('click', () => {
+btnSalvarGarcom.addEventListener('click', async () => {
     const nomeGarcom = garcomNomeInput.value.trim();
-    const senhaGarcom = garcomSenhaInput.value.trim(); // Pega a senha do input
+    const senhaGarcom = garcomSenhaInput.value.trim();
 
-    // Verifica se ambos os campos foram preenchidos
     if (!nomeGarcom || !senhaGarcom) {
         alert("O nome e a senha do garçom são obrigatórios.");
         return;
     }
 
-    // Salva nome, senha no Firebase
-    garconsRef.push({ nome: nomeGarcom, senha: senhaGarcom })
-    .then(() => {
-        alert("Garçom adicionado com sucesso!");
-        garcomNomeInput.value = ''; // Limpa o campo de nome
-        garcomSenhaInput.value = ''; // Limpa o campo de senha
-    })
-    .catch(error => {
+    // Cria um e-mail "falso" para o Firebase Auth, garantindo que seja único.
+    // Remove espaços e caracteres especiais para formar um e-mail válido.
+    const emailGarcom = `${nomeGarcom.toLowerCase().replace(/\s+/g, '_')}@seu-restaurante.com`;
+
+    try {
+        // Cria o usuário no Firebase Authentication
+        const userCredential = await firebase.auth().createUserWithEmailAndPassword(emailGarcom, senhaGarcom);
+        const user = userCredential.user;
+
+        // Salva informações adicionais (como o nome de exibição) no Realtime Database
+        // usando o UID do usuário como chave.
+        await database.ref(`garcons_info/${user.uid}`).set({
+            nome: nomeGarcom,
+            email: emailGarcom
+        });
+
+        alert(`Garçom "${nomeGarcom}" adicionado com sucesso!`);
+        garcomNomeInput.value = '';
+        garcomSenhaInput.value = '';
+    } catch (error) {
         console.error("Erro ao adicionar garçom:", error);
-        alert("Erro ao adicionar garçom: " + error.message);
-    });
+        // Trata erros comuns do Firebase Auth
+        if (error.code === 'auth/email-already-in-use') {
+            alert('Erro: Já existe um garçom com este nome.');
+        } else if (error.code === 'auth/weak-password') {
+            alert('Erro: A senha deve ter pelo menos 6 caracteres.');
+        } else {
+            alert("Erro ao adicionar garçom: " + error.message);
+        }
+    }
 });
 
 // Função para carregar e exibir os garçons do Firebase
 function carregarGarcom() {
-    garconsRef.on('value', (snapshot) => {
+    // Agora, lemos do novo nó 'garcons_info'
+    database.ref('garcons_info').on('value', (snapshot) => {
         const garcons = snapshot.val();
-        const listaGarconsContainer = document.getElementById('listaGarconsContainer');
         listaGarconsContainer.innerHTML = '';
 
         if (!garcons) {
@@ -2386,7 +2404,7 @@ function carregarGarcom() {
             return;
         }
 
-        Object.entries(garcons).forEach(([key, garcom]) => {
+        Object.entries(garcons).forEach(([uid, garcom]) => {
             if (!garcom) return;
 
             const garcomDiv = document.createElement('div');
@@ -2394,13 +2412,14 @@ function carregarGarcom() {
 
             garcomDiv.innerHTML = `
                 <div class="flex-grow">
-                    <h3 class="text-lg font-semibold text-gray-800">${garcom.nome || 'Nome não encontrado'}</h3>
+                    <h3 class="text-lg font-semibold text-gray-800">${garcom.nome}</h3>
+                    <p class="text-sm text-gray-500">ID: ${uid}</p>
                 </div>
                 <div class="flex gap-2 mt-4">
-                    <button class="btn-editar-garcom bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm flex-1" data-key="${key}" data-nome-atual="${garcom.nome || ''}">
-                        Editar Senha
+                    <button class="btn-reset-senha-garcom bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm flex-1" data-email="${garcom.email}" data-nome="${garcom.nome}">
+                        Redefinir Senha
                     </button>
-                    <button class="btn-excluir-garcom bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm flex-1" data-key="${key}">
+                    <button class="btn-excluir-garcom bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm flex-1" data-uid="${uid}" data-nome="${garcom.nome}">
                         Excluir
                     </button>
                 </div>
@@ -2411,32 +2430,40 @@ function carregarGarcom() {
 }
 
 listaGarconsContainer.addEventListener('click', (e) => {
-    const editButton = e.target.closest('.btn-editar-garcom');
+    const resetButton = e.target.closest('.btn-reset-senha-garcom');
     const deleteButton = e.target.closest('.btn-excluir-garcom');
 
-    // Editar a senha
-    if (editButton) {
-        const key = editButton.dataset.key;
-        const nomeAtual = editButton.dataset.nomeAtual;
-
-        const novaSenha = prompt(`Digite a NOVA senha para o garçom "${nomeAtual}":`);
-
-        if (novaSenha && novaSenha.trim() !== "") {
-            garconsRef.child(key).update({ senha: novaSenha.trim() })
-                .then(() => alert(`Senha do garçom "${nomeAtual}" atualizada com sucesso!`))
-                .catch(error => alert("Erro ao atualizar a senha: " + error.message));
-        } else {
-            alert("Nenhuma alteração foi feita. A senha permanece a mesma.");
+    // Redefinir a senha
+    if (resetButton) {
+        const email = resetButton.dataset.email;
+        const nome = resetButton.dataset.nome;
+        if (confirm(`Deseja enviar um e-mail de redefinição de senha para ${nome}?`)) {
+            firebase.auth().sendPasswordResetEmail(email)
+                .then(() => {
+                    alert(`E-mail de redefinição de senha enviado para ${email}.`);
+                })
+                .catch((error) => {
+                    alert('Erro ao enviar e-mail: ' + error.message);
+                });
         }
     }
 
     // Lógica para excluir
     if (deleteButton) {
-        const key = deleteButton.dataset.key;
-        if (confirm("Deseja realmente excluir este garçom?")) {
-            garconsRef.child(key).remove()
-                .then(() => alert("Garçom excluído com sucesso!"))
-                .catch(error => alert("Erro ao excluir garçom: " + error.message));
+        const uid = deleteButton.dataset.uid;
+        const nome = deleteButton.dataset.nome;
+        if (confirm(`Deseja realmente excluir o garçom ${nome}? Esta ação não pode ser desfeita.`)) {
+            // A exclusão de usuários é uma operação sensível.
+            // A forma ideal é usar o Admin SDK em uma Cloud Function.
+            // Como estamos no cliente, vamos apenas remover os dados do RTDB.
+            // ATENÇÃO: Isso deixará um usuário órfão no Firebase Authentication.
+            // Para uma solução completa, uma Cloud Function seria necessária para chamar admin.auth().deleteUser(uid).
+            database.ref(`garcons_info/${uid}`).remove()
+                .then(() => {
+                    alert(`Garçom ${nome} excluído do banco de dados. (Lembre-se de remover o usuário no painel do Firebase Authentication).`);
+                }).catch(error => {
+                    alert("Erro ao excluir dados do garçom: " + error.message);
+                });
         }
     }
 });
