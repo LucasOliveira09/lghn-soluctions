@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sobre Nós</title>
+    <link rel="shortcut icon" href="assets/sua-logo.png" type="image/x-icon">
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cinzel', serif;
+        }
+        .bg-header-image {
+            background-image: url(assets/sua-logo.png);
+        }
+
+        .bg-color {
+            background-color: black;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <header class="relative h-52 bg-color bg-cover bg-center flex flex-col justify-between items-center p-4 text-white">
+            <div class="absolute inset-0 bg-black bg-opacity-40"></div>
+            
+            <div class="relative z-10 w-full">
+                <a href="index.html" class="text-2xl"><i class="fas fa-arrow-left"></i></a>
+            </div>
+            
+            <div class="relative z-10 text-center bg-black py-2 px-5 rounded-md">
+                <img src="assets/sua-logo.png" alt="Logo do Restaurante" class="w-20 h-20 mx-auto mb-2 rounded-md">
+                <h1 class="text-2xl font-bold">RESTAURANTE</h1>
+                <p class="text-xs text-gray-300">NOME DO SEU ESTABELECIMENTO</p>
+            </div>
+
+            <div class="relative z-10 bg-white text-gray-800 py-1 px-4 rounded-full font-bold text-sm">
+                <i class="fas fa-clock mr-1"></i> 45-60min
+            </div>
+        </header>
+        
+        <main class="mt-8">
+
+            <section class="p-5 border-b border-gray-200">
+                <h3 class="text-lg font-bold mb-3">Horário de funcionamento</h3>
+                <div id="status" class="font-bold mb-4">Verificando...</div>
+                <ul class="text-gray-700 space-y-2">
+                    <li class="flex items-center"><span class="w-16 font-semibold text-gray-800">DOM</span> <span class="text-gray-600">18:00 às 23:00</span></li>
+                    <li class="flex items-center"><span class="w-16 font-semibold text-gray-800">SEG</span> <span class="text-gray-600">18:00 às 23:00</span></li>
+                    <li class="flex items-center"><span class="w-16 font-semibold text-gray-800">TER</span> <span class="text-gray-600">18:00 às 23:00</span></li>
+                    <li class="flex items-center"><span class="w-16 font-semibold text-gray-800">QUA</span> <span class="text-gray-600">18:00 às 23:00</span></li>
+                    <li class="flex items-center"><span class="w-16 font-semibold text-gray-800">QUI</span> <span class="text-gray-600">18:00 às 23:00</span></li>
+                    <li class="flex items-center"><span class="w-16 font-semibold text-gray-800">SEX</span> <span class="text-gray-600">18:00 às 23:00</span></li>
+                    <li class="flex items-center"><span class="w-16 font-semibold text-gray-800">SÁB</span> <span class="text-gray-600">18:00 às 23:00</span></li>
+                </ul>
+            </section>
+            
+            <section class="p-5 border-b border-gray-200">
+                <h3 class="text-lg font-bold mb-4">Localização</h3>
+                <iframe
+                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3661.9896660086515!2d-49.51163836375659!3d-23.38859110941538!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94c1a58e908c0b4d%3A0x11401d6c8e8f5f2a!2sPra%C3%A7a%209%20de%20Julho!5e0!3m2!1spt-BR!2sbr!4v1752358233373!5m2!1spt-BR!2sbr"
+                 class="w-full h-48 rounded-lg border-0 mb-4"
+                 allowfullscreen=""
+                 loading="lazy"
+                 referrerpolicy="no-referrer-when-downgrade">
+                </iframe>
+                <div class="flex items-center gap-3 text-gray-700 mb-2">
+                    <i class="fas fa-map-marker-alt text-xl text-gray-600"></i>
+                    <span>Rua, Fartura - SP</span>
+                </div>
+                <div class="flex items-center gap-3 text-gray-700">
+                    <i class="fab fa-whatsapp text-xl text-gray-600"></i>
+                    <span>(14) 99823-2611</span>
+                </div>
+            </section>
+
+            <section class="p-5 border-b border-gray-200">
+                <div class="flex gap-4">
+                    <button class="flex-1 p-4 border border-gray-300 rounded-lg text-center cursor-pointer hover:bg-gray-100 transition-colors">
+                        <i class="fas fa-motorcycle mr-2"></i> Delivery
+                    </button>
+                    <button class="flex-1 p-4 border border-gray-300 rounded-lg text-center cursor-pointer hover:bg-gray-100 transition-colors">
+                        <i class="fas fa-store mr-2"></i> Retirada
+                    </button>
+                </div>
+            </section>
+            
+            
+            <section class="p-5">
+                <h3 class="text-lg font-bold mb-4">Formas de Pagamento</h3>
+                <div class="space-y-4">
+                    <div>
+                        <h4 class="text-sm text-gray-500 mb-2">Pagamento online</h4>
+                        <div class="bg-gray-50 p-3 rounded-md">Pix</div>
+                    </div>
+                    <div>
+                        <h4 class="text-sm text-gray-500 mb-2">Na entrega</h4>
+                        <div class="space-y-2">
+                            <div class="bg-gray-50 p-3 rounded-md">Dinheiro</div>
+                            <div class="bg-gray-50 p-3 rounded-md">Cartão de Crédito</div>
+                            <div class="bg-gray-50 p-3 rounded-md">Cartão de Débito</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+        
+        <footer class="bg-gray-50 p-5 text-center text-sm text-gray-600">
+            <p>Desenvolvido por LGHN Tech</p>
+        </footer>
+
+    </div>
+
+    <!-- Vou tirar o script daqui depois -->
+    <script>
+        // Função para verificar se o restaurante está aberto
+        function checkOpeningStatus() {
+            // Definição dos horários de funcionamento
+            const openingHours = {
+                0: [{ open: 11, close: 15 }, { open: 18, close: 23 }], // Domingo
+                1: [], // Segunda (Fechado)
+                2: [{ open: 11, close: 15 }, { open: 18, close: 23 }], // Terça
+                3: [{ open: 11, close: 15 }, { open: 18, close: 23 }], // Quarta
+                4: [{ open: 11, close: 15 }, { open: 18, close: 23 }], // Quinta
+                5: [{ open: 11, close: 15 }, { open: 18, close: 23 }], // Sexta
+                6: [{ open: 11, close: 15 }, { open: 18, close: 23 }]  // Sábado
+            };
+            
+            const now = new Date();
+            const dayOfWeek = now.getDay();
+            const currentHour = now.getHours() + now.getMinutes() / 60;
+
+            const todayHours = openingHours[dayOfWeek];
+            let isOpen = false;
+
+            if (todayHours.length > 0) {
+                for (const slot of todayHours) {
+                    if (currentHour >= slot.open && currentHour < slot.close) {
+                        isOpen = true;
+                        break;
+                    }
+                }
+            }
+            
+            const statusElement = document.getElementById('status');
+            
+            // Remove classes antigas antes de adicionar a nova
+            statusElement.classList.remove('text-green-600', 'text-red-600');
+            
+            if (isOpen) {
+                statusElement.textContent = 'Aberto Agora';
+                statusElement.classList.add('text-green-600');
+            } else {
+                statusElement.textContent = 'Fechado Agora';
+                statusElement.classList.add('text-red-600');
+            }
+        }
+
+        // Executa a função quando a página carregar
+        document.addEventListener('DOMContentLoaded', checkOpeningStatus);
+        
+        // Atualiza o status a cada 60 segundos
+        setInterval(checkOpeningStatus, 60000);
+    </script>
+
+</body>
+</html>
