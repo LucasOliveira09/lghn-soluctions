@@ -671,6 +671,22 @@ document.addEventListener('DOMContentLoaded', () => {
         btnFinalizarContaMesa: document.getElementById('btn-finalizar-conta-mesa'),
     });
 
+    // --- Event Listeners para a Sidebar ---
+    DOM.menuButton.addEventListener('click', () => {
+        DOM.sidebar.classList.remove('-translate-x-full');
+        DOM.overlay.classList.remove('hidden');
+    });
+
+    DOM.closeSidebarButton.addEventListener('click', () => {
+        DOM.sidebar.classList.add('-translate-x-full');
+        DOM.overlay.classList.add('hidden');
+    });
+
+    DOM.overlay.addEventListener('click', () => {
+        DOM.sidebar.classList.add('-translate-x-full');
+        DOM.overlay.classList.add('hidden');
+    });
+
 
     // --- Event Listeners para os botões do menu principal ---
     DOM.btnAtivos.addEventListener('click', () => {
@@ -709,6 +725,8 @@ document.addEventListener('DOMContentLoaded', () => {
         estilizaBotaoAtivo(DOM.btnEditarHorario, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
         DOM.sidebar.classList.add('-translate-x-full');
         DOM.overlay.classList.add('hidden');
+         // Inicializa a funcionalidade do editor de horário
+        inicializarEditorHorario();
     });
 
     DOM.btnGerenciarMesas.addEventListener('click', () => {
@@ -858,8 +876,7 @@ document.addEventListener('DOMContentLoaded', () => {
     DOM.pizzaTamanhoSelectDetalhe.addEventListener('change', handlePizzaTamanhoSelectChangeDetalhe);
     DOM.btnAddIngredienteReceitaDetalhe.addEventListener('click', handleAddIngredienteReceitaDetalhe);
     DOM.btnSalvarReceitaDetalhe.addEventListener('click', handleSalvarReceitaDetalhe);
-
-
+    
     // Inicializa a primeira aba ao carregar a página
     DOM.btnAtivos.click();
 });
@@ -1857,72 +1874,82 @@ function limparFormularioNovoItem() {
     document.getElementById("novo-tipo").value = "salgado";
 }
 
+// Horarios
+// Função auxiliar para salvar os horários no Firebase.
 function salvarHorariosNoFirebase(horarios) {
-    const db = firebase.database();
-    db.ref('config/horarios')
+    database.ref('config/horarios')
         .set(horarios)
-        .then(() => console.log("Horários salvos com sucesso!"))
+        .then(() => alert("Horários salvos com sucesso!"))
         .catch((error) => console.error("Erro ao salvar horários:", error));
 }
 
+// Função auxiliar para verificar se o restaurante está aberto.
 function checkRestaurantOpen(horarios) {
     const agora = new Date();
     const diaSemana = agora.getDay();
     const horaAtual = agora.getHours();
 
+    if (!horarios || !horarios[diaSemana]) return false;
+
     const configDia = horarios[diaSemana];
-    if (!configDia || !configDia.aberto) return false;
+    if (!configDia.aberto) return false;
 
     return horaAtual >= configDia.inicio && horaAtual < configDia.fim;
 }
 
-const db = firebase.database();
+// Função principal para inicializar todo o editor de horário.
+function inicializarEditorHorario() {
+    const dias = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+    const containerHorario = document.getElementById("dias-container");
+    const formHorario = document.getElementById("horario-form");
+    const statusElement = document.getElementById("status");
 
-const dias = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-const containerHorario = document.getElementById("dias-container");
+    if (!containerHorario || !formHorario || !statusElement) {
+        console.error("Elementos essenciais do editor de horário não encontrados.");
+        return;
+    }
 
-if (containerHorario) {
+    // 1. Cria os campos de input para cada dia da semana
+    containerHorario.innerHTML = ''; // Limpa para evitar duplicatas
     dias.forEach((dia, i) => {
         const linha = document.createElement("div");
-        linha.className = "flex items-center gap-4 border-b pb-3";
-
+        linha.className = "flex items-center gap-4 border-b pb-3 mb-3";
         linha.innerHTML = `
-            <label class="w-28 font-semibold">${dia}</label>
-            <label class="flex items-center gap-2">
-                <input type="checkbox" name="aberto-${i}" />
-                Aberto
+            <label class="w-28 font-semibold text-gray-700">${dia}</label>
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="aberto-${i}" class="form-checkbox h-5 w-5 text-blue-600" />
+                <span class="text-gray-700">Aberto</span>
             </label>
-            <input type="number" name="inicio-${i}" min="0" max="23" value="18" class="border p-1 w-16" />
-            <span>às</span>
-            <input type="number" name="fim-${i}" min="0" max="23" value="23" class="border p-1 w-16" />
+            <input type="number" name="inicio-${i}" min="0" max="23" value="18" class="border p-1 w-16 rounded-md" />
+            <span class="text-gray-600">às</span>
+            <input type="number" name="fim-${i}" min="0" max="23" value="23" class="border p-1 w-16 rounded-md" />
         `;
-
         containerHorario.appendChild(linha);
     });
-}
 
-db.ref('config/horarios').once('value')
-    .then(snapshot => {
-        if (snapshot.exists()) {
-            const horariosSalvos = snapshot.val();
-            for (let i = 0; i <= 6; i++) {
-                const diaConfig = horariosSalvos[i];
-                if (diaConfig) {
-                    document.querySelector(`[name="aberto-${i}"]`).checked = diaConfig.aberto;
-                    document.querySelector(`[name="inicio-${i}"]`).value = diaConfig.inicio;
-                    document.querySelector(`[name="fim-${i}"]`).value = diaConfig.fim;
+    // 2. Carrega os horários já salvos do Firebase
+    database.ref('config/horarios').once('value')
+        .then(snapshot => {
+            if (snapshot.exists()) {
+                const horariosSalvos = snapshot.val();
+                for (let i = 0; i <= 6; i++) {
+                    const diaConfig = horariosSalvos[i];
+                    if (diaConfig) {
+                        const abertoCheckbox = document.querySelector(`[name="aberto-${i}"]`);
+                        const inicioInput = document.querySelector(`[name="inicio-${i}"]`);
+                        const fimInput = document.querySelector(`[name="fim-${i}"]`);
+                        if(abertoCheckbox) abertoCheckbox.checked = diaConfig.aberto;
+                        if(inicioInput) inicioInput.value = diaConfig.inicio;
+                        if(fimInput) fimInput.value = diaConfig.fim;
+                    }
                 }
             }
-        }
-    })
-    .catch(error => console.error("Erro ao carregar horários do Firebase:", error));
+        })
+        .catch(error => console.error("Erro ao carregar horários do Firebase:", error));
 
-
-const formHorario = document.getElementById("horario-form");
-if (formHorario) {
+    // 3. Adiciona o listener para salvar o formulário
     formHorario.addEventListener("submit", (e) => {
         e.preventDefault();
-
         const horarios = {};
         for (let i = 0; i <= 6; i++) {
             const aberto = document.querySelector(`[name="aberto-${i}"]`).checked;
@@ -1935,44 +1962,21 @@ if (formHorario) {
             }
             horarios[i] = { aberto, inicio, fim };
         }
-
         salvarHorariosNoFirebase(horarios);
     });
-}
 
-db.ref('config/horarios').on('value',
-    snapshot => {
-        const statusElement = document.getElementById("status");
+    // 4. Adiciona o listener para mostrar o status (aberto/fechado) em tempo real
+    database.ref('config/horarios').on('value', snapshot => {
         if (snapshot.exists()) {
             const horarios = snapshot.val();
-            const status = checkRestaurantOpen(horarios);
-            if (statusElement) {
-                statusElement.innerText = "✅ Aberto agora";
-            }
+            const isOpen = checkRestaurantOpen(horarios);
+            statusElement.textContent = isOpen ? "✅ Aberto agora" : "❌ Fechado agora";
+            statusElement.className = isOpen ? "mb-4 text-green-700 font-bold" : "mb-4 text-red-700 font-bold";
         } else {
-            console.log("Nenhuma configuração de horários encontrada.");
-            if (statusElement) {
-                statusElement.innerText = "Horários não configurados.";
-            }
+            statusElement.textContent = "Horários não configurados.";
         }
     });
-
-
-DOM.menuButton.addEventListener('click', () => {
-    DOM.sidebar.classList.remove('-translate-x-full');
-    DOM.overlay.classList.remove('hidden');
-});
-
-DOM.closeSidebarButton.addEventListener('click', () => {
-    DOM.sidebar.classList.add('-translate-x-full');
-    DOM.overlay.classList.add('hidden');
-});
-
-DOM.overlay.addEventListener('click', () => {
-    DOM.sidebar.classList.add('-translate-x-full');
-    DOM.overlay.classList.add('hidden');
-});
-
+}
 
 // --- FUNÇÕES DE GERENCIAMENTO DE MESAS (Painel Administrativo) ---
 
