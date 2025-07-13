@@ -45,19 +45,13 @@
 
             <section class="p-5 border-b border-gray-200">
                 <h3 class="text-lg font-bold mb-3">Horário de funcionamento</h3>
-                <div id="status" class="font-bold mb-4">Verificando...</div>
-                <ul class="text-gray-700 space-y-2">
-                    <li class="flex items-center"><span class="w-16 font-semibold text-gray-800">DOM</span> <span class="text-gray-600">18:00 às 23:00</span></li>
-                    <li class="flex items-center"><span class="w-16 font-semibold text-gray-800">SEG</span> <span class="text-gray-600">18:00 às 23:00</span></li>
-                    <li class="flex items-center"><span class="w-16 font-semibold text-gray-800">TER</span> <span class="text-gray-600">18:00 às 23:00</span></li>
-                    <li class="flex items-center"><span class="w-16 font-semibold text-gray-800">QUA</span> <span class="text-gray-600">18:00 às 23:00</span></li>
-                    <li class="flex items-center"><span class="w-16 font-semibold text-gray-800">QUI</span> <span class="text-gray-600">18:00 às 23:00</span></li>
-                    <li class="flex items-center"><span class="w-16 font-semibold text-gray-800">SEX</span> <span class="text-gray-600">18:00 às 23:00</span></li>
-                    <li class="flex items-center"><span class="w-16 font-semibold text-gray-800">SÁB</span> <span class="text-gray-600">18:00 às 23:00</span></li>
+                <div id="status-funcionamento" class="font-bold mb-4">Verificando...</div>
+                <ul id="lista-horarios" class="text-gray-700 space-y-2">
+                    <li class="text-gray-500">Carregando horários...</li>
                 </ul>
             </section>
             
-            <section class="p-5 border-b border-gray-200">
+            <section class="p-5">
                 <h3 class="text-lg font-bold mb-4">Localização</h3>
                 <iframe
                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3661.9896660086515!2d-49.51163836375659!3d-23.38859110941538!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94c1a58e908c0b4d%3A0x11401d6c8e8f5f2a!2sPra%C3%A7a%209%20de%20Julho!5e0!3m2!1spt-BR!2sbr!4v1752358233373!5m2!1spt-BR!2sbr"
@@ -78,12 +72,12 @@
 
             <section class="p-5 border-b border-gray-200">
                 <div class="flex gap-4">
-                    <button class="flex-1 p-4 border border-gray-300 rounded-lg text-center cursor-pointer hover:bg-gray-100 transition-colors">
+                    <div class="flex-1 p-4 border border-gray-300 rounded-lg text-center transition-colors">
                         <i class="fas fa-motorcycle mr-2"></i> Delivery
-                    </button>
-                    <button class="flex-1 p-4 border border-gray-300 rounded-lg text-center cursor-pointer hover:bg-gray-100 transition-colors">
+                    </div>
+                    <div class="flex-1 p-4 border border-gray-300 rounded-lg text-center transition-colors">
                         <i class="fas fa-store mr-2"></i> Retirada
-                    </button>
+                    </div>
                 </div>
             </section>
             
@@ -105,6 +99,11 @@
                     </div>
                 </div>
             </section>
+
+            <section class="p-5">
+                
+
+            </section>
         </main>
         
         <footer class="bg-gray-50 p-5 text-center text-sm text-gray-600">
@@ -113,57 +112,9 @@
 
     </div>
 
-    <!-- Vou tirar o script daqui depois -->
-    <script>
-        // Função para verificar se o restaurante está aberto
-        function checkOpeningStatus() {
-            // Definição dos horários de funcionamento
-            const openingHours = {
-                0: [{ open: 11, close: 15 }, { open: 18, close: 23 }], // Domingo
-                1: [], // Segunda (Fechado)
-                2: [{ open: 11, close: 15 }, { open: 18, close: 23 }], // Terça
-                3: [{ open: 11, close: 15 }, { open: 18, close: 23 }], // Quarta
-                4: [{ open: 11, close: 15 }, { open: 18, close: 23 }], // Quinta
-                5: [{ open: 11, close: 15 }, { open: 18, close: 23 }], // Sexta
-                6: [{ open: 11, close: 15 }, { open: 18, close: 23 }]  // Sábado
-            };
-            
-            const now = new Date();
-            const dayOfWeek = now.getDay();
-            const currentHour = now.getHours() + now.getMinutes() / 60;
-
-            const todayHours = openingHours[dayOfWeek];
-            let isOpen = false;
-
-            if (todayHours.length > 0) {
-                for (const slot of todayHours) {
-                    if (currentHour >= slot.open && currentHour < slot.close) {
-                        isOpen = true;
-                        break;
-                    }
-                }
-            }
-            
-            const statusElement = document.getElementById('status');
-            
-            // Remove classes antigas antes de adicionar a nova
-            statusElement.classList.remove('text-green-600', 'text-red-600');
-            
-            if (isOpen) {
-                statusElement.textContent = 'Aberto Agora';
-                statusElement.classList.add('text-green-600');
-            } else {
-                statusElement.textContent = 'Fechado Agora';
-                statusElement.classList.add('text-red-600');
-            }
-        }
-
-        // Executa a função quando a página carregar
-        document.addEventListener('DOMContentLoaded', checkOpeningStatus);
-        
-        // Atualiza o status a cada 60 segundos
-        setInterval(checkOpeningStatus, 60000);
-    </script>
-
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="sobreNos.js"></script> 
+ 
 </body>
 </html>
