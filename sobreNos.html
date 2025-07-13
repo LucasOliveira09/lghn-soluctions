@@ -20,97 +20,171 @@
         .bg-color {
             background-color: black;
         }
+
+        /* Estilos para a Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 280px; /* Largura da sidebar */
+            background-color: #1f1f1f;
+            z-index: 1050; /* Acima do overlay */
+            transform: translateX(-100%); /* Escondida por padrão */
+            transition: transform 0.3s ease-in-out;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar.active {
+            transform: translateX(0); /* Visível */
+        }
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            z-index: 1040; /* Abaixo da sidebar, acima do conteúdo */
+            display: none; /* Escondido por padrão */
+            transition: opacity 0.3s ease-in-out;
+        }
+        .overlay.active {
+            display: block;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
     <header class="relative h-52 bg-color bg-cover bg-center flex flex-col justify-between items-center p-4 text-white">
-            <div class="absolute inset-0 bg-black bg-opacity-40"></div>
+        <!-- Deixar uma imagem mais escura no background
+        <div class="absolute inset-0 bg-black bg-opacity-40"></div>
+        -->
+        <button id="menu-button" class="absolute top-4 right-4 z-20 text-yellow-50 hover:scale-110 transition-transform duration-200">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+        </button>
+
+        <div class="relative z-10 w-full">
+            <a href="index.html" class="text-2xl"><i class="fas fa-arrow-left"></i></a>
+        </div>
             
-            <div class="relative z-10 w-full">
-                <a href="index.html" class="text-2xl"><i class="fas fa-arrow-left"></i></a>
+        <div class="relative z-10 text-center bg-black py-2 px-5 rounded-md">
+            <img src="assets/sua-logo.png" alt="Logo do Restaurante" class="w-20 h-20 mx-auto mb-2 rounded-md">
+            <h1 class="text-2xl font-bold">RESTAURANTE</h1>
+            <p class="text-xs text-gray-300">NOME DO SEU ESTABELECIMENTO</p>
+        </div>
+
+        <div class="relative z-10 bg-white text-gray-800 py-1 px-4 rounded-full font-bold text-sm">
+            <i class="fas fa-clock mr-1"></i> 45-60min
+        </div>
+    </header>
+
+    <!-- Sidebar -->
+    <div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-[#0E0C0A] shadow-lg transform -translate-x-full transition-transform duration-300 z-[999] font-sans">
+        <div class="p-7">
+
+  
+            <div class="flex items-center justify-between mb-8">
+                <h2 class="text-2xl font-bold text-white">Navegação</h2>
+                <button id="close-sidebar-button" class="text-gray-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-times text-2xl"></i>
+                </button>
             </div>
-            
-            <div class="relative z-10 text-center bg-black py-2 px-5 rounded-md">
-                <img src="assets/sua-logo.png" alt="Logo do Restaurante" class="w-20 h-20 mx-auto mb-2 rounded-md">
-                <h1 class="text-2xl font-bold">RESTAURANTE</h1>
-                <p class="text-xs text-gray-300">NOME DO SEU ESTABELECIMENTO</p>
-            </div>
-
-            <div class="relative z-10 bg-white text-gray-800 py-1 px-4 rounded-full font-bold text-sm">
-                <i class="fas fa-clock mr-1"></i> 45-60min
-            </div>
-        </header>
-        
-        <main class="mt-8">
-
-            <section class="p-5 border-b border-gray-200">
-                <h3 class="text-lg font-bold mb-3">Horário de funcionamento</h3>
-                <div id="status-funcionamento" class="font-bold mb-4">Verificando...</div>
-                <ul id="lista-horarios" class="text-gray-700 space-y-2">
-                    <li class="text-gray-500">Carregando horários...</li>
-                </ul>
-            </section>
-            
-            <section class="p-5">
-                <h3 class="text-lg font-bold mb-4">Localização</h3>
-                <iframe
-                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3661.9896660086515!2d-49.51163836375659!3d-23.38859110941538!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94c1a58e908c0b4d%3A0x11401d6c8e8f5f2a!2sPra%C3%A7a%209%20de%20Julho!5e0!3m2!1spt-BR!2sbr!4v1752358233373!5m2!1spt-BR!2sbr"
-                 class="w-full h-48 rounded-lg border-0 mb-4"
-                 allowfullscreen=""
-                 loading="lazy"
-                 referrerpolicy="no-referrer-when-downgrade">
-                </iframe>
-                <div class="flex items-center gap-3 text-gray-700 mb-2">
-                    <i class="fas fa-map-marker-alt text-xl text-gray-600"></i>
-                    <span>Rua, Fartura - SP</span>
-                </div>
-                <div class="flex items-center gap-3 text-gray-700">
-                    <i class="fab fa-whatsapp text-xl text-gray-600"></i>
-                    <span>(14) 99823-2611</span>
-                </div>
-            </section>
-
-            <section class="p-5 border-b border-gray-200">
-                <div class="flex gap-4">
-                    <div class="flex-1 p-4 border border-gray-300 rounded-lg text-center transition-colors">
-                        <i class="fas fa-motorcycle mr-2"></i> Delivery
-                    </div>
-                    <div class="flex-1 p-4 border border-gray-300 rounded-lg text-center transition-colors">
-                        <i class="fas fa-store mr-2"></i> Retirada
-                    </div>
-                </div>
-            </section>
-            
-            
-            <section class="p-5">
-                <h3 class="text-lg font-bold mb-4">Formas de Pagamento</h3>
-                <div class="space-y-4">
-                    <div>
-                        <h4 class="text-sm text-gray-500 mb-2">Pagamento online</h4>
-                        <div class="bg-gray-50 p-3 rounded-md">Pix</div>
-                    </div>
-                    <div>
-                        <h4 class="text-sm text-gray-500 mb-2">Na entrega</h4>
-                        <div class="space-y-2">
-                            <div class="bg-gray-50 p-3 rounded-md">Dinheiro</div>
-                            <div class="bg-gray-50 p-3 rounded-md">Cartão de Crédito</div>
-                            <div class="bg-gray-50 p-3 rounded-md">Cartão de Débito</div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section class="p-5">
-                
-
-            </section>
-        </main>
-        
-        <footer class="bg-gray-50 p-5 text-center text-sm text-gray-600">
-            <p>Desenvolvido por LGHN Tech</p>
-        </footer>
-
+            <nav class="flex flex-col space-y-4">
+                <a href="index.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                    <i class="fa-solid fa-pizza-slice"></i>
+                    <span>Cardápio</span>
+                </a>
+                <a href="status.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>Meus Pedidos</span>
+                </a>
+                <!-- Adicione mais links conforme necessário -->
+                <a href="cupons.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                    <i class="fa-solid fa-ticket-simple"></i>
+                    <span>Cupons</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                    <i class="fa-solid fa-phone"></i>
+                    <span>Contato</span>
+                </a>
+                <a href="sobreNos.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                    <i class="fa-solid fa-info-circle"></i>
+                    <span>Sobre Nós</span>
+                </a>
+            </nav>
+        </div>
     </div>
+    
+    <!-- Overlay ao abrir a sidebar -->
+    <div id="overlay" class="fixed inset-0 bg-black opacity-50 hidden z-40"></div>
+        
+    <main class="mt-8">
+
+        <section class="p-5 border-b border-gray-200">
+            <h3 class="text-lg font-bold mb-3">Horário de funcionamento</h3>
+            <div id="status-funcionamento" class="font-bold mb-4">Verificando...</div>
+            <ul id="lista-horarios" class="text-gray-700 space-y-2">
+                <li class="text-gray-500">Carregando horários...</li>
+            </ul>
+        </section>
+            
+        <section class="p-5">
+            <h3 class="text-lg font-bold mb-4">Localização</h3>
+            <iframe
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3661.9896660086515!2d-49.51163836375659!3d-23.38859110941538!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94c1a58e908c0b4d%3A0x11401d6c8e8f5f2a!2sPra%C3%A7a%209%20de%20Julho!5e0!3m2!1spt-BR!2sbr!4v1752358233373!5m2!1spt-BR!2sbr"
+                class="w-full h-48 rounded-lg border-0 mb-4"
+                allowfullscreen=""
+                loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade">
+            </iframe>
+            <div class="flex items-center gap-3 text-gray-700 mb-2">
+                <i class="fas fa-map-marker-alt text-xl text-gray-600"></i>
+                <span>Rua, Fartura - SP</span>
+            </div>
+            <div class="flex items-center gap-3 text-gray-700">
+                <i class="fab fa-whatsapp text-xl text-gray-600"></i>
+                <span>(14) 99823-2611</span>
+            </div>
+        </section>
+
+        <section class="p-5 border-b border-gray-200">
+            <div class="flex gap-4">
+                <div class="flex-1 p-4 border border-gray-300 rounded-lg text-center transition-colors">
+                    <i class="fas fa-motorcycle mr-2"></i> Delivery
+                </div>
+                <div class="flex-1 p-4 border border-gray-300 rounded-lg text-center transition-colors">
+                    <i class="fas fa-store mr-2"></i> Retirada
+                </div>
+            </div>
+        </section>
+            
+            
+        <section class="p-5">
+            <h3 class="text-lg font-bold mb-4">Formas de Pagamento</h3>
+            <div class="space-y-4">
+                <div>
+                    <h4 class="text-sm text-gray-500 mb-2">Pagamento online</h4>
+                    <div class="bg-gray-50 p-3 rounded-md">Pix</div>
+                </div>
+                <div>
+                    <h4 class="text-sm text-gray-500 mb-2">Na entrega</h4>
+                    <div class="space-y-2">
+                        <div class="bg-gray-50 p-3 rounded-md">Dinheiro</div>
+                        <div class="bg-gray-50 p-3 rounded-md">Cartão de Crédito</div>
+                        <div class="bg-gray-50 p-3 rounded-md">Cartão de Débito</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+        
+    <footer class="bg-gray-50 p-5 text-center text-sm text-gray-600">
+        <p>Desenvolvido por LGHN Tech</p>
+    </footer>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>

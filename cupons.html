@@ -115,12 +115,16 @@
             </a>
             <!-- Adicione mais links conforme necessário -->
             <a href="cupons.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                <i class="fa-solid fa-info-circle"></i>
+                <i class="fa-solid fa-ticket-simple"></i>
                 <span>Cupons</span>
             </a>
             <a href="#" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
                 <i class="fa-solid fa-phone"></i>
                 <span>Contato</span>
+            </a>
+            <a href="sobreNos.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                <i class="fa-solid fa-info-circle"></i>
+                <span>Sobre Nós</span>
             </a>
         </nav>
         </div>
@@ -128,12 +132,16 @@
 
 <!-- Overlay ao abrir a sidebar -->
 <div id="overlay" class="fixed inset-0 bg-black opacity-50 hidden z-40"></div>
+    <!--Adicionando um voltar e o button na mesma posição do index-->
+    <header class="w-full max-w-md p-4 flex justify-between items-center">
+        <a href="index.html" class="text-2xl text-yellow-50 hover:text-white"><i class="fas fa-arrow-left"></i></a>
+        <button id="menu-button" class="z-20 text-yellow-50 hover:scale-110 transition-transform duration-200">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+        </button>
+    </header>
 
-<button id="menu-button" class="absolute top-4 right-4 z-20 text-yellow-50 hover:scale-110 transition-transform duration-200">
-    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-    </svg>
-  </button>
     <main class="w-full max-w-md bg-[#111] p-6 rounded-lg shadow-lg relative z-10">
         <h1 class="text-3xl font-bold text-center mb-6 text-[#f5f0e6]">Meus Cupons de Recompensa</h1>
 

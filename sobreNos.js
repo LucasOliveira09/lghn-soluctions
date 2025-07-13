@@ -107,5 +107,39 @@ function renderizarListaDeHorarios(horarios) {
     });
 }
 
+/**
+ * Inicializa a funcionalidade da sidebar (abrir/fechar).
+ */
+function inicializarSidebar() {
+    const menuButton = document.getElementById('menu-button');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+    const closeSidebarButton = document.getElementById('close-sidebar-button');
+
+    if (menuButton && sidebar && overlay) {
+        menuButton.addEventListener('click', () => {
+            sidebar.classList.remove('-translate-x-full');
+            overlay.classList.remove('hidden');
+        });
+    }
+
+    if (overlay && sidebar) {
+        overlay.addEventListener('click', () => {
+            sidebar.classList.add('-translate-x-full');
+            overlay.classList.add('hidden');
+        });
+    }
+
+    if (closeSidebarButton && sidebar && overlay) {
+        closeSidebarButton.addEventListener('click', () => {
+            sidebar.classList.add('-translate-x-full');
+            overlay.classList.add('hidden');
+        });
+    }
+}
+
 // Inicia o processo quando o DOM estiver pronto
-document.addEventListener('DOMContentLoaded', atualizarStatusEHorarios);
+document.addEventListener('DOMContentLoaded', () => {
+    atualizarStatusEHorarios();
+    inicializarSidebar();
+});
