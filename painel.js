@@ -14,12 +14,13 @@ firebase.initializeApp(firebaseConfig);
 
 const database = firebase.database();
 const pedidosRef = database.ref('pedidos');
-const promocoesRef = firebase.database().ref('promocoes');
+// Removed promocoesRef as a direct ref since all products will be managed under 'produtos'
 const mesasRef = database.ref('mesas');
 const cuponsRef = database.ref('cupons');
 const produtosRef = database.ref('produtos');
 const ingredientesRef = database.ref('ingredientes');
 const comprasRef = database.ref('compras');
+const garconsInfoRef = database.ref('garcons_info'); // Nova referência para informações de garçons
 
 // Objeto para armazenar referências a elementos do DOM.
 // Isso ajuda a manter o código mais limpo e organizado, e a evitar 'null' errors.
@@ -35,6 +36,18 @@ let topProdutosChartInstance = null;
 let vendasPorDiaChartInstance = null;
 let horariosPicoChartInstance = null;
 let metodosPagamentoChartInstance = null;
+
+// Variáveis de estado global para o checkout de mesas
+let currentMesaIdForCheckout = null;
+let currentMesaItemsToPay = []; // Itens do pedido da mesa com quantidades para controle de pagamento
+let currentMesaTotal = 0; // Total original do pedido
+let currentMesaRemainingToPay = 0; // O que resta pagar
+let currentMesaPaymentsHistory = []; // Histórico de pagamentos já efetuados para esta conta
+
+// Variáveis para edição de pedidos
+let pedidoEmEdicao = null;
+let pedidoOriginal = null;
+
 
 // --- LISTENERS GLOBAIS DO FIREBASE ---
 // Este listener é CRÍTICO pois atualiza 'allIngredients' e as listas de estoque/ponto de pedido.
@@ -73,7 +86,7 @@ ingredientesRef.on('value', (snapshot) => {
         if (ultimaAtualizacaoDiariaDate.getTime() < hoje.getTime()) {
             ingredientesRef.child(ingredienteId).update({
                 quantidadeUsadaDiaria: 0,
-                custoUsadoDiario: 0,
+                custoUsadaDiaria: 0, // Corrigido o typo aqui, agora consistente
                 ultimaAtualizacaoConsumo: firebase.database.ServerValue.TIMESTAMP // Atualiza o timestamp para "hoje"
             }).catch(e => console.error("Erro ao zerar consumo diário automático:", e));
         }
@@ -92,7 +105,7 @@ ingredientesRef.on('value', (snapshot) => {
             <div class="flex items-center gap-2 mb-2">
                 <label for="qtd-atual-${ingredienteId}" class="text-sm">Estoque Atual:</label>
                 <input type="number" id="qtd-atual-${ingredienteId}" value="${(ingrediente.quantidadeAtual || 0).toFixed(2)}" step="0.01" min="0"
-                       class="w-24 p-1 border rounded text-center text-blue-700 font-bold">
+                        class="w-24 p-1 border rounded text-center text-blue-700 font-bold">
                 <span>${ingrediente.unidadeMedida}</span>
             </div>
             <div class="flex gap-2 mt-3">
@@ -109,17 +122,25 @@ ingredientesRef.on('value', (snapshot) => {
     });
 
     // Atualiza os Event Listeners para os botões de atualização/deleção do gerenciamento detalhado
+    // Remove listeners antigos antes de adicionar novos para evitar duplicação
     DOM.listaIngredientesDetalheContainer.querySelectorAll('.btn-update-ingrediente').forEach(button => {
-        button.addEventListener('click', handleUpdateIngrediente);
+        // Clone and replace to remove all previous event listeners
+        const newButton = button.cloneNode(true);
+        button.parentNode.replaceChild(newButton, button);
+        newButton.addEventListener('click', handleUpdateIngrediente);
     });
     DOM.listaIngredientesDetalheContainer.querySelectorAll('.btn-delete-ingrediente').forEach(button => {
-        button.addEventListener('click', handleDeleteIngrediente);
+        // Clone and replace to remove all previous event listeners
+        const newButton = button.cloneNode(true);
+        button.parentNode.replaceChild(newButton, button);
+        newButton.addEventListener('click', handleDeleteIngrediente);
     });
+
 
     // Renderiza os relatórios no painel principal
     renderIngredientesPontoPedido(ingredientesEmPontoDePedido);
-    renderConsumoDiario(); // Chama para renderizar o consumo de ontem (baseado nos dados recém-carregados)
-    renderConsumoMensal(); // Chama para renderizar o consumo do mês (baseado nos dados recém-carregados)
+    renderConsumoDiario();
+    renderConsumoMensal();
 
     // Garante que os selects de ingredientes para receitas e compras estejam atualizados
     popularIngredientesParaReceitaSelects();
@@ -134,9 +155,16 @@ pedidosRef.on('value', (snapshot) => {
     });
 
     renderizarPedidos();
-    aplicarFiltroDatas();
+    // Only apply date filter if the finalizados tab is active
+    if (!DOM.abaFinalizados.classList.contains('hidden')) {
+        aplicarFiltroDatas();
+    }
+
 
     const totalPedidosAtual = Object.keys(DOM.pedidosOnline).length;
+    if (DOM.totalPedidosAnteriores === undefined) {
+        DOM.totalPedidosAnteriores = 0; // Inicializa na primeira carga
+    }
     if (totalPedidosAtual > DOM.totalPedidosAnteriores) {
         tocarNotificacao();
     }
@@ -148,6 +176,17 @@ mesasRef.on('value', (snapshot) => {
     const mesasData = snapshot.val() || {};
     renderMesas(mesasData);
 });
+
+// Listener de cupons (para carregar a lista em tempo real)
+cuponsRef.on('value', async (snapshot) => {
+    carregarCupons(snapshot); // Passa o snapshot diretamente para evitar re-fetch
+});
+
+// Listener de garçons (para carregar a lista em tempo real)
+garconsInfoRef.on('value', (snapshot) => {
+    carregarGarcom(snapshot); // Passa o snapshot diretamente
+});
+
 
 // --- FUNÇÕES GERAIS DO PAINEL ---
 function tocarNotificacao() {
@@ -296,61 +335,7 @@ async function finalizarPedido(pedidoId) {
         // Lógica de registro de consumo de ingredientes aprimorada para PIZZAS E OUTROS PRODUTOS
         if (pedido.cart && Array.isArray(pedido.cart)) {
             for (const itemPedido of pedido.cart) {
-                let produtoRefPath = null;
-                const categories = ['pizzas', 'bebidas', 'esfirras', 'calzone', 'promocoes', 'novidades'];
-
-                for (const cat of categories) {
-                    const productsSnapshot = await produtosRef.child(cat).orderByChild('nome').equalTo(itemPedido.name).once('value');
-                    if (productsSnapshot.exists()) {
-                        const productId = Object.keys(productsSnapshot.val())[0];
-                        produtoRefPath = `${cat}/${productId}`;
-                        break;
-                    }
-                }
-
-                if (produtoRefPath) {
-                    const produtoSnapshot = await produtosRef.child(produtoRefPath).once('value');
-                    const produtoAssociado = produtoSnapshot.val();
-
-                    if (produtoAssociado) {
-                        let receitaParaConsumo = null;
-                        let isPizza = produtoAssociado.tipo === 'pizza';
-
-                        if (isPizza && itemPedido.size) { // Assumindo que itemPedido.size virá do carrinho para pizzas
-                            receitaParaConsumo = produtoAssociado.receita?.[itemPedido.size];
-                        } else {
-                            receitaParaConsumo = produtoAssociado.receita; // Para outros produtos ou pizzas sem tamanho especificado
-                        }
-
-                        if (receitaParaConsumo) {
-                            for (const ingredienteId in receitaParaConsumo) {
-                                const quantidadePorUnidadeProduto = receitaParaConsumo[ingredienteId];
-                                const quantidadeTotalConsumida = quantidadePorUnidadeProduto * itemPedido.quantity;
-                                const custoUnitario = allIngredients[ingredienteId]?.custoUnitarioMedio || 0; // Pega o custo médio do ingrediente
-                                const custoTotalConsumido = quantidadeTotalConsumida * custoUnitario;
-
-                                const ingredienteRef = ingredientesRef.child(ingredienteId);
-                                await ingredienteRef.transaction(currentData => {
-                                    if (currentData) {
-                                        currentData.quantidadeUsadaMensal = (currentData.quantidadeUsadaMensal || 0) + quantidadeTotalConsumida;
-                                        currentData.custoUsadoMensal = (currentData.custoUsadoMensal || 0) + custoTotalConsumido;
-                                        currentData.quantidadeUsadaDiaria = (currentData.quantidadeUsadaDiaria || 0) + quantidadeTotalConsumida;
-                                        currentData.custoUsadoDiaria = (currentData.custoUsadoDiaria || 0) + custoTotalConsumido;
-                                        currentData.ultimaAtualizacaoConsumo = firebase.database.ServerValue.TIMESTAMP;
-                                    }
-                                    return currentData;
-                                });
-                                console.log(`Consumo de ${allIngredients[ingredienteId]?.nome || ingredienteId} incrementado: Qtd: ${quantidadeTotalConsumida.toFixed(3)}, Custo: R$ ${custoTotalConsumido.toFixed(2)}`);
-                            }
-                        } else {
-                            console.warn(`Receita para o produto "${itemPedido.name}" (Tamanho: ${itemPedido.size || 'N/A'}) não encontrada ou não configurada. O consumo de ingredientes não será registrado para este item.`);
-                        }
-                    } else {
-                        console.warn(`Produto "${itemPedido.name}" não encontrado no Firebase para dedução de estoque.`);
-                    }
-                } else {
-                    console.warn(`Produto "${itemPedido.name}" não encontrado em nenhuma categoria para dedução de estoque.`);
-                }
+                await deduzirIngredientesDoEstoque(itemPedido); // Usa a função unificada
             }
         }
 
@@ -376,7 +361,6 @@ Esperamos vê-lo novamente em breve! 🍽️🍕`;
         alert('Erro ao finalizar pedido. Verifique o console para mais detalhes.');
     }
 }
-
 
 function recusarPedido(pedidoId) {
     if (confirm('Deseja realmente recusar o pedido?')) {
@@ -415,6 +399,7 @@ function gerarHtmlPedido(pedido, pedidoId) {
     if (pedido.tipoAtendimento === 'Mesa' || pedido.tipoAtendimento === 'Presencial') {
         tipoAtendimentoInfo = `<p class="text-sm mb-1"><strong>Atendimento:</strong> Presencial (Mesa ${pedido.mesaNumero || 'N/A'})</p>`;
         const totalExibido = (pedido.totalOriginal || pedido.totalPedido).toFixed(2);
+        // Displaying totalOriginal for table orders, as totalPedido might be partial
         produtos += `<li class="flex justify-between text-sm mt-2 font-bold text-gray-800"><span>TOTAL ORIGINAL:</span><span>R$ ${totalExibido}</span></li>`;
         if (pedido.pagamentosRegistrados && pedido.pagamentosRegistrados.length > 0) {
             produtos += `<li class="flex justify-between text-sm font-bold text-gray-800"><span>PAGAMENTOS:</span></li>`;
@@ -501,6 +486,7 @@ function getStatusColor(status) {
     }
 }
 
+// Function to calculate elapsed time (not used in HTML, but kept for reference)
 function calcularTempoDecorrido(data) {
     const agora = new Date();
     const diffMs = agora - data;
@@ -549,7 +535,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnGerenciarEstoque: document.getElementById('btn-gerenciar-estoque'),
 
 
-        // Elementos da seção de ANÁLISE RÁPIDA
+        // Elementos da seção de ANÁLISE RÁPIDA (Estoque)
         dataDiaAnteriorSpan: document.getElementById('data-dia-anterior'),
         totalGastoDiarioSpan: document.getElementById('total-gasto-diario'),
         listaConsumoDiarioContainer: document.getElementById('lista-consumo-diario'),
@@ -564,7 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleGerenciamentoAvancado: document.getElementById('toggle-gerenciamento-avancado'),
         gerenciamentoDetalhadoContainer: document.getElementById('gerenciamento-detalhado-container'),
 
-        // Elementos da seção de GERENCIAMENTO DETALHADO
+        // Elementos da seção de GERENCIAMENTO DETALHADO (Estoque)
         ingredienteNomeDetalheInput: document.getElementById('ingrediente-nome-detalhe'),
         ingredienteUnidadeDetalheInput: document.getElementById('ingrediente-unidade-detalhe'),
         ingredienteEstoqueMinimoDetalheInput: document.getElementById('ingrediente-estoque-minimo-detalhe'),
@@ -605,8 +591,22 @@ document.addEventListener('DOMContentLoaded', () => {
         abaGerenciarGarcom: document.getElementById('aba-gerenciar-garcom'),
         abaGerenciarEstoque: document.getElementById('aba-gerenciar-estoque'),
 
+        // Elementos de cardápio
         searchInput: document.getElementById('search-input'),
         categoriaSelect: document.getElementById('categoria-select'),
+        // New item modal elements
+        modalNovoItem: document.getElementById('modal-novo-item'),
+        btnFecharNovoItem: document.getElementById('btn-fechar-novo-item'),
+        novoImagemInput: document.getElementById('novo-imagem'),
+        previewNovaImagem: document.getElementById('preview-nova-imagem'),
+        btnSalvarNovoItem: document.getElementById('btn-salvar-novo-item'),
+        novoNomeInput: document.getElementById('novo-nome'),
+        novoDescricaoInput: document.getElementById('novo-descricao'),
+        novoPrecoInput: document.getElementById('novo-preco'),
+        novoAtivoCheckbox: document.getElementById('novo-ativo'),
+        novoTipoSelect: document.getElementById('novo-tipo'),
+        itensCardapioContainer: document.getElementById('itens-cardapio-container'),
+
 
         menuButton: document.getElementById('menu-button'),
         sidebar: document.getElementById('sidebar'),
@@ -614,7 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
         closeSidebarButton: document.getElementById('close-sidebar-button'),
 
         relatorioDataInicio: document.getElementById('relatorio-data-inicio'),
-        relatorioDataFim: document.getElementById('relatorio-data-fim') || document.getElementById('data-fim'),
+        relatorioDataFim: document.getElementById('relatorio-data-fim'),
         btnGerarRelatorios: document.getElementById('btn-gerar-relatorios'),
         topProdutosSummary: document.getElementById('top-produtos-summary'),
         topProdutosChartCanvas: document.getElementById('top-produtos-chart'),
@@ -629,6 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnUltimos3Meses: document.getElementById('btn-ultimos-3-meses'),
         btnHoje: document.getElementById('btn-hoje'),
 
+        // Elementos da aba de Gerenciar Cupons
         btnSalvarCupom: document.getElementById('btn-salvar-cupom'),
         cupomCodigoInput: document.getElementById('cupom-codigo'),
         cupomValorInput: document.getElementById('cupom-valor'),
@@ -637,7 +638,7 @@ document.addEventListener('DOMContentLoaded', () => {
         validadeCupomInput: document.getElementById('validade-cupom'),
         listaCuponsContainer: document.getElementById('lista-cupons-container'),
 
-        // Elementos para gerenciar Garçons
+        // Elementos para gerenciar Garçons (Adicionados ou Confirmados)
         btnSalvarGarcom: document.getElementById('btn-salvar-garcom'),
         garcomNomeInput: document.getElementById('garcom-nome'),
         garcomSenhaInput: document.getElementById('garcom-senha'),
@@ -715,6 +716,10 @@ document.addEventListener('DOMContentLoaded', () => {
     DOM.btnEditarCardapio.addEventListener('click', () => {
         ativaAba(DOM.EditarCardapio, DOM.abaFinalizados, DOM.abaAtivos, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
         estilizaBotaoAtivo(DOM.btnEditarCardapio, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
+        // Set a default category if none is selected
+        if (!DOM.categoriaSelect.value) {
+            DOM.categoriaSelect.value = 'pizzas'; // Default to 'pizzas' or another appropriate category
+        }
         carregarItensCardapio(DOM.categoriaSelect.value, DOM.searchInput.value);
         DOM.sidebar.classList.add('-translate-x-full');
         DOM.overlay.classList.add('hidden');
@@ -725,7 +730,7 @@ document.addEventListener('DOMContentLoaded', () => {
         estilizaBotaoAtivo(DOM.btnEditarHorario, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
         DOM.sidebar.classList.add('-translate-x-full');
         DOM.overlay.classList.add('hidden');
-         // Inicializa a funcionalidade do editor de horário
+        // Inicializa a funcionalidade do editor de horário
         inicializarEditorHorario();
     });
 
@@ -750,7 +755,7 @@ document.addEventListener('DOMContentLoaded', () => {
         DOM.sidebar.classList.add('-translate-x-full');
         DOM.overlay.classList.add('hidden');
         // Define o período padrão para os últimos 7 dias e gera os relatórios
-        setRelatorioDateRange(6, 0);
+        setRelatorioDateRange(6, 0); // Sets to last 7 days
     });
 
     DOM.btnGerenciarCupom.addEventListener('click', () => {
@@ -758,7 +763,7 @@ document.addEventListener('DOMContentLoaded', () => {
         estilizaBotaoAtivo(DOM.btnGerenciarCupom, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
         DOM.sidebar.classList.add('-translate-x-full');
         DOM.overlay.classList.add('hidden');
-        carregarCupons();
+        // The real-time listener for cuponsRef.on('value') will call carregarCupons automatically
     });
 
     DOM.btnGerenciarEstoque.addEventListener('click', () => {
@@ -782,6 +787,7 @@ document.addEventListener('DOMContentLoaded', () => {
         DOM.receitaProdutoSelectDetalhe.disabled = true;
         DOM.receitaConfigDetalheContainer.classList.add('hidden');
         DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'none';
+        // The real-time listener for ingredientesRef.on('value') will call render functions
     });
 
     DOM.btnGerenciarGarcom.addEventListener('click', () => {
@@ -789,7 +795,7 @@ document.addEventListener('DOMContentLoaded', () => {
         estilizaBotaoAtivo(DOM.btnGerenciarGarcom, DOM.btnGerenciarCupom, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarEstoque);
         DOM.sidebar.classList.add('-translate-x-full');
         DOM.overlay.classList.add('hidden');
-        carregarGarcom();
+        // The real-time listener for garconsInfoRef.on('value') will call carregarGarcom automatically
     });
 
 
@@ -812,7 +818,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const updates = {};
             Object.keys(allIngredients).forEach(ingredienteId => {
                 updates[ingredienteId + '/quantidadeUsadaDiaria'] = 0;
-                updates[ingredienteId + '/custoUsadoDiario'] = 0;
+                updates[ingredienteId + '/custoUsadaDiaria'] = 0;
                 updates[ingredienteId + '/ultimaAtualizacaoConsumo'] = firebase.database.ServerValue.TIMESTAMP;
             });
             await ingredientesRef.update(updates);
@@ -876,9 +882,81 @@ document.addEventListener('DOMContentLoaded', () => {
     DOM.pizzaTamanhoSelectDetalhe.addEventListener('change', handlePizzaTamanhoSelectChangeDetalhe);
     DOM.btnAddIngredienteReceitaDetalhe.addEventListener('click', handleAddIngredienteReceitaDetalhe);
     DOM.btnSalvarReceitaDetalhe.addEventListener('click', handleSalvarReceitaDetalhe);
-    
+
+    // --- Event Listeners para o Modal de Mesa ---
+    // Selecionador corrigido para o botão de fechar, usando a classe '.close-modal'
+    const closeMesaModalButton = DOM.modalMesaDetalhes.querySelector('.close-modal');
+    if (closeMesaModalButton) {
+        closeMesaModalButton.addEventListener('click', fecharModalMesaDetalhes);
+    }
+
+    DOM.valorAPagarInput.addEventListener('input', updateCheckoutStatus);
+    DOM.pagamentoMetodoAtual.addEventListener('change', updateCheckoutStatus);
+    DOM.trocoRecebidoInput.addEventListener('input', updateCheckoutStatus);
+    DOM.dividirPorInput.addEventListener('input', updateCheckoutStatus);
+
+    DOM.btnAdicionarPagamento.addEventListener('click', adicionarPagamentoMesa);
+    DOM.btnDividirRestante.addEventListener('click', dividirContaMesa);
+    DOM.btnCancelarPedidoMesa.addEventListener('click', cancelarPedidoMesa);
+    DOM.btnFinalizarContaMesa.addEventListener('click', finalizarContaMesa);
+
+
     // Inicializa a primeira aba ao carregar a página
-    DOM.btnAtivos.click();
+    DOM.btnAtivos.click(); // This will also trigger renderizarPedidos
+
+    // Initialize Cardapio Management Listeners
+    if (DOM.categoriaSelect) {
+        DOM.categoriaSelect.addEventListener("change", (e) => {
+            carregarItensCardapio(e.target.value, DOM.searchInput.value);
+        });
+    }
+    if (DOM.searchInput) {
+        DOM.searchInput.addEventListener("input", () => {
+            carregarItensCardapio(DOM.categoriaSelect.value, DOM.searchInput.value);
+        });
+    }
+
+    // New Item Modal Listeners
+    if (DOM.btnFecharNovoItem) {
+        DOM.btnFecharNovoItem.addEventListener("click", () => {
+            DOM.modalNovoItem.classList.add("hidden");
+            limparFormularioNovoItem();
+        });
+    }
+
+    if (DOM.novoImagemInput && DOM.previewNovaImagem) {
+        DOM.novoImagemInput.addEventListener("input", () => {
+            const url = DOM.novoImagemInput.value.trim();
+            if (url && url.startsWith('http')) {
+                DOM.previewNovaImagem.src = url;
+                DOM.previewNovaImagem.classList.remove("hidden");
+            } else {
+                DOM.previewNovaImagem.src = '';
+                DOM.previewNovaImagem.classList.add("hidden");
+            }
+        });
+    }
+
+    if (DOM.btnSalvarNovoItem) {
+        DOM.btnSalvarNovoItem.addEventListener("click", handleSalvarNovoItem);
+    }
+
+    // Uppercase input for coupon code
+    document.addEventListener('input', (event) => {
+        if (event.target.classList.contains('uppercase-input')) {
+            const input = event.target;
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            input.value = input.value.toUpperCase();
+            input.setSelectionRange(start, end);
+        }
+    });
+
+    // Event listener for the "Adicionar Novo Item" button in the Cardápio section
+    const btnAdicionarItemCardapio = document.getElementById('btn-adicionar-item-cardapio');
+    if (btnAdicionarItemCardapio) {
+        btnAdicionarItemCardapio.addEventListener('click', mostrarNovoitem);
+    }
 });
 
 // --- FUNÇÕES DE RELATÓRIOS (Pedidos) ---
@@ -893,7 +971,7 @@ function setRelatorioDateRange(daysAgoStart = 0, daysAgoEnd = 0, monthsAgo = 0) 
             endDate = new Date(today.getFullYear(), today.getMonth(), 0);
         } else if (monthsAgo === 3) {
             startDate = new Date(today.getFullYear(), today.getMonth() - 3, 1);
-            endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); // End of current month
         }
     } else {
         startDate.setDate(today.getDate() - daysAgoStart);
@@ -955,6 +1033,7 @@ function gerarRelatorios() {
         const pedidosNoPeriodo = [];
         snapshot.forEach(childSnapshot => {
             const pedido = childSnapshot.val();
+            // Include both online orders and finalized table orders in reports
             if (pedido.status === 'Finalizado' && pedido.timestamp >= dataInicioTimestamp && pedido.timestamp <= dataFimTimestamp) {
                 pedidosNoPeriodo.push(pedido);
             }
@@ -962,7 +1041,7 @@ function gerarRelatorios() {
 
         if (pedidosNoPeriodo.length === 0) {
             DOM.topProdutosSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
-            DOM.vendasPorDiaSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionada.</p>';
+            DOM.vendasPorDiaSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
             DOM.horariosPicoSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
             DOM.metodosPagamentoSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
 
@@ -1447,7 +1526,7 @@ function gerarNota(pedido) {
             <tr>
                 <td>${item.quantity}</td>
                 <td>${item.name}${sizeInfo}</td>
-                <td>R$ ${(item.price * item.quantity).toFixed(2)}</td>
+                <td>R$ ${(item.price).toFixed(2)}</td>
                 <td>R$ ${(item.price * item.quantity).toFixed(2)}</td>
             </tr>`;
     });
@@ -1476,51 +1555,9 @@ function imprimirPedido(pedidoId) {
     });
 }
 
-const imagemUrlInput = document.getElementById('imagemUrl');
-const imagemPreview = document.getElementById('imagemPreview');
+// Removed promoForm and related imagePreview logic for a unified product management.
+// The image preview for the NEW ITEM MODAL is handled by DOM.novoImagemInput and DOM.previewNovaImagem.
 
-if (imagemUrlInput && imagemPreview) {
-    imagemUrlInput.addEventListener('input', () => {
-        const url = imagemUrlInput.value.trim();
-        if (url.startsWith('http')) {
-            imagemPreview.src = url;
-            imagemPreview.classList.remove('hidden');
-        } else {
-            imagemPreview.src = '';
-            imagemPreview.classList.add('hidden');
-        }
-    });
-}
-
-document.getElementById('promoForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-
-    const titulo = document.getElementById('titulo').value.trim();
-    const descricao = document.getElementById('descricao').value.trim();
-    const imagem = imagemUrlInput.value.trim();
-    const preco = parseFloat(document.getElementById('preco').value);
-
-    if (!imagem.startsWith('http')) {
-        alert("Coloque uma URL de imagem válida.");
-        return;
-    }
-
-    const novaPromo = { titulo, descricao, imagem, preco, ativo: true };
-
-    promocoesRef.push(novaPromo)
-        .then(() => {
-            alert("Promoção adicionada com sucesso!");
-            document.getElementById('promoForm').reset();
-            imagemPreview.src = '';
-            imagemPreview.classList.add('hidden');
-        })
-        .catch(error => {
-            alert("Erro ao adicionar promoção: " + error.message);
-        });
-});
-
-let pedidoEmEdicao = null;
-let pedidoOriginal = null;
 
 function editarPedido(pedidoId) {
     pedidoEmEdicao = pedidoId;
@@ -1540,42 +1577,78 @@ function renderizarItensModal(itens) {
 
     itens.forEach((item, index) => {
         let sizeInfo = item.size ? ` (${item.size})` : '';
-        container.innerHTML += `
-            <div class="flex justify-between items-center gap-2 border p-2 rounded">
-                <input type="number" min="0" value="${item.quantity}"
-                    class="w-16 border p-1 rounded text-center"
-                    data-index="${index}"
-                    data-name="${item.name}"
-                    data-price="${item.price}"
-                    data-size="${item.size || ''}"
-                />
-                <span class="flex-1 ml-2">${item.name}${sizeInfo}</span>
-                <span>R$ ${(item.price * item.quantity).toFixed(2)}</span>
-            </div>
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'flex justify-between items-center gap-2 border p-2 rounded';
+        itemDiv.innerHTML = `
+            <input type="number" min="0" value="${item.quantity}"
+                class="w-16 border p-1 rounded text-center"
+                data-index="${index}"
+                data-name="${item.name}"
+                data-price="${item.price}"
+                data-size="${item.size || ''}"
+            />
+            <span class="flex-1 ml-2">${item.name}${sizeInfo}</span>
+            <span>R$ ${(item.price * item.quantity).toFixed(2)}</span>
         `;
+        container.appendChild(itemDiv);
+    });
+
+    // Re-attach event listeners for dynamically created inputs (important for edit functionality)
+    container.querySelectorAll('input[type="number"]').forEach(input => {
+        input.addEventListener('input', (event) => {
+            const idx = parseInt(event.target.dataset.index);
+            const newQuantity = parseInt(event.target.value, 10);
+            if (!isNaN(newQuantity) && newQuantity >= 0) {
+                // Find the original item in the array to update its quantity
+                // This assumes `pedidoOriginal.cart` is the direct source of truth for the modal
+                // and the order of elements in `modal-itens` matches `pedidoOriginal.cart`.
+                // A more robust way might be to store the original item's ID in data-id and search.
+                if (pedidoOriginal.cart[idx]) {
+                    pedidoOriginal.cart[idx].quantity = newQuantity;
+                    // Recalculate total for that item and update its display
+                    const itemPriceElement = event.target.closest('div').querySelector('span:last-child');
+                    if (itemPriceElement) {
+                        itemPriceElement.textContent = `R$ ${(pedidoOriginal.cart[idx].price * newQuantity).toFixed(2)}`;
+                    }
+                }
+            } else {
+                event.target.value = pedidoOriginal.cart[idx].quantity; // Revert to original if invalid
+            }
+        });
     });
 
     document.getElementById('btn-salvar-pedido').onclick = salvarPedidoEditado;
 }
 
-document.getElementById('btn-adicionar-item')?.addEventListener('click', () => {
-    const nome = document.getElementById('novo-item-nome').value.trim();
-    const preco = parseFloat(document.getElementById('novo-item-preco').value);
-    const qtd = parseInt(document.getElementById('novo-item-quantidade').value, 10);
+const btnAdicionarItemModal = document.getElementById('btn-adicionar-item');
+if (btnAdicionarItemModal) { // Add existence check
+    btnAdicionarItemModal.addEventListener('click', () => {
+        const nome = document.getElementById('novo-item-nome').value.trim();
+        const preco = parseFloat(document.getElementById('novo-item-preco').value);
+        const qtd = parseInt(document.getElementById('novo-item-quantidade').value, 10);
 
-    if (!nome || isNaN(preco) || isNaN(qtd)) {
-        return alert('Preencha todos os campos corretamente.');
-    }
+        if (!nome || isNaN(preco) || isNaN(qtd) || qtd <= 0 || preco <= 0) {
+            alert('Preencha todos os campos corretamente com valores positivos.');
+            return;
+        }
 
-    pedidoOriginal.cart = pedidoOriginal.cart || [];
-    pedidoOriginal.cart.push({ name: nome, price: preco, quantity: qtd });
+        pedidoOriginal.cart = pedidoOriginal.cart || [];
+        // Check if item already exists in cart for this order and update quantity
+        const existingItemIndex = pedidoOriginal.cart.findIndex(item => item.name === nome);
+        if (existingItemIndex > -1) {
+            pedidoOriginal.cart[existingItemIndex].quantity += qtd;
+        } else {
+            pedidoOriginal.cart.push({ name: nome, price: preco, quantity: qtd, size: '' }); // size empty for general items
+        }
 
-    document.getElementById('novo-item-nome').value = '';
-    document.getElementById('novo-item-preco').value = '';
-    document.getElementById('novo-item-quantidade').value = '1';
 
-    renderizarItensModal(pedidoOriginal.cart);
-});
+        document.getElementById('novo-item-nome').value = '';
+        document.getElementById('novo-item-preco').value = '';
+        document.getElementById('novo-item-quantidade').value = '1';
+
+        renderizarItensModal(pedidoOriginal.cart);
+    });
+}
 
 function salvarPedidoEditado() {
     const inputs = document.querySelectorAll('#modal-itens input[type="number"]');
@@ -1601,7 +1674,7 @@ function salvarPedidoEditado() {
         })
         .catch(error => {
             console.error('Erro ao salvar pedido:', error);
-            alert('Erro ao salvar o pedido.');
+            alert('Erro ao salvar o pedido. Verifique o console para mais detalhes.');
         });
 }
 
@@ -1609,27 +1682,72 @@ function fecharModalEditarPedido() {
     document.getElementById('modal-editar-pedido').classList.add('hidden');
     pedidoEmEdicao = null;
     pedidoOriginal = null;
+    // Refresh the active orders display to reflect changes immediately
+    renderizarPedidos();
 }
 
-DOM.btnEditarCardapio.addEventListener("click", () => {
-    DOM.abaAtivos.classList.add("hidden");
-    DOM.abaFinalizados.classList.add("hidden");
-    DOM.promocoes.classList.add("hidden");
-    DOM.EditarCardapio.classList.remove("hidden");
+function mostrarNovoitem() {
+    DOM.modalNovoItem.classList.remove("hidden");
+    DOM.modalNovoItem.classList.add("flex");
+    limparFormularioNovoItem(); // Ensure form is clear when opening
+}
 
-    carregarItensCardapio(DOM.categoriaSelect.value, DOM.searchInput.value);
-});
+function handleSalvarNovoItem() {
+    const nome = DOM.novoNomeInput.value.trim();
+    const descricao = DOM.novoDescricaoInput.value.trim();
+    const preco = parseFloat(DOM.novoPrecoInput.value);
+    const imagem = DOM.novoImagemInput.value.trim();
+    const ativo = DOM.novoAtivoCheckbox.checked;
+    const categoria = DOM.categoriaSelect.value;
+    const tipo = DOM.novoTipoSelect.value;
 
-DOM.categoriaSelect.addEventListener("change", (e) => {
-    carregarItensCardapio(e.target.value, DOM.searchInput.value);
-});
+    if (!categoria) {
+        alert("Selecione uma categoria para salvar o item.");
+        return;
+    }
 
-DOM.searchInput.addEventListener("input", () => {
-    carregarItensCardapio(DOM.categoriaSelect.value, DOM.searchInput.value);
-});
+    if (!nome || isNaN(preco) || preco <= 0) {
+        alert("Preencha o nome e o preço corretamente. O preço deve ser um valor positivo.");
+        return;
+    }
+    if (imagem && !imagem.startsWith('http')) {
+        alert("Coloque uma URL de imagem válida (deve começar com http:// ou https://).");
+        return;
+    }
+
+    const novoItem = { nome, descricao, preco, imagem, ativo, tipo, receita: {} };
+
+    database.ref(`produtos/${categoria}`).push(novoItem, (error) => {
+        if (error) {
+            alert("Erro ao adicionar item!");
+            console.error("Erro ao adicionar item:", error);
+        } else {
+            alert("Item adicionado com sucesso!");
+            DOM.modalNovoItem.classList.add("hidden");
+            carregarItensCardapio(categoria, DOM.searchInput.value);
+            limparFormularioNovoItem();
+        }
+    });
+}
+
+
+function limparFormularioNovoItem() {
+    DOM.novoNomeInput.value = "";
+    DOM.novoDescricaoInput.value = "";
+    DOM.novoPrecoInput.value = "";
+    DOM.novoImagemInput.value = "";
+    if (DOM.previewNovaImagem) DOM.previewNovaImagem.classList.add("hidden");
+    DOM.novoAtivoCheckbox.checked = true;
+    DOM.novoTipoSelect.value = "salgado";
+}
+
 
 function carregarItensCardapio(categoria, searchQuery = '') {
-    const container = document.getElementById("itens-cardapio-container");
+    const container = DOM.itensCardapioContainer;
+    if (!container) {
+        console.error("Container de itens do cardápio não encontrado.");
+        return;
+    }
     container.innerHTML = "Carregando...";
 
     const ref = database.ref(`produtos/${categoria}`);
@@ -1646,7 +1764,7 @@ function carregarItensCardapio(categoria, searchQuery = '') {
 
         const lowerCaseSearchQuery = searchQuery.toLowerCase();
         const filteredItems = itemsToRender.filter(({ item }) => {
-            const name = (item.nome || item.titulo || '').toLowerCase();
+            const name = (item.nome || item.titulo || '').toLowerCase(); // Handles "nome" or "titulo"
             const description = (item.descricao || '').toLowerCase();
             return name.includes(lowerCaseSearchQuery) || description.includes(lowerCaseSearchQuery);
         });
@@ -1660,6 +1778,9 @@ function carregarItensCardapio(categoria, searchQuery = '') {
             const card = criarCardItem(item, key, categoria);
             container.appendChild(card);
         });
+    }, (error) => {
+        console.error("Erro ao carregar itens do cardápio:", error);
+        container.innerHTML = `<p class="text-red-600 text-center col-span-full">Erro ao carregar itens do cardápio.</p>`;
     });
 }
 
@@ -1672,13 +1793,22 @@ function criarCardItem(item, key, categoriaAtual) {
 
     card.className = `bg-white p-4 rounded ${destaquePromocao} flex flex-col gap-2`;
 
+    // Use item.nome or item.titulo for consistency if 'promocoes' items have 'titulo'
+    const itemName = item.nome || item.titulo || '';
+    const itemDescription = item.descricao || '';
+    const itemPrice = item.preco || 0;
+    const itemImage = item.imagem || '';
+    const itemActive = item.ativo ? 'checked' : '';
+    const itemType = item.tipo || "salgado"; // Default type
+
+
     card.innerHTML = `
         ${categoriaAtual === "promocoes" ? '<span class="text-yellow-600 font-bold text-sm">🔥 Promoção</span>' : ''}
-        <input type="text" value="${item.nome || ''}" placeholder="Nome" class="p-2 border rounded nome">
-        <textarea placeholder="Descrição" class="p-2 border rounded descricao">${item.descricao || ''}</textarea>
-        <input type="number" value="${item.preco || 0}" step="0.01" class="p-2 border rounded preco">
-        <input type="text" value="${item.imagem || ''}" placeholder="URL da Imagem" class="p-2 border rounded imagem">
-        <img class="preview-img w-full h-32 object-cover rounded border ${item.imagem ? '' : 'hidden'}" src="${item.imagem || ''}">
+        <input type="text" value="${itemName}" placeholder="Nome" class="p-2 border rounded nome">
+        <textarea placeholder="Descrição" class="p-2 border rounded descricao">${itemDescription}</textarea>
+        <input type="number" value="${itemPrice}" step="0.01" class="p-2 border rounded preco">
+        <input type="text" value="${itemImage}" placeholder="URL da Imagem" class="p-2 border rounded imagem">
+        <img class="preview-img w-full h-32 object-cover rounded border ${itemImage ? '' : 'hidden'}" src="${itemImage}">
     `;
 
     const tipoLabel = document.createElement("label");
@@ -1694,12 +1824,12 @@ function criarCardItem(item, key, categoriaAtual) {
         <option value="pizza">Pizza</option>
         <option value="bebida">Bebida</option>
     `;
-    selectTipo.value = item.tipo || "salgado";
+    selectTipo.value = itemType;
     card.appendChild(selectTipo);
 
     card.innerHTML += `
         <label class="flex items-center gap-2 text-sm text-gray-700 mt-2">
-            <input type="checkbox" class="ativo" ${item.ativo ? 'checked' : ''}> Ativo
+            <input type="checkbox" class="ativo" ${itemActive}> Ativo
         </label>
         <div class="flex justify-between gap-2 mt-2">
             <button class="salvar bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700 w-full">Salvar</button>
@@ -1728,10 +1858,11 @@ function criarCardItem(item, key, categoriaAtual) {
     const previewImg = card.querySelector(".preview-img");
 
     inputImagem.addEventListener("input", () => {
-        if (inputImagem.value.trim() !== "") {
+        if (inputImagem.value.trim() !== "" && inputImagem.value.trim().startsWith('http')) {
             previewImg.src = inputImagem.value;
             previewImg.classList.remove("hidden");
         } else {
+            previewImg.src = '';
             previewImg.classList.add("hidden");
         }
     });
@@ -1744,15 +1875,37 @@ function criarCardItem(item, key, categoriaAtual) {
         const ativo = card.querySelector(".ativo").checked;
         const tipo = card.querySelector(".tipo").value;
 
-        database.ref(`produtos/${categoriaAtual}/${key}`).update({
-            nome,
-            descricao,
-            preco,
-            imagem,
-            ativo,
-            tipo
-        }, function(error) {
-            alert(error ? "Erro ao salvar!" : "Item atualizado com sucesso!");
+        if (!nome || isNaN(preco) || preco <= 0) {
+            alert("Preencha o nome e o preço corretamente. O preço deve ser um valor positivo.");
+            return;
+        }
+        if (imagem && !imagem.startsWith('http')) {
+            alert("Coloque uma URL de imagem válida para o item.");
+            return;
+        }
+
+        const updates = {
+            nome: nome,
+            descricao: descricao,
+            preco: preco,
+            imagem: imagem,
+            ativo: ativo,
+            tipo: tipo
+        };
+        // If it's a "promocoes" item, update 'titulo' as well
+        if (categoriaAtual === "promocoes") {
+            updates.titulo = nome;
+        }
+
+        database.ref(`produtos/${categoriaAtual}/${key}`).update(updates, function(error) {
+            if (error) {
+                alert("Erro ao salvar! " + error.message);
+                console.error("Erro ao salvar item:", error);
+            } else {
+                alert("Item atualizado com sucesso!");
+                // Recarregar o cardápio para refletir a atualização se necessário
+                // carregarItensCardapio(categoriaAtual, DOM.searchInput.value);
+            }
         });
     });
 
@@ -1761,6 +1914,9 @@ function criarCardItem(item, key, categoriaAtual) {
             database.ref(`produtos/${categoriaAtual}/${key}`).remove(() => {
                 card.remove();
                 alert("Item excluído com sucesso!");
+            }).catch(error => {
+                console.error("Erro ao excluir item:", error);
+                alert("Erro ao excluir item: " + error.message);
             });
         }
     });
@@ -1778,7 +1934,7 @@ function criarCardItem(item, key, categoriaAtual) {
             return;
         }
 
-        if (confirm(`Tem certeza que deseja mover "${item.nome || item.titulo}" de "${categoriaAtual}" para "${targetCategory}"?`)) {
+        if (confirm(`Tem certeza que deseja mover "${itemName}" de "${categoriaAtual}" para "${targetCategory}"?`)) {
             const updatedItemData = {
                 nome: card.querySelector(".nome").value,
                 descricao: card.querySelector(".descricao").value,
@@ -1786,93 +1942,35 @@ function criarCardItem(item, key, categoriaAtual) {
                 imagem: inputImagem.value,
                 ativo: card.querySelector(".ativo").checked,
                 tipo: card.querySelector(".tipo").value,
-                receita: item.receita || {}
+                receita: item.receita || {} // Keep existing recipe data
             };
-            moverItemParaCategoria(key, categoriaAtual, targetCategory, updatedItemData);
+            // For 'promocoes', also update 'titulo'
+            if (targetCategory === "promocoes") {
+                updatedItemData.titulo = updatedItemData.nome;
+            } else if (categoriaAtual === "promocoes" && updatedItemData.titulo) {
+                // If moving *from* promotions, ensure 'titulo' is not left in new category
+                delete updatedItemData.titulo;
+            }
+
+            // Perform the move (copy to new location, then remove from old)
+            database.ref(`produtos/${targetCategory}`).push(updatedItemData)
+                .then(() => {
+                    return database.ref(`produtos/${categoriaAtual}/${key}`).remove();
+                })
+                .then(() => {
+                    alert(`Item movido de "${categoriaAtual}" para "${targetCategory}" com sucesso!`);
+                    carregarItensCardapio(categoriaAtual, DOM.searchInput.value); // Reload current view
+                })
+                .catch(error => {
+                    console.error("Erro ao mover item:", error);
+                    alert("Erro ao mover item: " + error.message);
+                });
         }
     });
 
     return card;
 }
 
-function moverItemParaCategoria(itemKey, categoriaOrigem, categoriaDestino, itemData) {
-    database.ref(`produtos/${categoriaDestino}`).push(itemData)
-        .then(() => {
-            return database.ref(`produtos/${categoriaOrigem}/${itemKey}`).remove();
-        })
-        .then(() => {
-            alert(`Item "${itemData.nome || itemData.titulo}" movido com sucesso de "${categoriaOrigem}" para "${categoriaDestino}"!`);
-            carregarItensCardapio(categoriaOrigem, DOM.searchInput.value);
-        })
-        .catch(error => {
-            console.error('Erro ao mover item:', error);
-            alert('Erro ao mover item. Verifique o console para detalhes.');
-        });
-}
-
-function mostrarNovoitem() {
-    document.getElementById("modal-novo-item").classList.remove("hidden");
-    document.getElementById("modal-novo-item").classList.add("flex");
-};
-
-document.getElementById("btn-fechar-novo-item").addEventListener("click", () => {
-    document.getElementById("modal-novo-item").classList.add("hidden");
-});
-
-document.getElementById("novo-imagem").addEventListener("input", () => {
-    const url = document.getElementById("novo-imagem").value.trim();
-    const preview = document.getElementById("preview-nova-imagem");
-
-    if (url) {
-        preview.src = url;
-        preview.classList.remove("hidden");
-    } else {
-        preview.classList.add("hidden");
-    }
-});
-
-document.getElementById("btn-salvar-novo-item").addEventListener("click", () => {
-    const nome = document.getElementById("novo-nome").value.trim();
-    const descricao = document.getElementById("novo-descricao").value.trim();
-    const preco = parseFloat(document.getElementById("novo-preco").value);
-    const imagem = document.getElementById("novo-imagem").value.trim();
-    const ativo = document.getElementById("novo-ativo").checked;
-    const categoria = document.getElementById("categoria-select").value;
-    const tipo = document.getElementById("novo-tipo").value;
-
-    if (!categoria) {
-        alert("Selecione uma categoria para salvar o item.");
-        return;
-    }
-
-    if (!nome || isNaN(preco)) {
-        alert("Preencha o nome e o preço corretamente.");
-        return;
-    }
-
-    const novoItem = { nome, descricao, preco, imagem, ativo, tipo, receita: {} };
-
-    database.ref(`produtos/${categoria}`).push(novoItem, (error) => {
-        if (error) {
-            alert("Erro ao adicionar item!");
-        } else {
-            alert("Item adicionado com sucesso!");
-            document.getElementById("modal-novo-item").classList.add("hidden");
-            carregarItensCardapio(categoria, DOM.searchInput.value);
-            limparFormularioNovoItem();
-        }
-    });
-});
-
-function limparFormularioNovoItem() {
-    document.getElementById("novo-nome").value = "";
-    document.getElementById("novo-descricao").value = "";
-    document.getElementById("novo-preco").value = "";
-    document.getElementById("novo-imagem").value = "";
-    document.getElementById("preview-nova-imagem").classList.add("hidden");
-    document.getElementById("novo-ativo").checked = true;
-    document.getElementById("novo-tipo").value = "salgado";
-}
 
 // Horarios
 // Função auxiliar para salvar os horários no Firebase.
@@ -1938,9 +2036,9 @@ function inicializarEditorHorario() {
                         const abertoCheckbox = document.querySelector(`[name="aberto-${i}"]`);
                         const inicioInput = document.querySelector(`[name="inicio-${i}"]`);
                         const fimInput = document.querySelector(`[name="fim-${i}"]`);
-                        if(abertoCheckbox) abertoCheckbox.checked = diaConfig.aberto;
-                        if(inicioInput) inicioInput.value = diaConfig.inicio;
-                        if(fimInput) fimInput.value = diaConfig.fim;
+                        if (abertoCheckbox) abertoCheckbox.checked = diaConfig.aberto;
+                        if (inicioInput) inicioInput.value = diaConfig.inicio;
+                        if (fimInput) fimInput.value = diaConfig.fim;
                     }
                 }
             }
@@ -1951,18 +2049,22 @@ function inicializarEditorHorario() {
     formHorario.addEventListener("submit", (e) => {
         e.preventDefault();
         const horarios = {};
+        let hasError = false;
         for (let i = 0; i <= 6; i++) {
             const aberto = document.querySelector(`[name="aberto-${i}"]`).checked;
             const inicio = parseInt(document.querySelector(`[name="inicio-${i}"]`).value);
             const fim = parseInt(document.querySelector(`[name="fim-${i}"]`).value);
 
-            if (aberto && (isNaN(inicio) || isNaN(fim) || inicio < 0 || inicio > 23 || fim < 0 || fim > 23 || inicio >= fim)) {
-                alert(`Por favor, verifique os horários de ${dias[i]}.`);
+            if (aberto && (isNaN(inicio) || isNaN(fim) || inicio < 0 || inicio > 23 || fim < 0 || fim > 24 || inicio >= fim)) { // fim can be 24 for midnight
+                alert(`Por favor, verifique os horários de ${dias[i]}. Fim deve ser maior que início.`);
+                hasError = true;
                 return;
             }
             horarios[i] = { aberto, inicio, fim };
         }
-        salvarHorariosNoFirebase(horarios);
+        if (!hasError) {
+            salvarHorariosNoFirebase(horarios);
+        }
     });
 
     // 4. Adiciona o listener para mostrar o status (aberto/fechado) em tempo real
@@ -1974,6 +2076,7 @@ function inicializarEditorHorario() {
             statusElement.className = isOpen ? "mb-4 text-green-700 font-bold" : "mb-4 text-red-700 font-bold";
         } else {
             statusElement.textContent = "Horários não configurados.";
+            statusElement.className = "mb-4 text-gray-700 font-bold";
         }
     });
 }
@@ -2000,6 +2103,7 @@ DOM.btnConfigurarMesas.addEventListener('click', () => {
                         observacoes: '',
                         pedido: null,
                         total: 0,
+                        pagamentosRegistrados: null, // Garante que é inicializado como null
                         lastUpdate: firebase.database.ServerValue.TIMESTAMP
                     };
                 }
@@ -2044,6 +2148,7 @@ function renderMesas(mesasData) {
         DOM.mesasContainer.appendChild(card);
     });
 
+    // Adiciona o listener para cada card de mesa APÓS eles serem criados
     DOM.mesasContainer.querySelectorAll('.table-card').forEach(card => {
         card.addEventListener('click', () => abrirModalMesaDetalhes(card.dataset.mesaNumero));
     });
@@ -2053,8 +2158,10 @@ function carregarMesasDoFirebase() {
     mesasRef.once('value', (snapshot) => {
         const mesasData = snapshot.val() || {};
         if (Object.keys(mesasData).length === 0) {
+            // If no mesas are configured, set the input value to 10 but don't auto-click
+            // The user should manually click "Configurar Mesas"
             DOM.numMesasInput.value = 10;
-            DOM.btnConfigurarMesas.click();
+            DOM.mesasContainer.innerHTML = '<p class="text-gray-600 text-center col-span-full">Nenhuma mesa configurada. Defina o número de mesas e clique em "Configurar Mesas".</p>';
         } else {
             DOM.numMesasInput.value = Object.keys(mesasData).length;
             renderMesas(mesasData);
@@ -2065,11 +2172,12 @@ function carregarMesasDoFirebase() {
     });
 }
 
-function abrirModalMesaDetalhes(mesaNumero) {
-    currentMesaIdForCheckout = mesaNumero;
-
-    mesasRef.child(mesaNumero).once('value', (snapshot) => {
+async function abrirModalMesaDetalhes(mesaNumero) {
+    currentMesaIdForCheckout = mesaNumero; // Define a mesa atual
+    try {
+        const snapshot = await mesasRef.child(mesaNumero).once('value');
         const mesa = snapshot.val();
+
         if (!mesa) {
             alert('Mesa não encontrada ou foi removida.');
             return;
@@ -2082,50 +2190,64 @@ function abrirModalMesaDetalhes(mesaNumero) {
         DOM.mesaDetalhesGarcom.textContent = mesa.garcom || 'N/A';
         DOM.mesaDetalhesObs.textContent = mesa.observacoes || 'N/A';
 
+        // Carrega os itens do pedido da mesa. É CRÍTICO que estes sejam a fonte da verdade para o cálculo.
+        // Inicializa remainingQuantity e selectedToPayQuantity
         currentMesaItemsToPay = mesa.pedido ? mesa.pedido.map(item => ({
             ...item,
-            originalQuantity: item.quantity,
-            remainingQuantity: item.quantity,
-            selectedToPayQuantity: 0
+            originalQuantity: item.quantity, // Quantidade original do item no pedido
+            remainingQuantity: item.quantity, // Quantidade restante a ser paga/considerada
+            selectedToPayQuantity: 0 // Quantidade selecionada para o pagamento atual
         })) : [];
 
+        // Inicializa o histórico de pagamentos e o total pago
+        currentMesaPaymentsHistory = mesa.pagamentosRegistrados || [];
+        const totalAlreadyPaid = currentMesaPaymentsHistory.reduce((sum, p) => sum + p.valorPago, 0);
+
+        // Define o total original do pedido (imutável para esta sessão de checkout)
         currentMesaTotal = mesa.total || 0;
-        currentMesaRemainingToPay = mesa.total || 0;
-        currentMesaPaymentsHistory = [];
-        let totalAlreadyPaid = 0;
+        currentMesaRemainingToPay = currentMesaTotal - totalAlreadyPaid; // Calcula o restante a pagar
+        // Adjust for floating point inaccuracies
+        if (Math.abs(currentMesaRemainingToPay) < 0.01) {
+            currentMesaRemainingToPay = 0;
+        }
 
         DOM.mesaTotalOriginal.textContent = `R$ ${currentMesaTotal.toFixed(2)}`;
         DOM.mesaTotalPago.textContent = `R$ ${totalAlreadyPaid.toFixed(2)}`;
         DOM.mesaRestantePagar.textContent = `R$ ${currentMesaRemainingToPay.toFixed(2)}`;
 
+        // Renderiza as interfaces
         renderMesaItemsForCheckout();
         renderPagamentoHistory();
 
-        DOM.valorAPagarInput.value = '';
+        // Reseta campos do formulário de pagamento
+        DOM.valorAPagarInput.value = currentMesaRemainingToPay.toFixed(2); // Sugere o valor restante
         DOM.dividirPorInput.value = '';
         DOM.pagamentoMetodoAtual.value = '';
         DOM.trocoRecebidoInput.value = '';
         DOM.trocoInputGroup.classList.add('hidden');
 
-        DOM.btnAdicionarPagamento.disabled = true;
-        DOM.btnDividirRestante.disabled = true;
+        // Habilita/desabilita botões com base no status da mesa
+        DOM.btnAdicionarPagamento.disabled = true; // Desabilita por padrão, só habilita se valor e método forem válidos
+        DOM.btnDividirRestante.disabled = currentMesaRemainingToPay <= 0.01;
+        DOM.btnFinalizarContaMesa.disabled = currentMesaRemainingToPay > 0.01; // Desabilita se ainda há algo a pagar
 
         if (mesa.status === 'Livre' || !mesa.pedido || mesa.pedido.length === 0) {
             DOM.btnCancelarPedidoMesa.classList.add('hidden');
             DOM.btnFinalizarContaMesa.disabled = true;
-            DOM.btnAdicionarPagamento.disabled = true;
-            DOM.mesaItensSelecaoContainer.innerHTML = '<p class="text-gray-500 text-center">Nenhum item para exibir ou mesa livre.</p>';
+            DOM.mesaItensSelecaoContainer.innerHTML = '<p class="text-gray-500 text-center" id="empty-items-message">Nenhum item para exibir ou mesa livre.</p>';
+            DOM.emptyItemsMessage.classList.remove('hidden'); // Ensure message is visible
         } else {
             DOM.btnCancelarPedidoMesa.classList.remove('hidden');
         }
 
-        updateCheckoutStatus();
+        updateCheckoutStatus(); // Faz uma atualização inicial para garantir o estado dos botões
         DOM.modalMesaDetalhes.classList.remove('hidden');
         DOM.modalMesaDetalhes.classList.add('flex');
-    }).catch(error => {
+
+    } catch (error) {
         console.error("Erro ao abrir modal de mesa:", error);
         alert("Erro ao carregar detalhes da mesa.");
-    });
+    }
 }
 
 function fecharModalMesaDetalhes() {
@@ -2137,19 +2259,24 @@ function fecharModalMesaDetalhes() {
     currentMesaPaymentsHistory = [];
 }
 
+// Renderiza a lista de itens do pedido da mesa para seleção de pagamento
 function renderMesaItemsForCheckout() {
     if (!DOM.mesaItensSelecaoContainer) return;
     DOM.mesaItensSelecaoContainer.innerHTML = '';
-    DOM.emptyItemsMessage.classList.add('hidden');
+    DOM.emptyItemsMessage.classList.add('hidden'); // Hide by default
 
-    const pendingItems = currentMesaItemsToPay.filter(item => item.remainingQuantity > 0);
+    const pendingItems = currentMesaItemsToPay.filter(item => item.remainingQuantity > 0.001); // Filter out items already paid
 
-    if (pendingItems.length === 0) {
+    if (pendingItems.length === 0 && currentMesaRemainingToPay > 0) {
         DOM.emptyItemsMessage.classList.remove('hidden');
-        DOM.valorAPagarInput.value = currentMesaRemainingToPay.toFixed(2);
-        updateCheckoutStatus();
-        return;
+        DOM.emptyItemsMessage.textContent = 'Todos os itens foram marcados para pagamento, mas ainda há um saldo remanescente.';
+    } else if (pendingItems.length === 0 && currentMesaRemainingToPay <= 0) {
+        DOM.emptyItemsMessage.classList.remove('hidden');
+        DOM.emptyItemsMessage.textContent = 'Todos os itens foram pagos.';
+    } else if (pendingItems.length > 0) {
+        DOM.emptyItemsMessage.classList.add('hidden');
     }
+
 
     pendingItems.forEach((item, index) => {
         let sizeInfo = item.size ? ` (${item.size})` : '';
@@ -2158,12 +2285,12 @@ function renderMesaItemsForCheckout() {
         itemDiv.innerHTML = `
             <div class="flex-1">
                 <p class="font-medium text-gray-800">${item.name}${sizeInfo}</p>
-                <p class="text-sm text-gray-600">Total: ${item.originalQuantity} un. | Restante: ${item.remainingQuantity} un.</p>
+                <p class="text-sm text-gray-600">Total: ${item.originalQuantity} un. | Restante: ${item.remainingQuantity.toFixed(2)} un.</p>
             </div>
             <div class="flex items-center gap-2">
                 <button class="px-2 py-1 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-700 decrease-pay-quantity-btn" data-index="${index}" ${item.selectedToPayQuantity === 0 ? 'disabled' : ''}>-</button>
                 <input type="number" class="w-16 p-1 border rounded text-center selected-pay-quantity-input"
-                        value="${item.selectedToPayQuantity}" min="0" max="${item.remainingQuantity}" step="1" data-index="${index}">
+                        value="${item.selectedToPayQuantity.toFixed(0)}" min="0" max="${item.remainingQuantity.toFixed(0)}" step="1" data-index="${index}">
                 <button class="px-2 py-1 bg-blue-200 rounded-md hover:bg-blue-300 text-blue-800 increase-pay-quantity-btn" data-index="${index}" ${item.selectedToPayQuantity >= item.remainingQuantity ? 'disabled' : ''}>+</button>
             </div>
             <span class="text-gray-700 font-semibold w-20 text-right">R$ ${(item.price * item.selectedToPayQuantity).toFixed(2)}</span>
@@ -2171,6 +2298,7 @@ function renderMesaItemsForCheckout() {
         DOM.mesaItensSelecaoContainer.appendChild(itemDiv);
     });
 
+    // Re-adiciona os event listeners após recriar os elementos
     DOM.mesaItensSelecaoContainer.querySelectorAll('.decrease-pay-quantity-btn').forEach(button => {
         button.addEventListener('click', handlePayQuantityButton);
     });
@@ -2181,47 +2309,56 @@ function renderMesaItemsForCheckout() {
         input.addEventListener('input', handlePayQuantityInput);
     });
 
+    // Update the "Valor desta Parcela" input based on selected items
     DOM.valorAPagarInput.value = calculateSelectedItemsTotalForCurrentPayment().toFixed(2);
     updateCheckoutStatus();
 }
 
 function handlePayQuantityButton(event) {
     const button = event.target.closest('button');
-    const index = parseInt(button.dataset.index);
-    const item = currentMesaItemsToPay.filter(i => i.remainingQuantity > 0)[index];
+    // We need to map the index back to the original `currentMesaItemsToPay` array correctly
+    // Since we filtered `pendingItems`, the index might not be the same.
+    // A better approach would be to store the actual `item` reference or a unique ID.
+    // For simplicity with current structure, we'll find the item based on the current filtered list.
+    const indexInFilteredList = parseInt(button.dataset.index);
+    const item = currentMesaItemsToPay.filter(i => i.remainingQuantity > 0.001)[indexInFilteredList];
+
+    if (!item) return; // Should not happen
+
+    const step = 1; // Assuming integer units for items
 
     if (button.classList.contains('increase-pay-quantity-btn')) {
-        if (item.selectedToPayQuantity < item.remainingQuantity) {
-            item.selectedToPayQuantity++;
-        }
+        item.selectedToPayQuantity = Math.min(item.remainingQuantity, item.selectedToPayQuantity + step);
     } else if (button.classList.contains('decrease-pay-quantity-btn')) {
-        if (item.selectedToPayQuantity > 0) {
-            item.selectedToPayQuantity--;
-        }
+        item.selectedToPayQuantity = Math.max(0, item.selectedToPayQuantity - step);
     }
-    renderMesaItemsForCheckout();
-    DOM.valorAPagarInput.value = calculateSelectedItemsTotalForCurrentPayment().toFixed(2);
-    updateCheckoutStatus();
+    // Ensure integer quantity
+    item.selectedToPayQuantity = Math.round(item.selectedToPayQuantity);
+
+    renderMesaItemsForCheckout(); // Re-render to update the UI and recalculate
 }
 
 function handlePayQuantityInput(event) {
     const input = event.target;
-    const index = parseInt(input.dataset.index);
-    const item = currentMesaItemsToPay.filter(i => i.remainingQuantity > 0)[index];
+    const indexInFilteredList = parseInt(input.dataset.index);
+    const item = currentMesaItemsToPay.filter(i => i.remainingQuantity > 0.001)[indexInFilteredList];
 
-    let newQuantity = parseInt(input.value);
+    if (!item) return;
+
+    let newQuantity = parseInt(input.value, 10);
     if (isNaN(newQuantity) || newQuantity < 0) {
         newQuantity = 0;
     }
-    if (newQuantity > item.remainingQuantity) {
-        newQuantity = item.remainingQuantity;
-        input.value = newQuantity;
-    }
+    // Cap at remaining quantity
+    newQuantity = Math.min(newQuantity, Math.round(item.remainingQuantity));
+
     item.selectedToPayQuantity = newQuantity;
+    input.value = newQuantity.toFixed(0); // Ensure input displays integer
 
     DOM.valorAPagarInput.value = calculateSelectedItemsTotalForCurrentPayment().toFixed(2);
     updateCheckoutStatus();
 }
+
 
 function calculateSelectedItemsTotalForCurrentPayment() {
     return currentMesaItemsToPay.reduce((sum, item) => sum + (item.price * item.selectedToPayQuantity), 0);
@@ -2239,7 +2376,7 @@ function renderPagamentoHistory() {
 
     currentMesaPaymentsHistory.forEach((payment, index) => {
         const paymentDiv = document.createElement('div');
-        paymentDiv.className = 'flex justify-between items-center bg-gray-100 p-2 rounded-md';
+        paymentDiv.className = 'flex justify-between items-center bg-gray-100 p-2 rounded-md mb-1';
         let trocoInfo = '';
         if (payment.troco !== null && payment.troco !== undefined && payment.troco > 0) {
             trocoInfo = `<span class="text-xs text-gray-600 ml-2">(Troco: R$ ${payment.troco.toFixed(2)})</span>`;
@@ -2254,8 +2391,12 @@ function renderPagamentoHistory() {
         DOM.historicoPagamentosContainer.appendChild(paymentDiv);
     });
 
+    // Re-attach event listeners for remove buttons
     DOM.historicoPagamentosContainer.querySelectorAll('.remove-payment-btn').forEach(button => {
-        button.addEventListener('click', (event) => {
+        // Use cloneNode(true) and replace to remove existing listeners
+        const newButton = button.cloneNode(true);
+        button.parentNode.replaceChild(newButton, button);
+        newButton.addEventListener('click', (event) => {
             const indexToRemove = parseInt(event.target.closest('button').dataset.index);
             removePayment(indexToRemove);
         });
@@ -2264,57 +2405,123 @@ function renderPagamentoHistory() {
 
 function removePayment(index) {
     const payment = currentMesaPaymentsHistory[index];
+    if (!payment) return;
+
+    if (!confirm(`Tem certeza que deseja remover este pagamento de R$ ${payment.valorPago.toFixed(2)} (${payment.metodo})?`)) {
+        return;
+    }
+
     currentMesaPaymentsHistory.splice(index, 1);
 
+    // Reverte as quantidades pagas para os itens correspondentes
+    if (payment.itemsPaid) {
+        payment.itemsPaid.forEach(paidItem => {
+            const originalItem = currentMesaItemsToPay.find(item =>
+                item.name === paidItem.name && (item.size || '') === (paidItem.size || '')
+            );
+            if (originalItem) {
+                originalItem.remainingQuantity += paidItem.quantity;
+                // Ensure remainingQuantity does not exceed originalQuantity due to floating point
+                if (originalItem.remainingQuantity > originalItem.originalQuantity + 0.001) {
+                    originalItem.remainingQuantity = originalItem.originalQuantity;
+                }
+            }
+        });
+    }
+
+    // Recalcula o total pago e o restante a pagar
     const totalPaidSoFar = currentMesaPaymentsHistory.reduce((sum, p) => sum + p.valorPago, 0);
     currentMesaRemainingToPay = currentMesaTotal - totalPaidSoFar;
-    DOM.mesaTotalPago.textContent = `R$ ${totalPaidSoFar.toFixed(2)}`;
+    if (Math.abs(currentMesaRemainingToPay) < 0.01) {
+        currentMesaRemainingToPay = 0;
+    }
 
-    updateCheckoutStatus();
+    // Reset selected quantities for next payment entry
+    currentMesaItemsToPay.forEach(item => item.selectedToPayQuantity = 0);
+
+    // Update the value to pay input with the current remaining balance
+    DOM.valorAPagarInput.value = currentMesaRemainingToPay.toFixed(2);
+
+    renderMesaItemsForCheckout(); // Re-render to reflect remaining quantities
     renderPagamentoHistory();
+    updateCheckoutStatus();
 }
 
+
 function updateCheckoutStatus() {
-    const selectedItemsTotal = calculateSelectedItemsTotalForCurrentPayment();
+    let valueToPayInput = parseFloat(DOM.valorAPagarInput.value) || 0;
     const currentPaymentMethod = DOM.pagamentoMetodoAtual.value;
     const trocoReceived = parseFloat(DOM.trocoRecebidoInput.value) || 0;
+
+    // Calculate total paid so far
     const totalPaidSoFar = currentMesaPaymentsHistory.reduce((sum, p) => sum + p.valorPago, 0);
 
+    // Calculate remaining to pay based on currentMesaTotal and totalPaidSoFar
     currentMesaRemainingToPay = currentMesaTotal - totalPaidSoFar;
-    if (currentMesaRemainingToPay < 0.01 && currentMesaRemainingToPay > -0.01) {
+    // Adjust for small floating point inaccuracies
+    if (Math.abs(currentMesaRemainingToPay) < 0.01) {
         currentMesaRemainingToPay = 0;
     }
 
     DOM.mesaTotalPago.textContent = `R$ ${totalPaidSoFar.toFixed(2)}`;
     DOM.mesaRestantePagar.textContent = `R$ ${currentMesaRemainingToPay.toFixed(2)}`;
 
-    const isValorAPagarInputValid = parseFloat(DOM.valorAPagarInput.value) > 0 && parseFloat(DOM.valorAPagarInput.value) <= currentMesaRemainingToPay + 0.01;
-    const hasItemsSelected = selectedItemsTotal > 0;
-
-    if (currentPaymentMethod && (isValorAPagarInputValid || hasItemsSelected)) {
-        DOM.btnAdicionarPagamento.disabled = false;
-    } else {
+    // If there's nothing left to pay, disable payment inputs/buttons
+    if (currentMesaRemainingToPay <= 0) {
+        DOM.valorAPagarInput.value = '0.00';
+        DOM.valorAPagarInput.disabled = true;
+        DOM.pagamentoMetodoAtual.disabled = true;
+        DOM.trocoRecebidoInput.disabled = true;
         DOM.btnAdicionarPagamento.disabled = true;
+        DOM.btnDividirRestante.disabled = true;
+        DOM.btnFinalizarContaMesa.disabled = false; // Enable finalize if paid
+    } else {
+        DOM.valorAPagarInput.disabled = false;
+        DOM.pagamentoMetodoAtual.disabled = false;
+        DOM.trocoRecebidoInput.disabled = false; // Always enable troco input to allow user entry
+        DOM.btnFinalizarContaMesa.disabled = true; // Disable finalize if still owe
     }
 
-    const numPessoasDividir = parseInt(DOM.dividirPorInput.value, 10);
-    DOM.btnDividirRestante.disabled = currentMesaRemainingToPay <= 0.01 || isNaN(numPessoasDividir) || numPessoasDividir <= 0;
 
-    DOM.btnFinalizarContaMesa.disabled = currentMesaRemainingToPay > 0.01;
+    // Validation for adding payment button
+    const hasValueToPay = valueToPayInput > 0;
+    const isValueWithinRemaining = valueToPayInput <= currentMesaRemainingToPay + 0.01; // Allow slight overshoot for rounding
+
+    // Check if any items are selected for payment, or if the value to pay is exactly the remaining balance
+    const anyItemSelected = currentMesaItemsToPay.some(item => item.selectedToPayQuantity > 0);
+    const payingFullRemaining = Math.abs(valueToPayInput - currentMesaRemainingToPay) < 0.01;
+
 
     if (currentPaymentMethod === 'Dinheiro') {
         DOM.trocoInputGroup.classList.remove('hidden');
+        const hasEnoughChange = trocoReceived >= valueToPayInput;
+        DOM.btnAdicionarPagamento.disabled = !(hasValueToPay && hasPaymentMethod && isValueWithinRemaining && hasEnoughChange && (anyItemSelected || payingFullRemaining));
     } else {
         DOM.trocoInputGroup.classList.add('hidden');
-        DOM.trocoRecebidoInput.value = '';
+        DOM.trocoRecebidoInput.value = ''; // Clear troco if not cash
+        DOM.btnAdicionarPagamento.disabled = !(hasValueToPay && hasPaymentMethod && isValueWithinRemaining && (anyItemSelected || payingFullRemaining));
+    }
+
+    // Validation for splitting remaining button
+    const numPessoasDividir = parseInt(DOM.dividirPorInput.value, 10);
+    DOM.btnDividirRestante.disabled = currentMesaRemainingToPay <= 0.01 || isNaN(numPessoasDividir) || numPessoasDividir <= 0;
+
+    // Reset selected items if the value to pay manually is changed
+    // This logic might be too aggressive. It's often better to let the user select items OR type a value, not both
+    // If the user types a value manually, clear item selections.
+    if (valueToPayInput !== calculateSelectedItemsTotalForCurrentPayment() && anyItemSelected) {
+        // This indicates the user is overriding item selection with a manual value
+        // You might want to ask confirmation or just clear selections.
+        // For now, if the manually entered value differs significantly from selected items,
+        // we'll assume the manual value is preferred and clear item selections for visual consistency.
+        // For now, let's keep selectedToPayQuantity for internal calculations unless manually changed significantly.
+        // The current `renderMesaItemsForCheckout` will update `valorAPagarInput` from selected items.
+        // If the user manually changes `valorAPagarInput`, `anyItemSelected` is checked.
     }
 }
 
-DOM.valorAPagarInput.addEventListener('input', updateCheckoutStatus);
-DOM.pagamentoMetodoAtual.addEventListener('change', updateCheckoutStatus);
-DOM.trocoRecebidoInput.addEventListener('input', updateCheckoutStatus);
 
-DOM.btnAdicionarPagamento.addEventListener('click', () => {
+async function adicionarPagamentoMesa() {
     let valueToPay = parseFloat(DOM.valorAPagarInput.value);
     const currentPaymentMethod = DOM.pagamentoMetodoAtual.value;
     const trocoReceived = parseFloat(DOM.trocoRecebidoInput.value) || 0;
@@ -2327,44 +2534,99 @@ DOM.btnAdicionarPagamento.addEventListener('click', () => {
         alert('Selecione um método de pagamento.');
         return;
     }
-    if (valueToPay > currentMesaRemainingToPay + 0.01) {
-        alert(`O valor da parcela (R$ ${valueToPay.toFixed(2)}) é maior que o restante a pagar da mesa (R$ ${currentMesaRemainingToPay.toFixed(2)}).`);
+
+    // Determine the items paid in this installment
+    let itemsPaidInThisInstallment = [];
+    let totalFromSelectedItems = calculateSelectedItemsTotalForCurrentPayment();
+
+    if (totalFromSelectedItems > 0.01) { // If items were explicitly selected
+        // Only include items with selectedToPayQuantity > 0
+        itemsPaidInThisInstallment = currentMesaItemsToPay
+            .filter(item => item.selectedToPayQuantity > 0.001)
+            .map(item => ({
+                name: item.name,
+                price: item.price,
+                quantity: item.selectedToPayQuantity,
+                size: item.size || undefined
+            }));
+
+        // Adjust valueToPay to be exactly the sum of selected items if user manually adjusted input
+        // Or confirm if there's a discrepancy
+        if (Math.abs(valueToPay - totalFromSelectedItems) > 0.01) {
+            if (!confirm(`Você selecionou itens totalizando R$ ${totalFromSelectedItems.toFixed(2)}, mas digitou R$ ${valueToPay.toFixed(2)}. Deseja usar o valor digitado e distribuir pros itens restantes, ou usar o valor dos itens selecionados? (OK para usar o digitado, Cancelar para usar o dos itens)`)) {
+                valueToPay = totalFromSelectedItems;
+                DOM.valorAPagarInput.value = valueToPay.toFixed(2);
+            }
+        }
+
+    } else if (Math.abs(valueToPay - currentMesaRemainingToPay) < 0.01) {
+        // If no items were selected, but the payment covers the full remaining amount,
+        // then consider all remaining items as paid proportionally
+        let amountToDistribute = valueToPay;
+        const itemsToProcess = currentMesaItemsToPay.filter(item => item.remainingQuantity > 0.001);
+        const totalRemainingItemsValue = itemsToProcess.reduce((sum, item) => sum + (item.price * item.remainingQuantity), 0);
+
+        itemsToProcess.forEach(item => {
+            if (item.remainingQuantity > 0.001 && amountToDistribute > 0.001) {
+                const proportion = (item.price * item.remainingQuantity) / totalRemainingItemsValue;
+                let quantityToPayForThisItem = (amountToDistribute * proportion) / item.price;
+
+                if (quantityToPayForThisItem > item.remainingQuantity) { // Cap at remaining
+                    quantityToPayForThisItem = item.remainingQuantity;
+                }
+
+                itemsPaidInThisInstallment.push({
+                    name: item.name,
+                    price: item.price,
+                    quantity: parseFloat(quantityToPayForThisItem.toFixed(3)),
+                    size: item.size || undefined
+                });
+                amountToDistribute -= (quantityToPayForThisItem * item.price);
+            }
+        });
+
+    } else {
+        alert('Por favor, selecione os itens a serem pagos ou insira o valor total restante no campo "Valor desta Parcela".');
         return;
     }
 
-    let trocoADevolver = 0;
+
     if (currentPaymentMethod === 'Dinheiro') {
         if (trocoReceived < valueToPay) {
             alert(`O valor recebido (R$ ${trocoReceived.toFixed(2)}) é menor que a parcela a pagar (R$ ${valueToPay.toFixed(2)}).`);
             return;
         }
-        trocoADevolver = trocoReceived - valueToPay;
     }
+
+    const trocoADevolver = currentPaymentMethod === 'Dinheiro' ? trocoReceived - valueToPay : 0;
+
+    // Apply deduction to `currentMesaItemsToPay` based on `itemsPaidInThisInstallment`
+    itemsPaidInThisInstallment.forEach(paidItem => {
+        const originalItem = currentMesaItemsToPay.find(item =>
+            item.name === paidItem.name && (item.size || '') === (paidItem.size || '')
+        );
+        if (originalItem) {
+            originalItem.remainingQuantity -= paidItem.quantity;
+            if (originalItem.remainingQuantity < 0.001) originalItem.remainingQuantity = 0; // Avoid negative due to float
+        }
+    });
+
 
     currentMesaPaymentsHistory.push({
         metodo: currentPaymentMethod,
         valorPago: valueToPay,
         valorRecebido: currentPaymentMethod === 'Dinheiro' ? trocoReceived : null,
         troco: currentPaymentMethod === 'Dinheiro' ? trocoADevolver : null,
-        timestamp: Date.now(),
-        itemsPaid: currentMesaItemsToPay
-            .filter(item => item.selectedToPayQuantity > 0)
-            .map(item => ({
-                name: item.name,
-                price: item.price,
-                quantity: item.selectedToPayQuantity,
-                size: item.size || undefined
-            }))
+        timestamp: firebase.database.ServerValue.TIMESTAMP,
+        itemsPaid: itemsPaidInThisInstallment // Store which items were paid in this installment
     });
 
-    currentMesaItemsToPay.forEach(item => {
-        item.remainingQuantity -= item.selectedToPayQuantity;
-        item.selectedToPayQuantity = 0;
-    });
-
-    DOM.valorAPagarInput.value = '';
+    // Reset payment fields and item selections for the next entry
+    DOM.valorAPagarInput.value = currentMesaRemainingToPay.toFixed(2); // Auto-fill with remaining
     DOM.trocoRecebidoInput.value = '';
     DOM.pagamentoMetodoAtual.value = '';
+    currentMesaItemsToPay.forEach(item => item.selectedToPayQuantity = 0); // Clear selected quantities
+
 
     renderMesaItemsForCheckout();
     renderPagamentoHistory();
@@ -2375,9 +2637,10 @@ DOM.btnAdicionarPagamento.addEventListener('click', () => {
     } else {
         alert('Pagamento adicionado com sucesso!');
     }
-});
+}
 
-DOM.btnDividirRestante.addEventListener('click', () => {
+
+function dividirContaMesa() {
     const numPessoas = parseInt(DOM.dividirPorInput.value, 10);
     if (isNaN(numPessoas) || numPessoas <= 0) {
         alert('Por favor, digite um número válido de pessoas para dividir.');
@@ -2391,30 +2654,32 @@ DOM.btnDividirRestante.addEventListener('click', () => {
     const valorPorPessoa = currentMesaRemainingToPay / numPessoas;
     DOM.valorAPagarInput.value = valorPorPessoa.toFixed(2);
 
-    currentMesaItemsToPay.forEach(item => item.selectedToPayQuantity = 0);
-    renderMesaItemsForCheckout();
-
-    DOM.dividirPorInput.value = '';
-
-    updateCheckoutStatus();
+    // No need to reset selected quantities here, as `renderMesaItemsForCheckout`
+    // will be called by `updateCheckoutStatus` and handle the selected quantities.
+    // The user might still select items.
+    DOM.dividirPorInput.value = ''; // Clear the division field
+    updateCheckoutStatus(); // Update button states and total
 
     alert(`O valor por pessoa (R$ ${valorPorPessoa.toFixed(2)}) foi preenchido no campo "Valor desta Parcela". Agora, selecione o método de pagamento e clique em "Adicionar Pagamento".`);
-});
+}
 
-DOM.dividirPorInput.addEventListener('input', updateCheckoutStatus);
-
-
-DOM.btnCancelarPedidoMesa.addEventListener('click', () => {
+function cancelarPedidoMesa() {
     if (!currentMesaIdForCheckout) return;
 
-    if (confirm(`Tem certeza que deseja CANCELAR COMPLETAMENTE o pedido da Mesa ${currentMesaIdForCheckout}? A mesa será liberada e o pedido não será registrado.`)) {
+    if (currentMesaPaymentsHistory.length > 0) {
+        alert('Não é possível cancelar um pedido de mesa que já possui pagamentos registrados. Se precisar, remova os pagamentos um por um antes de cancelar.');
+        return;
+    }
+
+    if (confirm(`Tem certeza que deseja CANCELAR COMPLETAMENTE o pedido da Mesa ${currentMesaIdForCheckout}? A mesa será liberada e o pedido NÃO será registrado como venda finalizada.`)) {
         mesasRef.child(currentMesaIdForCheckout).update({
             status: 'Livre',
             cliente: '',
             garcom: '',
             observacoes: '',
-            pedido: null,
-            total: 0
+            pedido: null, // Limpa o pedido
+            total: 0,
+            pagamentosRegistrados: null // Garante que histórico de pagamentos também seja removido do Firebase
         })
             .then(() => {
                 alert(`Pedido da Mesa ${currentMesaIdForCheckout} cancelado e mesa liberada.`);
@@ -2425,188 +2690,228 @@ DOM.btnCancelarPedidoMesa.addEventListener('click', () => {
                 alert("Erro ao cancelar pedido da mesa.");
             });
     }
-});
+}
 
-
-DOM.btnFinalizarContaMesa.addEventListener('click', () => {
+async function finalizarContaMesa() {
     if (!currentMesaIdForCheckout) return;
 
-    if (currentMesaRemainingToPay > 0.01) {
-        alert('Ainda há um valor restante a pagar. Adicione todos os pagamentos antes de finalizar.');
+    // Garante que todo o valor foi pago
+    if (currentMesaRemainingToPay > 0.01) { // Permite uma pequena tolerância
+        alert(`Ainda há um valor restante a pagar: R$ ${currentMesaRemainingToPay.toFixed(2)}. Adicione todos os pagamentos antes de finalizar.`);
         return;
     }
 
     if (confirm(`Confirmar FINALIZAÇÃO da conta da Mesa ${currentMesaIdForCheckout}?`)) {
-        mesasRef.child(currentMesaIdForCheckout).once('value', async (snapshot) => {
-            const mesaAtual = snapshot.val();
+        try {
+            const mesaSnapshot = await mesasRef.child(currentMesaIdForCheckout).once('value');
+            const mesaAtual = mesaSnapshot.val();
+
             if (!mesaAtual) {
                 alert('Erro: Dados da mesa não encontrados para finalizar a conta.');
                 return;
             }
 
-            // Lógica de registro de consumo para mesas (replicando o de finalizarPedido)
+            // 1. Dedução de Ingredientes
             if (mesaAtual.pedido && Array.isArray(mesaAtual.pedido)) {
                 for (const itemPedido of mesaAtual.pedido) {
-                    try {
-                        let produtoRefPath = null;
-                        const categories = ['pizzas', 'bebidas', 'esfirras', 'calzone', 'promocoes', 'novidades'];
-
-                        for (const cat of categories) {
-                            const productsSnapshot = await produtosRef.child(cat).orderByChild('nome').equalTo(itemPedido.name).once('value');
-                            if (productsSnapshot.exists()) {
-                                const productId = Object.keys(productsSnapshot.val())[0];
-                                produtoRefPath = `${cat}/${productId}`;
-                                break;
-                            }
-                        }
-
-                        if (produtoRefPath) {
-                            const produtoSnapshot = await produtosRef.child(produtoRefPath).once('value');
-                            const produtoAssociado = produtoSnapshot.val();
-
-                            if (produtoAssociado) {
-                                let receitaParaConsumo = null;
-                                let isPizza = produtoAssociado.tipo === 'pizza';
-
-                                if (isPizza && itemPedido.size) {
-                                    receitaParaConsumo = produtoAssociado.receita?.[itemPedido.size];
-                                } else {
-                                    receitaParaConsumo = produtoAssociado.receita;
-                                }
-
-                                if (receitaParaConsumo) {
-                                    for (const ingredienteId in receitaParaConsumo) {
-                                        const quantidadePorUnidadeProduto = receitaParaConsumo[ingredienteId];
-                                        const quantidadeTotalConsumida = quantidadePorUnidadeProduto * itemPedido.quantity;
-                                        const custoUnitario = allIngredients[ingredienteId]?.custoUnitarioMedio || 0;
-                                        const custoTotalConsumido = quantidadeTotalConsumida * custoUnitario;
-
-                                        const ingredienteRef = ingredientesRef.child(ingredienteId);
-                                        await ingredienteRef.transaction(currentData => {
-                                            if (currentData) {
-                                                currentData.quantidadeUsadaMensal = (currentData.quantidadeUsadaMensal || 0) + quantidadeTotalConsumida;
-                                                currentData.custoUsadoMensal = (currentData.custoUsadoMensal || 0) + custoTotalConsumido;
-                                                currentData.quantidadeUsadaDiaria = (currentData.quantidadeUsadaDiaria || 0) + quantidadeTotalConsumida;
-                                                currentData.custoUsadoDiaria = (currentData.custoUsadoDiaria || 0) + custoTotalConsumido;
-                                                currentData.ultimaAtualizacaoConsumo = firebase.database.ServerValue.TIMESTAMP;
-                                            }
-                                            return currentData;
-                                        });
-                                        console.log(`Consumo de ${allIngredients[ingredienteId]?.nome || ingredienteId} (mesa) incrementado: Qtd: ${quantidadeTotalConsumida.toFixed(3)}, Custo: R$ ${custoTotalConsumido.toFixed(2)}`);
-                                    }
-                                } else {
-                                    console.warn(`Receita para o produto "${itemPedido.name}" (mesa, Tamanho: ${itemPedido.size || 'N/A'}) não encontrada ou não configurada.`);
-                                }
-                            } else {
-                                console.warn(`Produto "${itemPedido.name}" (mesa) não encontrado para dedução.`);
-                            }
-                        } else {
-                            console.warn(`Produto "${itemPedido.name}" (mesa) não encontrado em nenhuma categoria para dedução.`);
-                        }
-                    } catch (error) {
-                        console.error(`Erro ao registrar consumo para o item ${itemPedido.name} (mesa):`, error);
-                    }
+                    await deduzirIngredientesDoEstoque(itemPedido);
                 }
             }
-            // Fim da lógica de registro de consumo para mesas
 
-
+            // 2. Criação do Registro de Pedido Finalizado
             const novoPedidoId = database.ref('pedidos').push().key;
             const pedidoFinalizado = {
                 tipoAtendimento: 'Presencial',
                 mesaNumero: mesaAtual.numero,
-                cliente: mesaAtual.cliente,
+                nomeCliente: mesaAtual.cliente, // Usar 'nomeCliente' para consistência
                 garcom: mesaAtual.garcom,
-                observacoes: mesaAtual.observacoes,
+                observacao: mesaAtual.observacoes, // Usar 'observacao' para consistência
                 cart: mesaAtual.pedido,
                 totalOriginal: mesaAtual.total,
-                totalPago: currentMesaTotal,
-                pagamentosRegistrados: currentMesaPaymentsHistory,
+                totalPago: currentMesaTotal, // O total final da conta
+                pagamentosRegistrados: currentMesaPaymentsHistory, // Histórico completo
                 status: 'Finalizado',
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             };
 
-            database.ref('pedidos/' + novoPedidoId).set(pedidoFinalizado)
-                .then(() => {
-                    return mesasRef.child(currentMesaIdForCheckout).update({
-                        status: 'Livre',
-                        cliente: '',
-                        garcom: '',
-                        observacoes: '',
-                        pedido: null,
-                        total: 0
+            await database.ref('pedidos/' + novoPedidoId).set(pedidoFinalizado);
+
+            // 3. Reset da Mesa para 'Livre'
+            await mesasRef.child(currentMesaIdForCheckout).update({
+                status: 'Livre',
+                cliente: '',
+                garcom: '',
+                observacoes: '',
+                pedido: null, // Limpa o pedido
+                total: 0,
+                pagamentosRegistrados: null // Limpa o histórico de pagamentos no Firebase para a mesa
+            });
+
+            alert(`Conta da Mesa ${mesaAtual.numero} finalizada e mesa liberada!`);
+            fecharModalMesaDetalhes(); // Fecha o modal
+        } catch (error) {
+            console.error("Erro ao finalizar conta da mesa:", error);
+            alert("Erro ao finalizar conta da mesa. Verifique o console para mais detalhes.");
+        }
+    }
+}
+
+/**
+ * Deduze os ingredientes de um item de pedido do estoque e atualiza os custos de consumo.
+ * Esta função é reusada tanto para pedidos online quanto para mesas.
+ * @param {object} itemPedido - O objeto do item do carrinho (e.g., { name: 'Pizza Grande', quantity: 1, size: 'grande' })
+ */
+async function deduzirIngredientesDoEstoque(itemPedido) {
+    let produtoRefPath = null;
+    const categories = ['pizzas', 'bebidas', 'esfirras', 'calzone', 'promocoes', 'novidades'];
+
+    for (const cat of categories) {
+        // Assume que 'name' do itemPedido corresponde a 'nome' ou 'titulo' do produto
+        let productsSnapshot = await produtosRef.child(cat).orderByChild('nome').equalTo(itemPedido.name).once('value');
+
+        if (!productsSnapshot.exists() && (cat === 'promocoes' || cat === 'novidades')) {
+            // If not found by 'nome', try by 'titulo' for specific categories
+            productsSnapshot = await produtosRef.child(cat).orderByChild('titulo').equalTo(itemPedido.name).once('value');
+        }
+
+        if (productsSnapshot.exists()) {
+            const productId = Object.keys(productsSnapshot.val())[0];
+            produtoRefPath = `${cat}/${productId}`;
+            break;
+        }
+    }
+
+    if (produtoRefPath) {
+        const produtoSnapshot = await produtosRef.child(produtoRefPath).once('value');
+        const produtoAssociado = produtoSnapshot.val();
+
+        if (produtoAssociado) {
+            let receitaParaConsumo = null;
+            const isPizza = produtoAssociado.tipo === 'pizza';
+
+            if (isPizza && itemPedido.size) {
+                receitaParaConsumo = produtoAssociado.receita?.[itemPedido.size.toLowerCase()]; // Usa toLowerCase para consistência
+            } else {
+                receitaParaConsumo = produtoAssociado.receita;
+            }
+
+            if (receitaParaConsumo) {
+                for (const ingredienteId in receitaParaConsumo) {
+                    const quantidadePorUnidadeProduto = receitaParaConsumo[ingredienteId];
+                    const quantidadeTotalConsumida = quantidadePorUnidadeProduto * itemPedido.quantity;
+                    const custoUnitario = allIngredients[ingredienteId]?.custoUnitarioMedio || 0;
+                    const custoTotalConsumido = quantidadeTotalConsumida * custoUnitario;
+
+                    const ingredienteRef = ingredientesRef.child(ingredienteId);
+                    await ingredienteRef.transaction(currentData => {
+                        if (currentData) {
+                            currentData.quantidadeUsadaMensal = (currentData.quantidadeUsadaMensal || 0) + quantidadeTotalConsumida;
+                            currentData.custoUsadoMensal = (currentData.custoUsadoMensal || 0) + custoTotalConsumido;
+                            currentData.quantidadeUsadaDiaria = (currentData.quantidadeUsadaDiaria || 0) + quantidadeTotalConsumida;
+                            currentData.custoUsadaDiaria = (currentData.custoUsadaDiaria || 0) + custoTotalConsumido;
+                            currentData.ultimaAtualizacaoConsumo = firebase.database.ServerValue.TIMESTAMP;
+                            currentData.quantidadeAtual = (currentData.quantidadeAtual || 0) - quantidadeTotalConsumida;
+                        }
+                        return currentData;
                     });
-                })
-                .then(() => {
-                    alert(`Conta da Mesa ${mesaAtual.numero} finalizada e mesa liberada!`);
-                    fecharModalMesaDetalhes();
-                })
-                .catch(error => {
-                    console.error("Erro ao finalizar conta da mesa:", error);
-                    alert("Erro ao finalizar conta da mesa.");
-                });
-        });
+                    console.log(`Consumo de ${allIngredients[ingredienteId]?.nome || ingredienteId} incrementado: Qtd: ${quantidadeTotalConsumida.toFixed(3)}, Custo: R$ ${custoTotalConsumido.toFixed(2)}. Estoque atualizado.`);
+                }
+            } else {
+                console.warn(`Receita para o produto "${itemPedido.name}" (Tamanho: ${itemPedido.size || 'N/A'}) não encontrada ou não configurada. O consumo de ingredientes não será registrado para este item.`);
+            }
+        } else {
+            console.warn(`Produto "${itemPedido.name}" não encontrado no Firebase para dedução de estoque.`);
+        }
+    } else {
+        console.warn(`Produto "${itemPedido.name}" não encontrado em nenhuma categoria para dedução de estoque.`);
     }
-});
+}
 
-// Cupons
-DOM.btnSalvarCupom.addEventListener('click', () => {
-    const codigo = DOM.cupomCodigoInput.value.trim().toUpperCase();
-    const valor = parseFloat(DOM.cupomValorInput.value);
-    const tipo = DOM.cupomTipoSelect.value;
-    const valorMinimo = parseFloat(DOM.cupomMinValorInput.value) || 0;
-    const validade = DOM.validadeCupomInput.value;
 
-    if (!codigo) {
-        alert("O código do cupom é obrigatório.");
-        return;
-    }
-    if (isNaN(valor) || valor <= 0) {
-        alert("O valor do desconto deve ser um número positivo.");
-        return;
-    }
-    if (!validade) {
-        alert("A data de validade é obrigatória.");
-        return;
-    }
+// --- FUNÇÕES DE GERENCIAMENTO DE CUPONS ---
+if (DOM.btnSalvarCupom) { // Ensure button exists
+    DOM.btnSalvarCupom.addEventListener('click', () => {
+        const codigo = DOM.cupomCodigoInput.value.trim().toUpperCase();
+        const valor = parseFloat(DOM.cupomValorInput.value);
+        const tipo = DOM.cupomTipoSelect.value;
+        const valorMinimo = parseFloat(DOM.cupomMinValorInput.value) || 0;
+        const validadeStr = DOM.validadeCupomInput.value; // Pega a string da data
 
-    const cupomData = {
-        codigo: codigo,
-        valor: valor,
-        tipo: tipo,
-        valorMinimo: valorMinimo,
-        validade: new Date(validade).getTime() + (23 * 60 * 60 * 1000 + 59 * 60 * 1000), // Fim do dia
-        ativo: true,
-        usos: 0
-    };
-
-    cuponsRef.child(codigo).set(cupomData)
-        .then(() => {
-            alert(`Cupom "${codigo}" salvo com sucesso!`);
-            DOM.cupomCodigoInput.value = '';
-            DOM.cupomValorInput.value = '';
-            DOM.cupomMinValorInput.value = '';
-            DOM.validadeCupomInput.value = '';
-            carregarCupons();
-        })
-        .catch(error => {
-            console.error("Erro ao salvar cupom:", error);
-            alert("Erro ao salvar cupom: " + error.message);
-        });
-});
-
-function carregarCupons() {
-    cuponsRef.on('value', (snapshot) => {
-        if (!DOM.listaCuponsContainer) return;
-        const cupons = snapshot.val();
-        DOM.listaCuponsContainer.innerHTML = '';
-
-        if (!cupons) {
-            DOM.listaCuponsContainer.innerHTML = '<p class="text-gray-600 col-span-full text-center">Nenhum cupom cadastrado.</p>';
+        if (!codigo) {
+            alert("O código do cupom é obrigatório.");
+            return;
+        }
+        if (isNaN(valor) || valor <= 0) {
+            alert("O valor do desconto deve ser um número positivo.");
+            return;
+        }
+        if (!validadeStr) {
+            alert("A data de validade é obrigatória.");
             return;
         }
 
-        Object.entries(cupons).forEach(([codigo, cupom]) => {
+        // Criar a data de validade para o final do dia
+        const validadeDate = new Date(validadeStr);
+        validadeDate.setHours(23, 59, 59, 999); // Define para o final do dia selecionado
+        const validadeTimestamp = validadeDate.getTime();
+
+        // Validação da data
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0); // Zera as horas para comparar apenas a data
+        if (validadeDate < hoje) {
+            alert("A data de validade não pode ser no passado.");
+            return;
+        }
+
+        const cupomData = {
+            codigo: codigo,
+            valor: valor,
+            tipo: tipo,
+            valorMinimo: valorMinimo,
+            validade: validadeTimestamp,
+            ativo: true,
+            usos: 0 // Mantém a contagem de usos no cupom para visualização global
+        };
+
+        cuponsRef.child(codigo).set(cupomData)
+            .then(() => {
+                alert(`Cupom "${codigo}" salvo com sucesso!`);
+                DOM.cupomCodigoInput.value = '';
+                DOM.cupomValorInput.value = '';
+                DOM.cupomMinValorInput.value = '';
+                DOM.validadeCupomInput.value = '';
+                // The real-time listener for cuponsRef will automatically call carregarCupons()
+            })
+            .catch(error => {
+                console.error("Erro ao salvar cupom:", error);
+                alert("Erro ao salvar cupom: " + error.message);
+            });
+    });
+}
+
+function carregarCupons(snapshot) { // Accepts snapshot directly from listener
+    if (!DOM.listaCuponsContainer) return;
+    const cupons = snapshot.val();
+    DOM.listaCuponsContainer.innerHTML = '';
+
+    if (!cupons) {
+        DOM.listaCuponsContainer.innerHTML = '<p class="text-gray-600 col-span-full text-center">Nenhum cupom cadastrado.</p>';
+        return;
+    }
+
+    const cuponsArray = [];
+    // Fetch usage counts from the admin view for each coupon
+    const fetchUsagePromises = Object.keys(cupons).map(async (codigo) => {
+        const cupom = cupons[codigo];
+        const usageSnapshot = await database.ref(`cupons_usados_admin_view/${codigo}/timesUsed`).once('value');
+        const totalUsos = usageSnapshot.val() || 0;
+        cuponsArray.push({ ...cupom, usos: totalUsos });
+    });
+
+    Promise.all(fetchUsagePromises).then(() => {
+        cuponsArray.sort((a, b) => a.codigo.localeCompare(b.codigo)); // Sort by code for consistent display
+
+        cuponsArray.forEach(cupom => {
             const cupomDiv = document.createElement('div');
             cupomDiv.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col justify-between';
 
@@ -2625,899 +2930,787 @@ function carregarCupons() {
                     <p class="text-gray-700">Desconto: <strong>${valorTexto}</strong></p>
                     <p class="text-gray-700">Validade: <strong>${new Date(cupom.validade).toLocaleDateString()}</strong></p>
                     ${cupom.valorMinimo > 0 ? `<p class="text-gray-700">Pedido Mínimo: <strong>R$ ${cupom.valorMinimo.toFixed(2)}</strong></p>` : ''}
-                    <p class="text-gray-700">Usos: <strong>${cupom.usos || 0}</strong></p>
+                    <p class="text-gray-700">Usos Totais: <strong>${cupom.usos || 0}</strong></p>
+                    ${cupom.clienteTelefone ? `<p class="text-gray-700">Gerado para: <strong>${cupom.clienteTelefone}</strong></p>` : '<p class="text-gray-500">Cupom Geral</p>'}
                     <p class="font-medium ${statusClass}">Status: ${statusText}</p>
                 </div>
                 <div class="flex gap-2 mt-4">
-                    <button class="btn-toggle-ativo bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm flex-1" data-codigo="${codigo}" data-ativo="${cupom.ativo}">
+                    <button class="btn-toggle-ativo bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm flex-1" data-codigo="${cupom.codigo}" data-ativo="${cupom.ativo}">
                         ${cupom.ativo ? 'Desativar' : 'Ativar'}
                     </button>
-                    <button class="btn-excluir-cupom bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm flex-1" data-codigo="${codigo}">
+                    <button class="btn-excluir-cupom bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm flex-1" data-codigo="${cupom.codigo}">
                         Excluir
                     </button>
                 </div>
             `;
-
             DOM.listaCuponsContainer.appendChild(cupomDiv);
         });
-    });
 
-    DOM.listaCuponsContainer.addEventListener('click', (e) => {
-        const toggleButton = e.target.closest('.btn-toggle-ativo');
-        const deleteButton = e.target.closest('.btn-excluir-cupom');
+        // Add the event listeners to the new buttons
+        DOM.listaCuponsContainer.querySelectorAll('.btn-toggle-ativo').forEach(button => {
+            button.addEventListener('click', () => { // Use addEventListener for consistency
+                const codigo = button.dataset.codigo;
+                const ativo = button.dataset.ativo === 'true';
+                cuponsRef.child(codigo).update({ ativo: !ativo })
+                    .then(() => alert(`Status do cupom ${codigo} alterado!`))
+                    .catch(error => alert("Erro ao atualizar status do cupom: " + error.message));
+            });
+        });
 
-        if (toggleButton) {
-            const codigo = toggleButton.dataset.codigo;
-            const ativo = toggleButton.dataset.ativo === 'true';
-            cuponsRef.child(codigo).update({ ativo: !ativo })
-                .then(() => alert(`Status do cupom ${codigo} alterado!`))
-                .catch(error => alert("Erro ao atualizar status do cupom: " + error.message));
-        }
-
-        if (deleteButton) {
-            const codigo = deleteButton.dataset.codigo;
-            if (confirm(`Deseja realmente excluir o cupom ${codigo}?`)) {
-                cuponsRef.child(codigo).remove()
-                    .then(() => alert(`Cupom ${codigo} excluído com sucesso!`))
-                    .catch(error => alert("Erro ao excluir cupom: " + error.message));
-            }
-        }
-    });
-
-    document.addEventListener('input', (event) => {
-        if (event.target.classList.contains('uppercase-input')) {
-            const input = event.target;
-            const start = input.selectionStart;
-            const end = input.selectionEnd;
-            input.value = input.value.toUpperCase();
-            input.setSelectionRange(start, end);
-        }
+        DOM.listaCuponsContainer.querySelectorAll('.btn-excluir-cupom').forEach(button => {
+            button.addEventListener('click', () => { // Use addEventListener for consistency
+                const codigo = button.dataset.codigo;
+                if (confirm(`Deseja realmente excluir o cupom ${codigo}?`)) {
+                    cuponsRef.child(codigo).remove()
+                        .then(() => alert(`Cupom ${codigo} excluído com sucesso!`))
+                        .catch(error => alert("Erro ao excluir cupom: " + error.message));
+                }
+            });
+        });
+    }).catch(error => {
+        console.error("Erro ao carregar usos de cupons:", error);
+        DOM.listaCuponsContainer.innerHTML = '<p class="text-red-600 col-span-full text-center">Erro ao carregar cupons.</p>';
     });
 }
-    // --- FUNÇÕES DE GERENCIAMENTO DETALHADO (Cadastrar Ingredientes) ---
-    async function handleSalvarIngredienteDetalhe() {
-        const nome = DOM.ingredienteNomeDetalheInput.value.trim();
-        const unidade = DOM.ingredienteUnidadeDetalheInput.value.trim();
-        const estoqueMinimo = parseFloat(DOM.ingredienteEstoqueMinimoDetalheInput.value) || 0;
 
-        if (!nome || !unidade) {
-            alert('Por favor, preencha o nome e a unidade de medida do ingrediente.');
-            return;
-        }
-        if (isNaN(estoqueMinimo) || estoqueMinimo < 0) {
-            alert('Por favor, insira um valor válido para o estoque mínimo.');
-            return;
-        }
 
-        try {
-            const snapshot = await ingredientesRef.orderByChild('nome').equalTo(nome).once('value');
-            if (snapshot.exists()) {
-                const existingIngredientId = Object.keys(snapshot.val())[0];
-                await ingredientesRef.child(existingIngredientId).update({
-                    unidadeMedida: unidade,
-                    estoqueMinimo: estoqueMinimo
-                });
-                alert(`Ingrediente "${nome}" atualizado com sucesso!`);
-            } else {
-                await ingredientesRef.push({
-                    nome: nome,
-                    unidadeMedida: unidade,
-                    quantidadeAtual: 0,
-                    custoUnitarioMedio: 0,
-                    estoqueMinimo: estoqueMinimo,
-                    quantidadeUsadaMensal: 0,
-                    custoUsadoMensal: 0,
-                    quantidadeUsadaDiaria: 0,
-                    custoUsadoDiaria: 0,
-                    ultimaAtualizacaoConsumo: firebase.database.ServerValue.TIMESTAMP
-                });
-                alert(`Ingrediente "${nome}" adicionado com sucesso!`);
-            }
-            DOM.ingredienteNomeDetalheInput.value = '';
-            DOM.ingredienteUnidadeDetalheInput.value = '';
-            DOM.ingredienteEstoqueMinimoDetalheInput.value = '';
-        } catch (error) {
-            console.error('Erro ao salvar ingrediente:', error);
-            alert('Erro ao salvar ingrediente. Verifique o console para mais detalhes.');
-        }
+// --- FUNÇÕES DE GERENCIAMENTO DETALHADO (Cadastrar Ingredientes) ---
+async function handleSalvarIngredienteDetalhe() {
+    const nome = DOM.ingredienteNomeDetalheInput.value.trim();
+    const unidade = DOM.ingredienteUnidadeDetalheInput.value.trim();
+    const estoqueMinimo = parseFloat(DOM.ingredienteEstoqueMinimoDetalheInput.value) || 0;
+
+    if (!nome || !unidade) {
+        alert('Por favor, preencha o nome e a unidade de medida do ingrediente.');
+        return;
     }
-
-    async function handleUpdateIngrediente(event) {
-        const ingredienteId = event.target.dataset.id;
-        const input = document.getElementById(`qtd-atual-${ingredienteId}`); // Este ID é único por ingrediente
-        const novaQuantidade = parseFloat(input.value);
-
-        if (isNaN(novaQuantidade) || novaQuantidade < 0) {
-            alert('Por favor, insira uma quantidade válida.');
-            return;
-        }
-
-        try {
-            await ingredientesRef.child(ingredienteId).update({ quantidadeAtual: novaQuantidade });
-            alert('Estoque atualizado manualmente com sucesso!');
-        } catch (error) {
-            console.error('Erro ao atualizar ingrediente:', error);
-            alert('Erro ao atualizar ingrediente.');
-        }
-    }
-
-    async function handleDeleteIngrediente(event) {
-        const ingredienteId = event.target.dataset.id;
-        const ingredienteNome = allIngredients[ingredienteId]?.nome || 'este ingrediente';
-
-        if (confirm(`Tem certeza que deseja excluir "${ingredienteNome}"? Isso também removerá ele de todas as receitas.`)) {
-            try {
-                await ingredientesRef.child(ingredienteId).remove();
-                const categorias = ['pizzas', 'bebidas', 'esfirras', 'calzone', 'promocoes', 'novidades'];
-                for (const categoria of categorias) {
-                    const productsSnapshot = await produtosRef.child(categoria).once('value');
-                    if (productsSnapshot.exists()) {
-                        productsSnapshot.forEach(produtoChild => {
-                            const produtoData = produtoChild.val();
-                            if (produtoData.tipo === 'pizza' && produtoData.receita) {
-                                // Verifica em ambos os tamanhos
-                                if (produtoData.receita.grande && produtoData.receita.grande[ingredienteId]) {
-                                    delete produtoData.receita.grande[ingredienteId];
-                                }
-                                if (produtoData.receita.broto && produtoData.receita.broto[ingredienteId]) {
-                                    delete produtoData.receita.broto[ingredienteId];
-                                }
-                                produtosRef.child(categoria).child(produtoChild.key).update({ receita: produtoData.receita });
-                            } else if (produtoData.receita && produtoData.receita[ingredienteId]) {
-                                const updatedReceita = { ...produtoData.receita };
-                                delete updatedReceita[ingredienteId];
-                                produtosRef.child(categoria).child(produtoChild.key).update({ receita: updatedReceita });
-                            }
-                        });
-                    }
-                }
-                alert(`Ingrediente "${ingredienteNome}" excluído com sucesso!`);
-            } catch (error) {
-                console.error('Erro ao excluir ingrediente:', error);
-                alert('Erro ao excluir ingrediente.');
-            }
-        }
-    }
-
-    // --- FUNÇÕES DE GERENCIAMENTO DETALHADO (Registro de Compras) ---
-    function popularIngredientesParaCompraSelects() {
-        DOM.compraIngredienteSelectDetalhe.innerHTML = '<option value="">Selecione um ingrediente</option>';
-        const sortedIngredients = Object.entries(allIngredients).sort(([, a], [, b]) => a.nome.localeCompare(b.nome));
-        sortedIngredients.forEach(([id, ingrediente]) => {
-            const option = document.createElement('option');
-            option.value = id;
-            option.textContent = `${ingrediente.nome} (${ingrediente.unidadeMedida})`;
-            DOM.compraIngredienteSelectDetalhe.appendChild(option);
-        });
-    }
-
-    function handleAddItemCompraDetalhe() {
-        const ingredienteId = DOM.compraIngredienteSelectDetalhe.value;
-        const quantidade = parseFloat(DOM.compraQuantidadeDetalheInput.value);
-        const precoUnitario = parseFloat(DOM.compraPrecoUnitarioDetalheInput.value);
-
-        if (!ingredienteId || isNaN(quantidade) || quantidade <= 0 || isNaN(precoUnitario) || precoUnitario <= 0) {
-            alert('Por favor, selecione um ingrediente e insira quantidades e preços válidos.');
-            return;
-        }
-        if (!allIngredients[ingredienteId]) {
-            alert('Ingrediente selecionado não encontrado. Por favor, recarregue a página.');
-            return;
-        }
-
-        const itemExistenteIndex = currentPurchaseItems.findIndex(item => item.ingredienteId === ingredienteId);
-
-        if (itemExistenteIndex > -1) {
-            alert('Este ingrediente já foi adicionado à lista de compra. Remova-o e adicione novamente com a quantidade/preco corretos.');
-            return;
-        }
-
-        currentPurchaseItems.push({
-            ingredienteId: ingredienteId,
-            nome: allIngredients[ingredienteId].nome,
-            unidadeMedida: allIngredients[ingredienteId].unidadeMedida,
-            quantidade: quantidade,
-            precoUnitario: precoUnitario
-        });
-
-        renderItensCompraDetalhe();
-        DOM.compraIngredienteSelectDetalhe.value = '';
-        DOM.compraQuantidadeDetalheInput.value = '';
-        DOM.compraPrecoUnitarioDetalheInput.value = '';
-        DOM.btnRegistrarCompraDetalhe.disabled = currentPurchaseItems.length === 0;
-    }
-
-    function renderItensCompraDetalhe() {
-        DOM.itensCompraDetalheListContainer.innerHTML = '';
-        if (currentPurchaseItems.length === 0) {
-            DOM.itensCompraDetalheListContainer.innerHTML = '<p class="text-gray-600 text-center">Nenhum item adicionado a esta compra.</p>';
-            return;
-        }
-
-        currentPurchaseItems.forEach((item, index) => {
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'flex justify-between items-center bg-gray-100 p-2 rounded-md';
-            itemDiv.innerHTML = `
-                <span>${item.nome}: <strong>${item.quantidade.toFixed(3)} ${item.unidadeMedida}</strong> a R$ ${item.precoUnitario.toFixed(2)}/un. (Total: R$ ${(item.quantidade * item.precoUnitario).toFixed(2)})</span>
-                <button class="text-red-500 hover:text-red-700 btn-remove-item-compra" data-index="${index}"><i class="fas fa-trash-alt"></i></button>
-            `;
-            DOM.itensCompraDetalheListContainer.appendChild(itemDiv);
-        });
-
-        DOM.itensCompraDetalheListContainer.querySelectorAll('.btn-remove-item-compra').forEach(button => {
-            button.addEventListener('click', (e) => {
-                const indexToRemove = parseInt(e.target.closest('button').dataset.index);
-                currentPurchaseItems.splice(indexToRemove, 1);
-                renderItensCompraDetalhe();
-                DOM.btnRegistrarCompraDetalhe.disabled = currentPurchaseItems.length === 0;
-            });
-        });
-    }
-
-    async function handleRegistrarCompraDetalhe() {
-        const dataCompra = DOM.compraDataDetalheInput.value;
-        const fornecedor = DOM.compraFornecedorDetalheInput.value.trim();
-
-        if (!dataCompra) {
-            alert('Por favor, preencha a data da compra.');
-            return;
-        }
-        if (currentPurchaseItems.length === 0) {
-            alert('Adicione pelo menos um item à compra antes de registrar.');
-            return;
-        }
-
-        if (confirm('Deseja realmente registrar esta compra e atualizar o estoque?')) {
-            try {
-                let totalCompra = 0;
-                const itemsParaFirebase = {};
-
-                for (const item of currentPurchaseItems) {
-                    await recalcularCustoUnitarioMedio(item.ingredienteId, item.quantidade, item.precoUnitario);
-                    totalCompra += item.quantidade * item.precoUnitario;
-                    itemsParaFirebase[item.ingredienteId] = {
-                        nome: item.nome,
-                        quantidade: item.quantidade,
-                        precoUnitario: item.precoUnitario
-                    };
-                }
-
-                await comprasRef.push({
-                    data: dataCompra,
-                    fornecedor: fornecedor || 'Não Informado',
-                    itensComprados: itemsParaFirebase,
-                    totalCompra: totalCompra.toFixed(2),
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
-                });
-
-                alert('Compra registrada e estoque atualizado com sucesso!');
-                DOM.compraDataDetalheInput.valueAsDate = new Date();
-                DOM.compraFornecedorDetalheInput.value = '';
-                currentPurchaseItems = []; // Limpa a lista para nova compra
-                renderItensCompraDetalhe();
-                DOM.btnRegistrarCompraDetalhe.disabled = true;
-            } catch (error) {
-                console.error('Erro ao registrar compra:', error);
-                alert('Erro ao registrar compra. Verifique o console.');
-            }
-        }
-    }
-
-    async function recalcularCustoUnitarioMedio(ingredienteId, quantidadeComprada, precoUnitarioCompra) {
-        const ingredienteRef = ingredientesRef.child(ingredienteId);
-        await ingredienteRef.transaction(currentData => {
-            if (currentData) {
-                const oldQuantity = currentData.quantidadeAtual || 0;
-                const oldCost = currentData.custoUnitarioMedio || 0;
-
-                const newTotalCost = (oldQuantity * oldCost) + (quantidadeComprada * precoUnitarioCompra);
-                const newTotalQuantity = oldQuantity + quantidadeComprada;
-
-                currentData.quantidadeAtual = newTotalQuantity;
-                currentData.custoUnitarioMedio = newTotalQuantity > 0 ? newTotalCost / newTotalQuantity : 0;
-            }
-            return currentData;
-        });
-    }
-
-    // --- FUNÇÕES DE GERENCIAMENTO DETALHADO (Configurar Receitas) ---
-    function popularIngredientesParaReceitaSelects() {
-        DOM.receitaIngredienteSelectDetalhe.innerHTML = '<option value="">Selecione um ingrediente</option>';
-        const sortedIngredients = Object.entries(allIngredients).sort(([, a], [, b]) => a.nome.localeCompare(b.nome));
-        sortedIngredients.forEach(([id, ingrediente]) => {
-            const option = document.createElement('option');
-            option.value = id;
-            option.textContent = `${ingrediente.nome} (${ingrediente.unidadeMedida})`;
-            DOM.receitaIngredienteSelectDetalhe.appendChild(option);
-        });
-    }
-
-    async function handleReceitaProdutoCategoriaChangeDetalhe(event) {
-        const selectedCategory = event.target.value;
-        DOM.receitaProdutoSelectDetalhe.innerHTML = '<option value="">Carregando produtos...</option>';
-        DOM.receitaProdutoSelectDetalhe.disabled = true;
-        DOM.receitaConfigDetalheContainer.classList.add('hidden');
-        DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'none';
-
-        if (!selectedCategory) {
-            DOM.receitaProdutoSelectDetalhe.innerHTML = '<option value="">Selecione uma categoria primeiro</option>';
-            return;
-        }
-
-        try {
-            const productsSnapshot = await produtosRef.child(selectedCategory).once('value');
-            const products = [];
-            productsSnapshot.forEach(childSnapshot => {
-                const product = childSnapshot.val();
-                products.push({ id: childSnapshot.key, nome: product.nome || product.titulo, tipo: product.tipo });
-            });
-
-            products.sort((a, b) => a.nome.localeCompare(b.nome));
-
-            DOM.receitaProdutoSelectDetalhe.innerHTML = '<option value="">Selecione um produto</option>';
-            products.forEach(prod => {
-                const option = document.createElement('option');
-                option.value = prod.id;
-                option.textContent = prod.nome;
-                option.dataset.tipo = prod.tipo;
-                DOM.receitaProdutoSelectDetalhe.appendChild(option);
-            });
-            DOM.receitaProdutoSelectDetalhe.disabled = false;
-        } catch (error) {
-            console.error('Erro ao carregar produtos por categoria:', error);
-            DOM.receitaProdutoSelectDetalhe.innerHTML = '<p>Erro ao carregar produtos</p>';
-        }
-    }
-
-    async function handleReceitaProdutoSelectChangeDetalhe(event) {
-        const selectedProductId = event.target.value;
-        const selectedCategory = DOM.receitaProdutoSelectCategoriaDetalhe.value;
-        const selectedOption = DOM.receitaProdutoSelectDetalhe.options[DOM.receitaProdutoSelectDetalhe.selectedIndex];
-        const productType = selectedOption?.dataset.tipo;
-
-        if (!selectedProductId || !selectedCategory) {
-            DOM.receitaConfigDetalheContainer.classList.add('hidden');
-            DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'none';
-            currentRecipeProduct = null;
-            return;
-        }
-
-        const productName = selectedOption.textContent.trim();
-        DOM.currentRecipeProductNameDetalhe.textContent = productName;
-        DOM.receitaConfigDetalheContainer.classList.remove('hidden');
-
-        if (productType === 'pizza') {
-            DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'block';
-            DOM.currentPizzaSizeDetalheSpan.textContent = ` (${DOM.pizzaTamanhoSelectDetalhe.value})`;
-        } else {
-            DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'none';
-            DOM.currentPizzaSizeDetalheSpan.textContent = '';
-        }
-
-        try {
-            const produtoSnapshot = await produtosRef.child(selectedCategory).child(selectedProductId).once('value');
-            const produtoData = produtoSnapshot.val();
-
-            currentRecipeProduct = {
-                id: selectedProductId,
-                nome: productName,
-                categoria: selectedCategory,
-                tipo: productType,
-                receita: produtoData?.receita || {}
-            };
-            renderIngredientesReceitaDetalhe();
-            DOM.btnSalvarReceitaDetalhe.disabled = false;
-        } catch (error) {
-            console.error('Erro ao carregar receita:', error);
-            alert('Erro ao carregar receita para este produto.');
-            currentRecipeProduct = null;
-            DOM.receitaConfigDetalheContainer.classList.add('hidden');
-        }
-    }
-
-    function handlePizzaTamanhoSelectChangeDetalhe() {
-        if (currentRecipeProduct && currentRecipeProduct.tipo === 'pizza') {
-            DOM.currentPizzaSizeDetalheSpan.textContent = ` (${DOM.pizzaTamanhoSelectDetalhe.value})`;
-            renderIngredientesReceitaDetalhe();
-        }
-    }
-
-    function renderIngredientesReceitaDetalhe() {
-        DOM.ingredientesParaReceitaDetalheList.innerHTML = '';
-        let ingredientesDaReceita = {};
-
-        if (currentRecipeProduct && currentRecipeProduct.tipo === 'pizza') {
-            const tamanhoSelecionado = DOM.pizzaTamanhoSelectDetalhe.value;
-            ingredientesDaReceita = currentRecipeProduct.receita?.[tamanhoSelecionado] || {};
-        } else if (currentRecipeProduct) {
-            ingredientesDaReceita = currentRecipeProduct.receita || {};
-        }
-
-        const ingredientIds = Object.keys(ingredientesDaReceita);
-
-        if (ingredientIds.length === 0) {
-            DOM.ingredientesParaReceitaDetalheList.innerHTML = '<p class="text-gray-600">Nenhum ingrediente adicionado a esta receita.</p>';
-            return;
-        }
-
-        ingredientIds.forEach(ingredienteId => {
-            const quantidade = ingredientesDaReceita[ingredienteId];
-            const ingredienteInfo = allIngredients[ingredienteId];
-
-            const listItem = document.createElement('div');
-            listItem.className = 'flex justify-between items-center bg-gray-100 p-2 rounded-md';
-
-            if (ingredienteInfo) {
-                listItem.innerHTML = `
-                    <span>${ingredienteInfo.nome}: <strong>${quantidade.toFixed(3)} ${ingredienteInfo.unidadeMedida}</strong></span>
-                    <button class="text-red-500 hover:text-red-700 btn-remove-ingrediente-receita" data-ingrediente-id="${ingredienteId}"><i class="fas fa-trash-alt"></i></button>
-                `;
-            } else {
-                listItem.classList.remove('bg-gray-100');
-                listItem.classList.add('bg-red-100', 'text-red-700');
-                listItem.innerHTML = `
-                    <span>Ingrediente Desconhecido (ID: ${ingredienteId}): <strong>${quantidade.toFixed(3)}</strong></span>
-                    <button class="text-red-500 hover:text-red-700 btn-remove-ingrediente-receita" data-ingrediente-id="${ingredienteId}"><i class="fas fa-trash-alt"></i></button>
-                `;
-            }
-            DOM.ingredientesParaReceitaDetalheList.appendChild(listItem);
-        });
-
-        DOM.ingredientesParaReceitaDetalheList.querySelectorAll('.btn-remove-ingrediente-receita').forEach(button => {
-            button.addEventListener('click', handleRemoveIngredienteReceitaDetalhe);
-        });
-    }
-
-    function handleAddIngredienteReceitaDetalhe() {
-        if (!currentRecipeProduct) {
-            alert('Selecione um produto primeiro.');
-            return;
-        }
-
-        const ingredienteId = DOM.receitaIngredienteSelectDetalhe.value;
-        const quantidade = parseFloat(DOM.receitaQuantidadeDetalheInput.value);
-
-        if (!ingredienteId || isNaN(quantidade) || quantidade <= 0) {
-            alert('Selecione um ingrediente e insira uma quantidade válida.');
-            return;
-        }
-
-        if (!allIngredients[ingredienteId]) {
-            alert('Ingrediente selecionado não encontrado. Por favor, recarregue a página.');
-            return;
-        }
-
-        if (currentRecipeProduct.tipo === 'pizza') {
-            const tamanhoSelecionado = DOM.pizzaTamanhoSelectDetalhe.value;
-            if (!currentRecipeProduct.receita.hasOwnProperty(tamanhoSelecionado)) {
-                currentRecipeProduct.receita[tamanhoSelecionado] = {};
-            }
-            currentRecipeProduct.receita[tamanhoSelecionado][ingredienteId] = quantidade;
-        } else {
-            currentRecipeProduct.receita[ingredienteId] = quantidade;
-        }
-        
-        renderIngredientesReceitaDetalhe();
-        DOM.receitaIngredienteSelectDetalhe.value = '';
-        DOM.receitaQuantidadeDetalheInput.value = '';
-    }
-
-    async function handleSalvarReceitaDetalhe() {
-        if (!currentRecipeProduct || !currentRecipeProduct.id || !currentRecipeProduct.categoria) {
-            alert('Nenhum produto selecionado ou informações incompletas para salvar a receita.');
-            return;
-        }
-
-        let custoCalculado = 0;
-        if (currentRecipeProduct.tipo === 'pizza') {
-            if (currentRecipeProduct.receita.grande) {
-                custoCalculado += calcularCustoReceita(currentRecipeProduct.receita.grande);
-            }
-            if (currentRecipeProduct.receita.broto) {
-                custoCalculado += calcularCustoReceita(currentRecipeProduct.receita.broto);
-            }
-        } else {
-            custoCalculado = calcularCustoReceita(currentRecipeProduct.receita);
-        }
-
-        try {
-            await produtosRef.child(currentRecipeProduct.categoria).child(currentRecipeProduct.id).update({
-                receita: currentRecipeProduct.receita,
-                custoIngredientes: custoCalculado
-            });
-            alert(`Receita para "${currentRecipeProduct.nome}" salva com sucesso! (Custo da Receita: R$ ${custoCalculado.toFixed(2)})`);
-        } catch (error) {
-            console.error('Erro ao salvar receita:', error);
-            alert('Erro ao salvar receita.');
-        }
-    }
-
-    function handleRemoveIngredienteReceitaDetalhe(event) {
-        const ingredienteIdToRemove = event.target.closest('button').dataset.ingredienteId;
-        if (!currentRecipeProduct) return;
-
-        if (confirm('Tem certeza que deseja remover este ingrediente da receita?')) {
-            if (currentRecipeProduct.tipo === 'pizza') {
-                const tamanhoSelecionado = DOM.pizzaTamanhoSelectDetalhe.value;
-                if (currentRecipeProduct.receita?.[tamanhoSelecionado]) {
-                    delete currentRecipeProduct.receita[tamanhoSelecionado][ingredienteIdToRemove];
-                    if (Object.keys(currentRecipeProduct.receita[tamanhoSelecionado]).length === 0) {
-                        delete currentRecipeProduct.receita[tamanhoSelecionado];
-                    }
-                }
-            } else {
-                delete currentRecipeProduct.receita[ingredienteIdToRemove];
-            }
-            renderIngredientesReceitaDetalhe();
-        }
-    }
-
-    function calcularCustoReceita(receita) {
-        let custoTotal = 0;
-        for (const ingredienteId in receita) {
-            const quantidadeNecessaria = receita[ingredienteId];
-            const ingredienteInfo = allIngredients[ingredienteId];
-            if (ingredienteInfo && ingredienteInfo.custoUnitarioMedio !== undefined) {
-                custoTotal += quantidadeNecessaria * (ingredienteInfo.custoUnitarioMedio || 0);
-            } else {
-                console.warn(`Ingrediente ${ingredienteId} não encontrado ou sem custo médio para cálculo da receita.`);
-            }
-        }
-        return custoTotal;
-    }
-
-    // --- FUNÇÕES DE GERENCIAMENTO DETALHADO (Registro de Compras) ---
-    function popularIngredientesParaCompraSelects() {
-        DOM.compraIngredienteSelectDetalhe.innerHTML = '<option value="">Selecione um ingrediente</option>';
-        const sortedIngredients = Object.entries(allIngredients).sort(([, a], [, b]) => a.nome.localeCompare(b.nome));
-        sortedIngredients.forEach(([id, ingrediente]) => {
-            const option = document.createElement('option');
-            option.value = id;
-            option.textContent = `${ingrediente.nome} (${ingrediente.unidadeMedida})`;
-            DOM.compraIngredienteSelectDetalhe.appendChild(option);
-        });
-    }
-
-    function handleAddItemCompraDetalhe() {
-        const ingredienteId = DOM.compraIngredienteSelectDetalhe.value;
-        const quantidade = parseFloat(DOM.compraQuantidadeDetalheInput.value);
-        const precoUnitario = parseFloat(DOM.compraPrecoUnitarioDetalheInput.value);
-
-        if (!ingredienteId || isNaN(quantidade) || quantidade <= 0 || isNaN(precoUnitario) || precoUnitario <= 0) {
-            alert('Por favor, selecione um ingrediente e insira quantidades e preços válidos.');
-            return;
-        }
-        if (!allIngredients[ingredienteId]) {
-            alert('Ingrediente selecionado não encontrado. Por favor, recarregue a página.');
-            return;
-        }
-
-        const itemExistenteIndex = currentPurchaseItems.findIndex(item => item.ingredienteId === ingredienteId);
-
-        if (itemExistenteIndex > -1) {
-            alert('Este ingrediente já foi adicionado à lista de compra. Remova-o e adicione novamente com a quantidade/preco corretos.');
-            return;
-        }
-
-        currentPurchaseItems.push({
-            ingredienteId: ingredienteId,
-            nome: allIngredients[ingredienteId].nome,
-            unidadeMedida: allIngredients[ingredienteId].unidadeMedida,
-            quantidade: quantidade,
-            precoUnitario: precoUnitario
-        });
-
-        renderItensCompraDetalhe();
-        DOM.compraIngredienteSelectDetalhe.value = '';
-        DOM.compraQuantidadeDetalheInput.value = '';
-        DOM.compraPrecoUnitarioDetalheInput.value = '';
-        DOM.btnRegistrarCompraDetalhe.disabled = currentPurchaseItems.length === 0;
-    }
-
-    function renderItensCompraDetalhe() {
-        DOM.itensCompraDetalheListContainer.innerHTML = '';
-        if (currentPurchaseItems.length === 0) {
-            DOM.itensCompraDetalheListContainer.innerHTML = '<p class="text-gray-600 text-center">Nenhum item adicionado a esta compra.</p>';
-            return;
-        }
-
-        currentPurchaseItems.forEach((item, index) => {
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'flex justify-between items-center bg-gray-100 p-2 rounded-md';
-            itemDiv.innerHTML = `
-                <span>${item.nome}: <strong>${item.quantidade.toFixed(3)} ${item.unidadeMedida}</strong> a R$ ${item.precoUnitario.toFixed(2)}/un. (Total: R$ ${(item.quantidade * item.precoUnitario).toFixed(2)})</span>
-                <button class="text-red-500 hover:text-red-700 btn-remove-item-compra" data-index="${index}"><i class="fas fa-trash-alt"></i></button>
-            `;
-            DOM.itensCompraDetalheListContainer.appendChild(itemDiv);
-        });
-
-        DOM.itensCompraDetalheListContainer.querySelectorAll('.btn-remove-item-compra').forEach(button => {
-            button.addEventListener('click', (e) => {
-                const indexToRemove = parseInt(e.target.closest('button').dataset.index);
-                currentPurchaseItems.splice(indexToRemove, 1);
-                renderItensCompraDetalhe();
-                DOM.btnRegistrarCompraDetalhe.disabled = currentPurchaseItems.length === 0;
-            });
-        });
-    }
-
-    async function handleRegistrarCompraDetalhe() {
-        const dataCompra = DOM.compraDataDetalheInput.value;
-        const fornecedor = DOM.compraFornecedorDetalheInput.value.trim();
-
-        if (!dataCompra) {
-            alert('Por favor, preencha a data da compra.');
-            return;
-        }
-        if (currentPurchaseItems.length === 0) {
-            alert('Adicione pelo menos um item à compra antes de registrar.');
-            return;
-        }
-
-        if (confirm('Deseja realmente registrar esta compra e atualizar o estoque?')) {
-            try {
-                let totalCompra = 0;
-                const itemsParaFirebase = {};
-
-                for (const item of currentPurchaseItems) {
-                    await recalcularCustoUnitarioMedio(item.ingredienteId, item.quantidade, item.precoUnitario);
-                    totalCompra += item.quantidade * item.precoUnitario;
-                    itemsParaFirebase[item.ingredienteId] = {
-                        nome: item.nome,
-                        quantidade: item.quantidade,
-                        precoUnitario: item.precoUnitario
-                    };
-                }
-
-                await comprasRef.push({
-                    data: dataCompra,
-                    fornecedor: fornecedor || 'Não Informado',
-                    itensComprados: itemsParaFirebase,
-                    totalCompra: totalCompra.toFixed(2),
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
-                });
-
-                alert('Compra registrada e estoque atualizado com sucesso!');
-                DOM.compraDataDetalheInput.valueAsDate = new Date();
-                DOM.compraFornecedorDetalheInput.value = '';
-                currentPurchaseItems = []; // Limpa a lista para nova compra
-                renderItensCompraDetalhe();
-                DOM.btnRegistrarCompraDetalhe.disabled = true;
-            } catch (error) {
-                console.error('Erro ao registrar compra:', error);
-                alert('Erro ao registrar compra. Verifique o console.');
-            }
-        }
-    }
-
-    async function recalcularCustoUnitarioMedio(ingredienteId, quantidadeComprada, precoUnitarioCompra) {
-        const ingredienteRef = ingredientesRef.child(ingredienteId);
-        await ingredienteRef.transaction(currentData => {
-            if (currentData) {
-                const oldQuantity = currentData.quantidadeAtual || 0;
-                const oldCost = currentData.custoUnitarioMedio || 0;
-
-                const newTotalCost = (oldQuantity * oldCost) + (quantidadeComprada * precoUnitarioCompra);
-                const newTotalQuantity = oldQuantity + quantidadeComprada;
-
-                currentData.quantidadeAtual = newTotalQuantity;
-                currentData.custoUnitarioMedio = newTotalQuantity > 0 ? newTotalCost / newTotalQuantity : 0;
-            }
-            return currentData;
-        });
-    }
-
-    // --- FUNÇÕES DE RELATÓRIOS E ANÁLISES RÁPIDAS (Estoque) ---
-
-    // Renderiza a lista de ingredientes em ponto de pedido
-    function renderIngredientesPontoPedido(ingredientes) {
-        if (!DOM.ingredientesPontoPedidoList) return;
-        DOM.ingredientesPontoPedidoList.innerHTML = '';
-        DOM.ingredientesPontoPedidoCount.textContent = ingredientes.length;
-
-        if (ingredientes.length === 0) {
-            DOM.ingredientesPontoPedidoList.innerHTML = '<p class="text-gray-600 text-center">Nenhum ingrediente abaixo do estoque mínimo.</p>';
-            return;
-        }
-
-        ingredientes.sort((a,b) => a.nome.localeCompare(b.nome));
-
-        ingredientes.forEach(ingrediente => {
-            const listItem = document.createElement('div');
-            listItem.className = 'flex justify-between items-center bg-red-100 text-red-800 p-2 rounded-md';
-            listItem.innerHTML = `
-                <span>${ingrediente.nome}: <strong>${(ingrediente.quantidadeAtual || 0).toFixed(2)} ${ingrediente.unidadeMedida}</strong></span>
-                <span class="text-xs">Mínimo: ${ingrediente.estoqueMinimo} ${ingrediente.unidadeMedida}</span>
-            `;
-            DOM.ingredientesPontoPedidoList.appendChild(listItem);
-        });
-    }
-
-    // Renderiza o consumo diário (para o dia anterior)
-    function renderConsumoDiario() {
-        if (!DOM.listaConsumoDiarioContainer || !DOM.dataDiaAnteriorSpan || !DOM.totalGastoDiarioSpan) return;
-
-        DOM.listaConsumoDiarioContainer.innerHTML = '';
-        let totalCustoOntem = 0;
-        const ontem = new Date();
-        ontem.setDate(ontem.getDate() - 1);
-        const options = { day: '2-digit', month: '2-digit', year: 'numeric' };
-        DOM.dataDiaAnteriorSpan.textContent = ontem.toLocaleDateString('pt-BR', options);
-
-        const ingredientesConsumidosOntem = [];
-        Object.values(allIngredients).forEach(ingrediente => {
-            if (ingrediente.quantidadeUsadaDiaria > 0) { // Verifica se há consumo diário registrado
-                ingredientesConsumidosOntem.push(ingrediente);
-                totalCustoOntem += ingrediente.custoUsadoDiaria || 0;
-            }
-        });
-
-        if (ingredientesConsumidosOntem.length === 0) {
-            DOM.listaConsumoDiarioContainer.innerHTML = '<p class="text-gray-500 text-center">Nenhum consumo registrado para ontem.</p>';
-        } else {
-            ingredientesConsumidosOntem.sort((a,b) => b.quantidadeUsadaDiaria - a.quantidadeUsadaDiaria);
-            ingredientesConsumidosOntem.forEach(ingrediente => {
-                const listItem = document.createElement('div');
-                listItem.className = 'flex justify-between items-center bg-gray-100 p-1 rounded-sm';
-                listItem.innerHTML = `
-                    <span>${ingrediente.nome}: <strong>${ingrediente.quantidadeUsadaDiaria.toFixed(3)} ${ingrediente.unidadeMedida}</strong></span>
-                    <span class="text-xs">R$ ${ingrediente.custoUsadoDiaria.toFixed(2)}</span>
-                `;
-                DOM.listaConsumoDiarioContainer.appendChild(listItem);
-            });
-        }
-        DOM.totalGastoDiarioSpan.textContent = `R$ ${totalCustoOntem.toFixed(2)}`;
-    }
-
-    // Renderiza o consumo mensal
-    function renderConsumoMensal() {
-        if (!DOM.listaConsumoMensalContainer || !DOM.totalGastoMensalSpan || !DOM.nomeMesAtualSpan) return;
-
-        DOM.listaConsumoMensalContainer.innerHTML = '';
-        let totalCustoMes = 0;
-        const mesAtual = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
-        DOM.nomeMesAtualSpan.textContent = mesAtual.charAt(0).toUpperCase() + mesAtual.slice(1);
-
-        const ingredientesConsumidosMes = [];
-        Object.values(allIngredients).forEach(ingrediente => {
-            if (ingrediente.quantidadeUsadaMensal > 0) {
-                ingredientesConsumidosMes.push(ingrediente);
-                totalCustoMes += ingrediente.custoUsadoMensal || 0;
-            }
-        });
-
-        if (ingredientesConsumidosMes.length === 0) {
-            DOM.listaConsumoMensalContainer.innerHTML = '<p class="text-gray-500 text-center">Nenhum consumo registrado para este mês.</p>';
-        } else {
-            ingredientesConsumidosMes.sort((a,b) => b.quantidadeUsadaMensal - a.quantidadeUsadaMensal);
-            ingredientesConsumidosMes.forEach(ingrediente => {
-                const listItem = document.createElement('div');
-                listItem.className = 'flex justify-between items-center bg-gray-100 p-1 rounded-sm';
-                listItem.innerHTML = `
-                    <span>${ingrediente.nome}: <strong>${ingrediente.quantidadeUsadaMensal.toFixed(3)} ${ingrediente.unidadeMedida}</strong></span>
-                    <span class="text-xs">R$ ${ingrediente.custoUsadoMensal.toFixed(2)}</span>
-                `;
-                DOM.listaConsumoMensalContainer.appendChild(listItem);
-            });
-        }
-        DOM.totalGastoMensalSpan.textContent = `R$ ${totalCustoMes.toFixed(2)}`;
-    }
-
-    // Garçons
-
-btnSalvarGarcom.addEventListener('click', async () => {
-    const nomeGarcom = garcomNomeInput.value.trim();
-    const senhaGarcom = garcomSenhaInput.value.trim();
-
-    if (!nomeGarcom || !senhaGarcom) {
-        alert("O nome e a senha do garçom são obrigatórios.");
+    if (isNaN(estoqueMinimo) || estoqueMinimo < 0) {
+        alert('Por favor, insira um valor válido para o estoque mínimo.');
         return;
     }
 
-    // Cria um e-mail "falso" para o Firebase Auth, garantindo que seja único.
-    // Remove espaços e caracteres especiais para formar um e-mail válido.
-    const emailGarcom = `${nomeGarcom.toLowerCase().replace(/\s+/g, '_')}@seu-restaurante.com`;
+    try {
+        const snapshot = await ingredientesRef.orderByChild('nome').equalTo(nome).once('value');
+        if (snapshot.exists()) {
+            const existingIngredientId = Object.keys(snapshot.val())[0];
+            await ingredientesRef.child(existingIngredientId).update({
+                unidadeMedida: unidade,
+                estoqueMinimo: estoqueMinimo
+            });
+            alert(`Ingrediente "${nome}" atualizado com sucesso!`);
+        } else {
+            await ingredientesRef.push({
+                nome: nome,
+                unidadeMedida: unidade,
+                quantidadeAtual: 0,
+                custoUnitarioMedio: 0,
+                estoqueMinimo: estoqueMinimo,
+                quantidadeUsadaMensal: 0,
+                custoUsadoMensal: 0,
+                quantidadeUsadaDiaria: 0,
+                custoUsadaDiaria: 0,
+                ultimaAtualizacaoConsumo: firebase.database.ServerValue.TIMESTAMP
+            });
+            alert(`Ingrediente "${nome}" adicionado com sucesso!`);
+        }
+        DOM.ingredienteNomeDetalheInput.value = '';
+        DOM.ingredienteUnidadeDetalheInput.value = '';
+        DOM.ingredienteEstoqueMinimoDetalheInput.value = '';
+    } catch (error) {
+        console.error('Erro ao salvar ingrediente:', error);
+        alert('Erro ao salvar ingrediente. Verifique o console para mais detalhes.');
+    }
+}
+
+async function handleUpdateIngrediente(event) {
+    const ingredienteId = event.target.dataset.id;
+    const input = document.getElementById(`qtd-atual-${ingredienteId}`); // This ID is unique per ingredient
+    const novaQuantidade = parseFloat(input.value);
+
+    if (isNaN(novaQuantidade) || novaQuantidade < 0) {
+        alert('Por favor, insira uma quantidade válida.');
+        return;
+    }
 
     try {
-        // Cria o usuário no Firebase Authentication
-        const userCredential = await firebase.auth().createUserWithEmailAndPassword(emailGarcom, senhaGarcom);
-        const user = userCredential.user;
-
-        // Salva informações adicionais (como o nome de exibição) no Realtime Database
-        // usando o UID do usuário como chave.
-        await database.ref(`garcons_info/${user.uid}`).set({
-            nome: nomeGarcom,
-            email: emailGarcom
-        });
-
-        alert(`Garçom "${nomeGarcom}" adicionado com sucesso!`);
-        garcomNomeInput.value = '';
-        garcomSenhaInput.value = '';
+        await ingredientesRef.child(ingredienteId).update({ quantidadeAtual: novaQuantidade });
+        alert('Estoque atualizado manualmente com sucesso!');
     } catch (error) {
-        console.error("Erro ao adicionar garçom:", error);
-        // Trata erros comuns do Firebase Auth
-        if (error.code === 'auth/email-already-in-use') {
-            alert('Erro: Já existe um garçom com este nome.');
-        } else if (error.code === 'auth/weak-password') {
-            alert('Erro: A senha deve ter pelo menos 6 caracteres.');
-        } else {
-            alert("Erro ao adicionar garçom: " + error.message);
+        console.error('Erro ao atualizar ingrediente:', error);
+        alert('Erro ao atualizar ingrediente.');
+    }
+}
+
+async function handleDeleteIngrediente(event) {
+    const ingredienteId = event.target.dataset.id;
+    const ingredienteNome = allIngredients[ingredienteId]?.nome || 'este ingrediente';
+
+    if (confirm(`Tem certeza que deseja excluir "${ingredienteNome}"? Isso também removerá ele de todas as receitas.`)) {
+        try {
+            await ingredientesRef.child(ingredienteId).remove();
+            const categories = ['pizzas', 'bebidas', 'esfirras', 'calzone', 'promocoes', 'novidades'];
+            for (const categoria of categories) {
+                const productsSnapshot = await produtosRef.child(categoria).once('value');
+                if (productsSnapshot.exists()) {
+                    productsSnapshot.forEach(produtoChild => {
+                        const produtoData = produtoChild.val();
+                        if (produtoData.tipo === 'pizza' && produtoData.receita) {
+                            // Check in both sizes
+                            if (produtoData.receita.grande && produtoData.receita.grande[ingredienteId]) {
+                                delete produtoData.receita.grande[ingredienteId];
+                            }
+                            if (produtoData.receita.broto && produtoData.receita.broto[ingredienteId]) {
+                                delete produtoData.receita.broto[ingredienteId];
+                            }
+                            // Only update if changes were made to avoid unnecessary writes
+                            if (JSON.stringify(produtoData.receita) !== JSON.stringify(produtoChild.val().receita)) {
+                                produtosRef.child(categoria).child(produtoChild.key).update({ receita: produtoData.receita });
+                            }
+                        } else if (produtoData.receita && produtoData.receita[ingredienteId]) {
+                            const updatedReceita = { ...produtoData.receita };
+                            delete updatedReceita[ingredienteId];
+                            produtosRef.child(categoria).child(produtoChild.key).update({ receita: updatedReceita });
+                        }
+                    });
+                }
+            }
+            alert(`Ingrediente "${ingredienteNome}" excluído com sucesso!`);
+        } catch (error) {
+            console.error('Erro ao excluir ingrediente:', error);
+            alert('Erro ao excluir ingrediente.');
         }
     }
-});
+}
 
-// Função para carregar e exibir os garçons do Firebase
-function carregarGarcom() {
-    // Agora, lemos do novo nó 'garcons_info'
-    database.ref('garcons_info').on('value', (snapshot) => {
-        const garcons = snapshot.val();
-        listaGarconsContainer.innerHTML = '';
+// --- FUNÇÕES DE GERENCIAMENTO DETALHADO (Registro de Compras) ---
+function popularIngredientesParaCompraSelects() {
+    DOM.compraIngredienteSelectDetalhe.innerHTML = '<option value="">Selecione um ingrediente</option>';
+    const sortedIngredients = Object.entries(allIngredients).sort(([, a], [, b]) => a.nome.localeCompare(b.nome));
+    sortedIngredients.forEach(([id, ingrediente]) => {
+        const option = document.createElement('option');
+        option.value = id;
+        option.textContent = `${ingrediente.nome} (${ingrediente.unidadeMedida})`;
+        DOM.compraIngredienteSelectDetalhe.appendChild(option);
+    });
+}
 
-        if (!garcons) {
-            listaGarconsContainer.innerHTML = '<p class="text-gray-600 col-span-full text-center">Nenhum garçom cadastrado.</p>';
-            return;
-        }
+function handleAddItemCompraDetalhe() {
+    const ingredienteId = DOM.compraIngredienteSelectDetalhe.value;
+    const quantidade = parseFloat(DOM.compraQuantidadeDetalheInput.value);
+    const precoUnitario = parseFloat(DOM.compraPrecoUnitarioDetalheInput.value);
 
-        Object.entries(garcons).forEach(([uid, garcom]) => {
-            if (!garcom) return;
+    if (!ingredienteId || isNaN(quantidade) || quantidade <= 0 || isNaN(precoUnitario) || precoUnitario <= 0) {
+        alert('Por favor, selecione um ingrediente e insira quantidades e preços válidos e positivos.');
+        return;
+    }
+    if (!allIngredients[ingredienteId]) {
+        alert('Ingrediente selecionado não encontrado. Por favor, recarregue a página.');
+        return;
+    }
 
-            const garcomDiv = document.createElement('div');
-            garcomDiv.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col justify-between';
+    const itemExistenteIndex = currentPurchaseItems.findIndex(item => item.ingredienteId === ingredienteId);
 
-            garcomDiv.innerHTML = `
-                <div class="flex-grow">
-                    <h3 class="text-lg font-semibold text-gray-800">${garcom.nome}</h3>
-                    <p class="text-sm text-gray-500">ID: ${uid}</p>
-                </div>
-                <div class="flex gap-2 mt-4">
-                    <button class="btn-reset-senha-garcom bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm flex-1" data-email="${garcom.email}" data-nome="${garcom.nome}">
-                        Redefinir Senha
-                    </button>
-                    <button class="btn-excluir-garcom bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm flex-1" data-uid="${uid}" data-nome="${garcom.nome}">
-                        Excluir
-                    </button>
-                </div>
-            `;
-            listaGarconsContainer.appendChild(garcomDiv);
+    if (itemExistenteIndex > -1) {
+        alert('Este ingrediente já foi adicionado à lista de compra. Remova-o e adicione novamente com a quantidade/preco corretos.');
+        return;
+    }
+
+    currentPurchaseItems.push({
+        ingredienteId: ingredienteId,
+        nome: allIngredients[ingredienteId].nome,
+        unidadeMedida: allIngredients[ingredienteId].unidadeMedida,
+        quantidade: quantidade,
+        precoUnitario: precoUnitario
+    });
+
+    renderItensCompraDetalhe();
+    DOM.compraIngredienteSelectDetalhe.value = '';
+    DOM.compraQuantidadeDetalheInput.value = '';
+    DOM.compraPrecoUnitarioDetalheInput.value = '';
+    DOM.btnRegistrarCompraDetalhe.disabled = currentPurchaseItems.length === 0;
+}
+
+function renderItensCompraDetalhe() {
+    DOM.itensCompraDetalheListContainer.innerHTML = '';
+    if (currentPurchaseItems.length === 0) {
+        DOM.itensCompraDetalheListContainer.innerHTML = '<p class="text-gray-600 text-center">Nenhum item adicionado a esta compra.</p>';
+        return;
+    }
+
+    currentPurchaseItems.forEach((item, index) => {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'flex justify-between items-center bg-gray-100 p-2 rounded-md';
+        itemDiv.innerHTML = `
+            <span>${item.nome}: <strong>${item.quantidade.toFixed(3)} ${item.unidadeMedida}</strong> a R$ ${item.precoUnitario.toFixed(2)}/un. (Total: R$ ${(item.quantidade * item.precoUnitario).toFixed(2)})</span>
+            <button class="text-red-500 hover:text-red-700 btn-remove-item-compra" data-index="${index}"><i class="fas fa-trash-alt"></i></button>
+        `;
+        DOM.itensCompraDetalheListContainer.appendChild(itemDiv);
+    });
+
+    DOM.itensCompraDetalheListContainer.querySelectorAll('.btn-remove-item-compra').forEach(button => {
+        // Clone and replace to remove all previous event listeners
+        const newButton = button.cloneNode(true);
+        button.parentNode.replaceChild(newButton, button);
+        newButton.addEventListener('click', (e) => {
+            const indexToRemove = parseInt(e.target.closest('button').dataset.index);
+            currentPurchaseItems.splice(indexToRemove, 1);
+            renderItensCompraDetalhe();
+            DOM.btnRegistrarCompraDetalhe.disabled = currentPurchaseItems.length === 0;
         });
     });
 }
 
-listaGarconsContainer.addEventListener('click', (e) => {
-    const resetButton = e.target.closest('.btn-reset-senha-garcom');
-    const deleteButton = e.target.closest('.btn-excluir-garcom');
+async function handleRegistrarCompraDetalhe() {
+    const dataCompra = DOM.compraDataDetalheInput.value;
+    const fornecedor = DOM.compraFornecedorDetalheInput.value.trim();
 
-    // Redefinir a senha
-    if (resetButton) {
-        const email = resetButton.dataset.email;
-        const nome = resetButton.dataset.nome;
-        if (confirm(`Deseja enviar um e-mail de redefinição de senha para ${nome}?`)) {
-            firebase.auth().sendPasswordResetEmail(email)
-                .then(() => {
-                    alert(`E-mail de redefinição de senha enviado para ${email}.`);
-                })
-                .catch((error) => {
-                    alert('Erro ao enviar e-mail: ' + error.message);
-                });
-        }
+    if (!dataCompra) {
+        alert('Por favor, preencha a data da compra.');
+        return;
+    }
+    if (currentPurchaseItems.length === 0) {
+        alert('Adicione pelo menos um item à compra antes de registrar.');
+        return;
     }
 
-    // Lógica para excluir
-    if (deleteButton) {
-        const uid = deleteButton.dataset.uid;
-        const nome = deleteButton.dataset.nome;
-        if (confirm(`Deseja realmente excluir o garçom ${nome}? Esta ação não pode ser desfeita.`)) {
-            // A exclusão de usuários é uma operação sensível.
-            // A forma ideal é usar o Admin SDK em uma Cloud Function.
-            // Como estamos no cliente, vamos apenas remover os dados do RTDB.
-            // ATENÇÃO: Isso deixará um usuário órfão no Firebase Authentication.
-            // Para uma solução completa, uma Cloud Function seria necessária para chamar admin.auth().deleteUser(uid).
-            database.ref(`garcons_info/${uid}`).remove()
-                .then(() => {
-                    alert(`Garçom ${nome} excluído do banco de dados. (Lembre-se de remover o usuário no painel do Firebase Authentication).`);
-                }).catch(error => {
+    if (confirm('Deseja realmente registrar esta compra e atualizar o estoque?')) {
+        try {
+            let totalCompra = 0;
+            const itemsParaFirebase = {};
+
+            for (const item of currentPurchaseItems) {
+                await recalcularCustoUnitarioMedio(item.ingredienteId, item.quantidade, item.precoUnitario);
+                totalCompra += item.quantidade * item.precoUnitario;
+                itemsParaFirebase[item.ingredienteId] = {
+                    nome: item.nome,
+                    quantidade: item.quantidade,
+                    precoUnitario: item.precoUnitario
+                };
+            }
+
+            await comprasRef.push({
+                data: dataCompra,
+                fornecedor: fornecedor || 'Não Informado',
+                itensComprados: itemsParaFirebase,
+                totalCompra: parseFloat(totalCompra.toFixed(2)), // Store as float
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            });
+
+            alert('Compra registrada e estoque atualizado com sucesso!');
+            DOM.compraDataDetalheInput.valueAsDate = new Date();
+            DOM.compraFornecedorDetalheInput.value = '';
+            currentPurchaseItems = []; // Limpa a lista para nova compra
+            renderItensCompraDetalhe();
+            DOM.btnRegistrarCompraDetalhe.disabled = true;
+        } catch (error) {
+            console.error('Erro ao registrar compra:', error);
+            alert('Erro ao registrar compra. Verifique o console.');
+        }
+    }
+}
+
+async function recalcularCustoUnitarioMedio(ingredienteId, quantidadeComprada, precoUnitarioCompra) {
+    const ingredienteRef = ingredientesRef.child(ingredienteId);
+    await ingredienteRef.transaction(currentData => {
+        if (currentData) {
+            const oldQuantity = currentData.quantidadeAtual || 0;
+            const oldCost = currentData.custoUnitarioMedio || 0;
+
+            const newTotalCost = (oldQuantity * oldCost) + (quantidadeComprada * precoUnitarioCompra);
+            const newTotalQuantity = oldQuantity + quantidadeComprada;
+
+            currentData.quantidadeAtual = newTotalQuantity;
+            currentData.custoUnitarioMedio = newTotalQuantity > 0 ? newTotalCost / newTotalQuantity : 0;
+        }
+        return currentData;
+    });
+}
+
+// --- FUNÇÕES DE GERENCIAMENTO DETALHADO (Configurar Receitas) ---
+function popularIngredientesParaReceitaSelects() {
+    DOM.receitaIngredienteSelectDetalhe.innerHTML = '<option value="">Selecione um ingrediente</option>';
+    const sortedIngredients = Object.entries(allIngredients).sort(([, a], [, b]) => a.nome.localeCompare(b.nome));
+    sortedIngredients.forEach(([id, ingrediente]) => {
+        const option = document.createElement('option');
+        option.value = id;
+        option.textContent = `${ingrediente.nome} (${ingrediente.unidadeMedida})`;
+        DOM.receitaIngredienteSelectDetalhe.appendChild(option);
+    });
+}
+
+async function handleReceitaProdutoCategoriaChangeDetalhe(event) {
+    const selectedCategory = event.target.value;
+    DOM.receitaProdutoSelectDetalhe.innerHTML = '<option value="">Carregando produtos...</option>';
+    DOM.receitaProdutoSelectDetalhe.disabled = true;
+    DOM.receitaConfigDetalheContainer.classList.add('hidden');
+    DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'none';
+    currentRecipeProduct = null; // Clear selected product
+
+    if (!selectedCategory) {
+        DOM.receitaProdutoSelectDetalhe.innerHTML = '<option value="">Selecione uma categoria primeiro</option>';
+        return;
+    }
+
+    try {
+        const productsSnapshot = await produtosRef.child(selectedCategory).once('value');
+        const products = [];
+        productsSnapshot.forEach(childSnapshot => {
+            const product = childSnapshot.val();
+            // Use 'nome' first, fallback to 'titulo' for promos/news
+            const productName = product.nome || product.titulo;
+            if (productName) { // Ensure product has a name
+                products.push({ id: childSnapshot.key, nome: productName, tipo: product.tipo });
+            }
+        });
+
+        products.sort((a, b) => a.nome.localeCompare(b.nome));
+
+        DOM.receitaProdutoSelectDetalhe.innerHTML = '<option value="">Selecione um produto</option>';
+        products.forEach(prod => {
+            const option = document.createElement('option');
+            option.value = prod.id;
+            option.textContent = prod.nome;
+            option.dataset.tipo = prod.tipo;
+            option.dataset.category = selectedCategory; // Store category for later use
+            DOM.receitaProdutoSelectDetalhe.appendChild(option);
+        });
+        DOM.receitaProdutoSelectDetalhe.disabled = false;
+    } catch (error) {
+        console.error('Erro ao carregar produtos por categoria:', error);
+        DOM.receitaProdutoSelectDetalhe.innerHTML = '<option value="">Erro ao carregar produtos</option>';
+    }
+}
+
+async function handleReceitaProdutoSelectChangeDetalhe(event) {
+    const selectedProductId = event.target.value;
+    const selectedOption = DOM.receitaProdutoSelectDetalhe.options[DOM.receitaProdutoSelectDetalhe.selectedIndex];
+    const productType = selectedOption?.dataset.tipo;
+    const selectedCategory = selectedOption?.dataset.category; // Retrieve category from dataset
+
+    if (!selectedProductId || !selectedCategory) {
+        DOM.receitaConfigDetalheContainer.classList.add('hidden');
+        DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'none';
+        currentRecipeProduct = null;
+        return;
+    }
+
+    const productName = selectedOption.textContent.trim();
+    DOM.currentRecipeProductNameDetalhe.textContent = productName;
+    DOM.receitaConfigDetalheContainer.classList.remove('hidden');
+
+    if (productType === 'pizza') {
+        DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'block';
+        DOM.currentPizzaSizeDetalheSpan.textContent = ` (${DOM.pizzaTamanhoSelectDetalhe.value})`;
+    } else {
+        DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'none';
+        DOM.currentPizzaSizeDetalheSpan.textContent = '';
+    }
+
+    try {
+        const produtoSnapshot = await produtosRef.child(selectedCategory).child(selectedProductId).once('value');
+        const produtoData = produtoSnapshot.val();
+
+        currentRecipeProduct = {
+            id: selectedProductId,
+            nome: productName,
+            categoria: selectedCategory,
+            tipo: productType,
+            receita: produtoData?.receita || {}
+        };
+        renderIngredientesReceitaDetalhe();
+        DOM.btnSalvarReceitaDetalhe.disabled = false;
+    } catch (error) {
+        console.error('Erro ao carregar receita:', error);
+        alert('Erro ao carregar receita para este produto.');
+        currentRecipeProduct = null;
+        DOM.receitaConfigDetalheContainer.classList.add('hidden');
+    }
+}
+
+function handlePizzaTamanhoSelectChangeDetalhe() {
+    if (currentRecipeProduct && currentRecipeProduct.tipo === 'pizza') {
+        DOM.currentPizzaSizeDetalheSpan.textContent = ` (${DOM.pizzaTamanhoSelectDetalhe.value})`;
+        renderIngredientesReceitaDetalhe();
+    }
+}
+
+function renderIngredientesReceitaDetalhe() {
+    DOM.ingredientesParaReceitaDetalheList.innerHTML = '';
+    let ingredientesDaReceita = {};
+
+    if (currentRecipeProduct && currentRecipeProduct.tipo === 'pizza') {
+        const tamanhoSelecionado = DOM.pizzaTamanhoSelectDetalhe.value;
+        ingredientesDaReceita = currentRecipeProduct.receita?.[tamanhoSelecionado] || {};
+    } else if (currentRecipeProduct) {
+        ingredientesDaReceita = currentRecipeProduct.receita || {};
+    }
+
+    const ingredientIds = Object.keys(ingredientesDaReceita);
+
+    if (ingredientIds.length === 0) {
+        DOM.ingredientesParaReceitaDetalheList.innerHTML = '<p class="text-gray-600">Nenhum ingrediente adicionado a esta receita.</p>';
+        return;
+    }
+
+    ingredientIds.forEach(ingredienteId => {
+        const quantidade = ingredientesDaReceita[ingredienteId];
+        const ingredienteInfo = allIngredients[ingredienteId];
+
+        const listItem = document.createElement('div');
+        listItem.className = 'flex justify-between items-center bg-gray-100 p-2 rounded-md';
+
+        if (ingredienteInfo) {
+            listItem.innerHTML = `
+                <span>${ingredienteInfo.nome}: <strong>${quantidade.toFixed(3)} ${ingredienteInfo.unidadeMedida}</strong></span>
+                <button class="text-red-500 hover:text-red-700 btn-remove-ingrediente-receita" data-ingrediente-id="${ingredienteId}"><i class="fas fa-trash-alt"></i></button>
+            `;
+        } else {
+            listItem.classList.remove('bg-gray-100');
+            listItem.classList.add('bg-red-100', 'text-red-700');
+            listItem.innerHTML = `
+                <span>Ingrediente Desconhecido (ID: ${ingredienteId}): <strong>${quantidade.toFixed(3)}</strong></span>
+                <button class="text-red-500 hover:text-red-700 btn-remove-ingrediente-receita" data-ingrediente-id="${ingredienteId}"><i class="fas fa-trash-alt"></i></button>
+            `;
+        }
+        DOM.ingredientesParaReceitaDetalheList.appendChild(listItem);
+    });
+
+    DOM.ingredientesParaReceitaDetalheList.querySelectorAll('.btn-remove-ingrediente-receita').forEach(button => {
+        // Clone and replace to remove all previous event listeners
+        const newButton = button.cloneNode(true);
+        button.parentNode.replaceChild(newButton, button);
+        newButton.addEventListener('click', handleRemoveIngredienteReceitaDetalhe);
+    });
+}
+
+function handleAddIngredienteReceitaDetalhe() {
+    if (!currentRecipeProduct) {
+        alert('Selecione um produto primeiro.');
+        return;
+    }
+
+    const ingredienteId = DOM.receitaIngredienteSelectDetalhe.value;
+    const quantidade = parseFloat(DOM.receitaQuantidadeDetalheInput.value);
+
+    if (!ingredienteId || isNaN(quantidade) || quantidade <= 0) {
+        alert('Selecione um ingrediente e insira uma quantidade válida e positiva.');
+        return;
+    }
+
+    if (!allIngredients[ingredienteId]) {
+        alert('Ingrediente selecionado não encontrado. Por favor, recarregue a página.');
+        return;
+    }
+
+    if (currentRecipeProduct.tipo === 'pizza') {
+        const tamanhoSelecionado = DOM.pizzaTamanhoSelectDetalhe.value;
+        if (!currentRecipeProduct.receita.hasOwnProperty(tamanhoSelecionado)) {
+            currentRecipeProduct.receita[tamanhoSelecionado] = {};
+        }
+        currentRecipeProduct.receita[tamanhoSelecionado][ingredienteId] = quantidade;
+    } else {
+        currentRecipeProduct.receita[ingredienteId] = quantidade;
+    }
+
+    renderIngredientesReceitaDetalhe();
+    DOM.receitaIngredienteSelectDetalhe.value = '';
+    DOM.receitaQuantidadeDetalheInput.value = '';
+}
+
+async function handleSalvarReceitaDetalhe() {
+    if (!currentRecipeProduct || !currentRecipeProduct.id || !currentRecipeProduct.categoria) {
+        alert('Nenhum produto selecionado ou informações incompletas para salvar a receita.');
+        return;
+    }
+
+    let custoCalculadoTotal = 0;
+    // Calculate cost for all existing recipe variations
+    if (currentRecipeProduct.tipo === 'pizza') {
+        for (const size in currentRecipeProduct.receita) {
+            const recipeForSize = currentRecipeProduct.receita[size];
+            if (recipeForSize) {
+                custoCalculadoTotal += calcularCustoReceita(recipeForSize); // Sum costs for all sizes for a total
+            }
+        }
+    } else {
+        custoCalculadoTotal = calcularCustoReceita(currentRecipeProduct.receita);
+    }
+
+    try {
+        await produtosRef.child(currentRecipeProduct.categoria).child(currentRecipeProduct.id).update({
+            receita: currentRecipeProduct.receita, // Save the complete recipe object (might contain sizes for pizza)
+            custoIngredientes: custoCalculadoTotal // Save a consolidated cost (or adjust based on reporting needs)
+        });
+        alert(`Receita para "${currentRecipeProduct.nome}" salva com sucesso! (Custo Total da Receita: R$ ${custoCalculadoTotal.toFixed(2)})`);
+    } catch (error) {
+        console.error('Erro ao salvar receita:', error);
+        alert('Erro ao salvar receita. Verifique o console para mais detalhes.');
+    }
+}
+
+function handleRemoveIngredienteReceitaDetalhe(event) {
+    const ingredienteIdToRemove = event.target.closest('button').dataset.ingredienteId;
+    if (!currentRecipeProduct) return;
+
+    if (confirm('Tem certeza que deseja remover este ingrediente da receita?')) {
+        if (currentRecipeProduct.tipo === 'pizza') {
+            const tamanhoSelecionado = DOM.pizzaTamanhoSelectDetalhe.value;
+            if (currentRecipeProduct.receita?.[tamanhoSelecionado]) {
+                delete currentRecipeProduct.receita[tamanhoSelecionado][ingredienteIdToRemove];
+                if (Object.keys(currentRecipeProduct.receita[tamanhoSelecionado]).length === 0) {
+                    // If no more ingredients for this size, remove the size entry
+                    delete currentRecipeProduct.receita[tamanhoSelecionado];
+                }
+            }
+        } else {
+            delete currentRecipeProduct.receita[ingredienteIdToRemove];
+        }
+        renderIngredientesReceitaDetalhe();
+    }
+}
+
+function calcularCustoReceita(receita) {
+    let custoTotal = 0;
+    for (const ingredienteId in receita) {
+        const quantidadeNecessaria = receita[ingredienteId];
+        const ingredienteInfo = allIngredients[ingredienteId];
+        if (ingredienteInfo && ingredienteInfo.custoUnitarioMedio !== undefined) {
+            custoTotal += quantidadeNecessaria * (ingredienteInfo.custoUnitarioMedio || 0);
+        } else {
+            console.warn(`Ingrediente ${ingredienteId} não encontrado ou sem custo médio para cálculo da receita.`);
+        }
+    }
+    return custoTotal;
+}
+
+// --- FUNÇÕES DE RELATÓRIOS E ANÁLISES RÁPIDAS (Estoque) ---
+
+// Renderiza a lista de ingredientes em ponto de pedido
+function renderIngredientesPontoPedido(ingredientes) {
+    if (!DOM.ingredientesPontoPedidoList) return;
+    DOM.ingredientesPontoPedidoList.innerHTML = '';
+    DOM.ingredientesPontoPedidoCount.textContent = ingredientes.length;
+
+    if (ingredientes.length === 0) {
+        DOM.ingredientesPontoPedidoList.innerHTML = '<p class="text-gray-600 text-center">Nenhum ingrediente abaixo do estoque mínimo.</p>';
+        return;
+    }
+
+    ingredientes.sort((a, b) => a.nome.localeCompare(b.nome));
+
+    ingredientes.forEach(ingrediente => {
+        const listItem = document.createElement('div');
+        listItem.className = 'flex justify-between items-center bg-red-100 text-red-800 p-2 rounded-md';
+        listItem.innerHTML = `
+            <span>${ingrediente.nome}: <strong>${(ingrediente.quantidadeAtual || 0).toFixed(2)} ${ingrediente.unidadeMedida}</strong></span>
+            <span class="text-xs">Mínimo: ${ingrediente.estoqueMinimo} ${ingrediente.unidadeMedida}</span>
+        `;
+        DOM.ingredientesPontoPedidoList.appendChild(listItem);
+    });
+}
+
+// Renderiza o consumo diário (para o dia anterior, ou o consumo acumulado desde o último reset)
+function renderConsumoDiario() {
+    if (!DOM.listaConsumoDiarioContainer || !DOM.dataDiaAnteriorSpan || !DOM.totalGastoDiarioSpan) return;
+
+    DOM.listaConsumoDiarioContainer.innerHTML = '';
+    let totalCustoDiario = 0; // Renamed to accurately reflect the data
+    const hoje = new Date();
+    const options = { day: '2-digit', month: '2-digit', year: 'numeric' };
+    DOM.dataDiaAnteriorSpan.textContent = hoje.toLocaleDateString('pt-BR', options); // Should reflect "today's" consumption since it resets at start of day
+
+    const ingredientesConsumidosDiario = [];
+    Object.values(allIngredients).forEach(ingrediente => {
+        if (ingrediente.quantidadeUsadaDiaria > 0 || ingrediente.custoUsadaDiaria > 0) {
+            ingredientesConsumidosDiario.push(ingrediente);
+            totalCustoDiario += ingrediente.custoUsadaDiaria || 0;
+        }
+    });
+
+    if (ingredientesConsumidosDiario.length === 0) {
+        DOM.listaConsumoDiarioContainer.innerHTML = '<p class="text-gray-500 text-center">Nenhum consumo registrado para hoje.</p>';
+    } else {
+        ingredientesConsumidosDiario.sort((a, b) => b.quantidadeUsadaDiaria - a.quantidadeUsadaDiaria);
+        ingredientesConsumidosDiario.forEach(ingrediente => {
+            const listItem = document.createElement('div');
+            listItem.className = 'flex justify-between items-center bg-gray-100 p-1 rounded-sm';
+            listItem.innerHTML = `
+                <span>${ingrediente.nome}: <strong>${ingrediente.quantidadeUsadaDiaria.toFixed(3)} ${ingrediente.unidadeMedida}</strong></span>
+                <span class="text-xs">R$ ${ingrediente.custoUsadaDiaria.toFixed(2)}</span>
+            `;
+            DOM.listaConsumoDiarioContainer.appendChild(listItem);
+        });
+    }
+    DOM.totalGastoDiarioSpan.textContent = `R$ ${totalCustoDiario.toFixed(2)}`;
+}
+
+
+// Renderiza o consumo mensal
+function renderConsumoMensal() {
+    if (!DOM.listaConsumoMensalContainer || !DOM.totalGastoMensalSpan || !DOM.nomeMesAtualSpan) return;
+
+    DOM.listaConsumoMensalContainer.innerHTML = '';
+    let totalCustoMes = 0;
+    const mesAtual = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+    DOM.nomeMesAtualSpan.textContent = mesAtual.charAt(0).toUpperCase() + mesAtual.slice(1);
+
+    const ingredientesConsumidosMes = [];
+    Object.values(allIngredients).forEach(ingrediente => {
+        if (ingrediente.quantidadeUsadaMensal > 0 || ingrediente.custoUsadoMensal > 0) {
+            ingredientesConsumidosMes.push(ingrediente);
+            totalCustoMes += ingrediente.custoUsadoMensal || 0;
+        }
+    });
+
+    if (ingredientesConsumidosMes.length === 0) {
+        DOM.listaConsumoMensalContainer.innerHTML = '<p class="text-gray-500 text-center">Nenhum consumo registrado para este mês.</p>';
+    } else {
+        ingredientesConsumidosMes.sort((a, b) => b.quantidadeUsadaMensal - a.quantidadeUsadaMensal);
+        ingredientesConsumidosMes.forEach(ingrediente => {
+            const listItem = document.createElement('div');
+            listItem.className = 'flex justify-between items-center bg-gray-100 p-1 rounded-sm';
+            listItem.innerHTML = `
+                <span>${ingrediente.nome}: <strong>${ingrediente.quantidadeUsadaMensal.toFixed(3)} ${ingrediente.unidadeMedida}</strong></span>
+                <span class="text-xs">R$ ${ingrediente.custoUsadoMensal.toFixed(2)}</span>
+            `;
+            DOM.listaConsumoMensalContainer.appendChild(listItem);
+        });
+    }
+    DOM.totalGastoMensalSpan.textContent = `R$ ${totalCustoMes.toFixed(2)}`;
+}
+
+// Garçons
+// Certifique-se de que DOM.btnSalvarGarcom, DOM.garcomNomeInput, DOM.garcomSenhaInput estão corretamente mapeados no DOM object.
+if (DOM.btnSalvarGarcom) { // Adiciona verificação de existência
+    DOM.btnSalvarGarcom.addEventListener('click', async () => {
+        const nomeGarcom = DOM.garcomNomeInput.value.trim();
+        const senhaGarcom = DOM.garcomSenhaInput.value.trim();
+
+        if (!nomeGarcom || !senhaGarcom) {
+            alert("O nome e a senha do garçom são obrigatórios.");
+            return;
+        }
+        if (senhaGarcom.length < 6) {
+            alert("A senha deve ter pelo menos 6 caracteres.");
+            return;
+        }
+
+        // Cria um e-mail "falso" para o Firebase Auth, garantindo que seja único.
+        // Remove espaços e caracteres especiais para formar um e-mail válido.
+        const emailGarcom = `${nomeGarcom.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}@seu-restaurante.com`;
+
+        try {
+            // Check if user already exists
+            // Firebase Auth does not provide a direct client-side method to check email existence
+            // without trying to create or sign in.
+            // The best practice is to handle 'auth/email-already-in-use' error.
+
+            // Create the user in Firebase Authentication
+            const userCredential = await firebase.auth().createUserWithEmailAndPassword(emailGarcom, senhaGarcom);
+            const user = userCredential.user;
+
+            // Save additional information (like display name) in Realtime Database
+            // using the UID of the user as key.
+            await garconsInfoRef.child(user.uid).set({ // Using garconsInfoRef here
+                nome: nomeGarcom,
+                email: emailGarcom,
+                createdAt: firebase.database.ServerValue.TIMESTAMP
+            });
+
+            alert(`Garçom "${nomeGarcom}" adicionado com sucesso!`);
+            DOM.garcomNomeInput.value = '';
+            DOM.garcomSenhaInput.value = '';
+        } catch (error) {
+            console.error("Erro ao adicionar garçom:", error);
+            // Handle common Firebase Auth errors
+            if (error.code === 'auth/email-already-in-use') {
+                alert('Erro: Já existe um garçom com este nome (ou e-mail interno). Use um nome diferente.');
+            } else if (error.code === 'auth/weak-password') {
+                alert('Erro: A senha deve ter pelo menos 6 caracteres.');
+            } else {
+                alert("Erro ao adicionar garçom: " + error.message);
+            }
+        }
+    });
+}
+
+// Função para carregar e exibir os garçons do Firebase
+function carregarGarcom(snapshot) { // Accepts snapshot directly from listener
+    if (!DOM.listaGarconsContainer) return;
+
+    const garcons = snapshot.val();
+    DOM.listaGarconsContainer.innerHTML = '';
+
+    if (!garcons) {
+        DOM.listaGarconsContainer.innerHTML = '<p class="text-gray-600 col-span-full text-center">Nenhum garçom cadastrado.</p>';
+        return;
+    }
+
+    Object.entries(garcons).forEach(([uid, garcom]) => {
+        if (!garcom) return;
+
+        const garcomDiv = document.createElement('div');
+        garcomDiv.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col justify-between';
+
+        garcomDiv.innerHTML = `
+            <div class="flex-grow">
+                <h3 class="text-lg font-semibold text-gray-800">${garcom.nome}</h3>
+                <p class="text-sm text-gray-500">ID: ${uid}</p>
+                <p class="text-sm text-gray-500">Email: ${garcom.email || 'N/A'}</p>
+            </div>
+            <div class="flex gap-2 mt-4">
+                <button class="btn-reset-senha-garcom bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm flex-1" data-email="${garcom.email}" data-nome="${garcom.nome}">
+                    Redefinir Senha
+                </button>
+                <button class="btn-excluir-garcom bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm flex-1" data-uid="${uid}" data-nome="${garcom.nome}">
+                    Excluir
+                </button>
+            </div>
+        `;
+        DOM.listaGarconsContainer.appendChild(garcomDiv);
+    });
+
+    // Re-attach listeners for the dynamically created buttons
+    DOM.listaGarconsContainer.querySelectorAll('.btn-reset-senha-garcom').forEach(button => {
+        // Clone and replace to remove all previous event listeners
+        const newButton = button.cloneNode(true);
+        button.parentNode.replaceChild(newButton, button);
+        newButton.addEventListener('click', (e) => {
+            const email = e.target.dataset.email;
+            const nome = e.target.dataset.nome;
+            if (confirm(`Deseja enviar um e-mail de redefinição de senha para ${nome} (${email})?`)) {
+                firebase.auth().sendPasswordResetEmail(email)
+                    .then(() => {
+                        alert(`E-mail de redefinição de senha enviado para ${email}.`);
+                    })
+                    .catch((error) => {
+                        alert('Erro ao enviar e-mail: ' + error.message);
+                        console.error("Erro ao enviar redefinição de senha:", error);
+                    });
+            }
+        });
+    });
+
+    DOM.listaGarconsContainer.querySelectorAll('.btn-excluir-garcom').forEach(button => {
+        // Clone and replace to remove all previous event listeners
+        const newButton = button.cloneNode(true);
+        button.parentNode.replaceChild(newButton, button);
+        newButton.addEventListener('click', async (e) => {
+            const uid = e.target.dataset.uid;
+            const nome = e.target.dataset.nome;
+            if (confirm(`Deseja realmente excluir o garçom ${nome}? Esta ação removerá os dados do banco de dados.`)) {
+                try {
+                    // Remove the garcon's info from Realtime Database
+                    await garconsInfoRef.child(uid).remove();
+                    alert(`Dados do garçom ${nome} excluídos do banco de dados.`);
+                    // IMPORTANT: To delete the user from Firebase Authentication, you NEED a Cloud Function.
+                    // Client-side code CANNOT delete arbitrary Firebase Auth users.
+                    alert("Atenção: O usuário correspondente no Firebase Authentication NÃO foi excluído. Faça isso manualmente no console do Firebase (Authentication).");
+                } catch (error) {
                     alert("Erro ao excluir dados do garçom: " + error.message);
-                });
-        }
-    }
-});
+                    console.error("Erro ao excluir dados do garçom:", error);
+                }
+            }
+        });
+    });
+}

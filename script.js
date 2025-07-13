@@ -1008,55 +1008,67 @@ function setCookie(name, value, days) {
 }
 
 async function enviarPedidoParaPainel(pedido) {
-  const pedidosRef = database.ref('pedidos');
-  const configRef = database.ref('config/ultimoPedidoId');
+    const pedidosRef = database.ref('pedidos');
+    const configRef = database.ref('config/ultimoPedidoId');
 
-  try {
-    const result = await configRef.transaction((current) => {
-      // Increment the last order ID or start from 1001 if none exists
-      return (current || 1000) + 1;
-    });
+    try {
+        const result = await configRef.transaction((current) => {
+            // Increment the last order ID or start from 1001 if none exists
+            return (current || 1000) + 1;
+        });
 
-    const novoId = result.snapshot.val(); // Get the new order ID
-    pedido.status = 'Aguardando'; // Set initial status
-    pedido.timestamp = Date.now(); // Record timestamp
+        const novoId = result.snapshot.val(); // Get the new order ID
+        pedido.status = 'Aguardando'; // Set initial status
+        pedido.timestamp = Date.now(); // Record timestamp
 
-    // Set the order data under the new ID
-    await pedidosRef.child(novoId).set(pedido);
-    console.log('Pedido enviado com sucesso!', novoId);
+        // Set the order data under the new ID
+        await pedidosRef.child(novoId).set(pedido);
+        console.log('Pedido enviado com sucesso!', novoId);
 
-    const phoneNumber = telefoneInput.value;
-    localStorage.setItem('clienteId', phoneNumber);
-    setCookie('clienteId', phoneNumber, 60);
+        const phoneNumber = telefoneInput.value;
+        localStorage.setItem('clienteId', phoneNumber);
+        setCookie('clienteId', phoneNumber, 60);
 
-    // This section marks the coupon as used for this specific customer
-    if (cupomAplicado) {
-      const cupomCode = cupomAplicado.codigo; // Ensure cupomAplicado has 'codigo' property
-      await database.ref(`cupons_usados/${phoneNumber}/${cupomCode}`).set(true);
-      console.log(`Cupom ${cupomCode} marcado como usado para ${phoneNumber}`);
+        // This section marks the coupon as used for this specific customer
+        if (cupomAplicado) {
+            const cupomCode = cupomAplicado.codigo; // Ensure cupomAplicado has 'codigo' property
+            // Mark the coupon as used for this specific customer
+            await database.ref(`cupons_usados/${phoneNumber}/${cupomCode}`).set(true);
+            console.log(`Cupom ${cupomCode} marcado como usado para ${phoneNumber}`);
 
-      // Removed resetting cupomAplicado here. It will be reset in zerarCarrinho()
-      // after this async function fully completes.
+            // **NEW: Update coupon usage count for admin view**
+            const cupomAdminUsageRef = database.ref(`cupons_usados_admin_view/${cupomCode}`);
+            await cupomAdminUsageRef.transaction((currentUsage) => {
+                if (currentUsage === null) {
+                    return { timesUsed: 1, lastUsed: Date.now() };
+                } else {
+                    currentUsage.timesUsed = (currentUsage.timesUsed || 0) + 1;
+                    currentUsage.lastUsed = Date.now();
+                    return currentUsage;
+                }
+            });
+            console.log(`Contagem de uso do cupom ${cupomCode} atualizada para o admin.`);
+        }
+
+        mostrarPedidoSucessoComLogo();
+        // Redirect to status page with the new order ID
+        window.location.href = `status.html?pedidoId=${novoId}`;
+
+    } catch (error) {
+        console.error('Erro ao enviar pedido ou processar cupom: ', error);
+        Toastify({
+            text: "Erro ao finalizar pedido. Por favor, tente novamente.",
+            duration: 3000,
+            close: true,
+            gravity: "top",
+            position: "center",
+            style: {
+                background: "#ef4444",
+            },
+        }).showToast();
     }
-
-    mostrarPedidoSucessoComLogo();
-    // Redirect to status page with the new order ID
-    window.location.href = `status.html?pedidoId=${novoId}`;
-
-  } catch (error) {
-    console.error('Erro ao enviar pedido ou processar cupom: ', error);
-    Toastify({
-      text: "Erro ao finalizar pedido. Por favor, tente novamente.",
-      duration: 3000,
-      close: true,
-      gravity: "top",
-      position: "center",
-      style: {
-        background: "#ef4444",
-      },
-    }).showToast();
-  }
 }
+
 
 function montarPedido() {
   let tipoEntrega = document.getElementById("retirada").checked ? "Retirada" : "Entrega";
@@ -1263,155 +1275,172 @@ if (cupomInput) {
 }
 
 applycupom.addEventListener('click', () => {
-  const codigoDigitado = cupomInput.value.trim();
-  const clienteId = telefoneInput.value.trim(); // Phone number as customer ID
+    const codigoDigitado = cupomInput.value.trim();
+    const clienteId = telefoneInput.value.trim(); // Phone number as customer ID
 
-  if (codigoDigitado === '') {
-    Toastify({
-      text: "Por favor, insira um código de cupom.",
-      duration: 3000,
-      close: true,
-      gravity: "top",
-      position: "right",
-      style: {
-        background: "#ffc107"
-      }
-    }).showToast();
-    return;
-  }
-
-  if (clienteId === '') {
-    Toastify({
-      text: "Informe seu telefone antes de aplicar um cupom.",
-      duration: 3000,
-      close: true,
-      gravity: "top",
-      position: "right",
-      style: {
-        background: "#ffc107"
-      }
-    }).showToast();
-    telefoneWarn.classList.remove("hidden");
-    telefoneInput.classList.add("border-red-500");
-    return;
-  }
-
-  // Prevent applying multiple coupons in the same order
-  if (cupomAplicado) {
-    Toastify({
-      text: "Um cupom já foi aplicado.",
-      duration: 3000,
-      close: true,
-      gravity: "top",
-      position: "right",
-      style: {
-        background: "#ffc107"
-      }
-    }).showToast();
-    return;
-  }
-
-  // Busca o cupom no Firebase
-  database.ref(`cupons/${codigoDigitado}`).once('value', (snapshot) => {
-    // Verifica se o cupom existe
-    if (!snapshot.exists()) {
-      Toastify({
-        text: "CUPOM INVÁLIDO!",
-        duration: 3000,
-        close: true,
-        gravity: "top",
-        position: "right",
-        style: {
-          background: "#ef4444"
-        }
-      }).showToast();
-      cupomInput.value = "";
-      return;
-    }
-
-    const cupom = snapshot.val();
-    const hoje = new Date();
-
-    // Verifica se o cupom tá ativo
-    if (!cupom.ativo) {
-      Toastify({
-        text: "Este cupom não está mais ativo.",
-        duration: 3000,
-        close: true,
-        gravity: "top",
-        position: "right",
-        style: {
-          background: "#ef4444"
-        }
-      }).showToast();
-      return;
-    }
-
-    // Se tá na validade
-    if (hoje.getTime() > cupom.validade) {
-      Toastify({
-        text: "Este cupom expirou!",
-        duration: 3000,
-        close: true,
-        gravity: "top",
-        position: "right",
-        style: {
-          background: "#ef4444"
-        }
-      }).showToast();
-      return;
-    }
-
-    // Se o valor necessario foi atingido
-    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    if (cupom.valorMinimo && subtotal < cupom.valorMinimo) {
-      Toastify({
-        text: `Este cupom requer um pedido mínimo de R$ ${cupom.valorMinimo.toFixed(2)}`,
-        duration: 4000,
-        close: true,
-        gravity: "top",
-        position: "right",
-        style: {
-          background: "#ffc107"
-        }
-      }).showToast();
-      return;
-    }
-
-    // Se o cliente já usou este cupom (VERIFICAÇÃO PRINCIPAL DE REUSO)
-    database.ref(`cupons_usados/${clienteId}/${codigoDigitado}`).once('value', (snapshotUso) => {
-      if (snapshotUso.exists()) {
+    if (codigoDigitado === '') {
         Toastify({
-          text: "Você já utilizou este cupom!", // <-- Message for already used coupon
-          duration: 3000,
-          close: true,
-          gravity: "top",
-          position: "right",
-          style: {
-            background: "#ef4444"
-          }
+            text: "Por favor, insira um código de cupom.",
+            duration: 3000,
+            close: true,
+            gravity: "top",
+            position: "right",
+            style: {
+                background: "#ffc107"
+            }
         }).showToast();
-      } else {
-        // CUPOM APLICADO COM SUCESSO!
+        return;
+    }
+
+    if (clienteId === '') {
         Toastify({
-          text: "Cupom aplicado com sucesso!",
-          duration: 3000,
-          close: true,
-          gravity: "top",
-          position: "right",
-          style: {
-            background: "#22c55e"
-          }
+            text: "Informe seu telefone antes de aplicar um cupom.",
+            duration: 3000,
+            close: true,
+            gravity: "top",
+            position: "right",
+            style: {
+                background: "#ffc107"
+            }
         }).showToast();
+        telefoneWarn.classList.remove("hidden");
+        telefoneInput.classList.add("border-red-500");
+        return;
+    }
 
-        cupomAplicado = cupom; // Store the valid coupon
-        cupomInput.disabled = true;
-        applycupom.disabled = true;
+    // Prevent applying multiple coupons in the same order
+    if (cupomAplicado) {
+        Toastify({
+            text: "Um cupom já foi aplicado.",
+            duration: 3000,
+            close: true,
+            gravity: "top",
+            position: "right",
+            style: {
+                background: "#ffc107"
+            }
+        }).showToast();
+        return;
+    }
 
-        // Importante: Recalcula e exibe o novo total com o desconto
-        updateCartModal();
-        atualizarConfirmacao();
-      }
+    // Busca o cupom no Firebase
+    database.ref(`cupons/${codigoDigitado}`).once('value', (snapshot) => {
+        // Verifica se o cupom existe
+        if (!snapshot.exists()) {
+            Toastify({
+                text: "CUPOM INVÁLIDO!",
+                duration: 3000,
+                close: true,
+                gravity: "top",
+                position: "right",
+                style: {
+                    background: "#ef4444"
+                }
+            }).showToast();
+            cupomInput.value = "";
+            return;
+        }
+
+        const cupom = snapshot.val();
+        const hoje = new Date();
+
+        // **NEW: Check if the coupon is linked to the current customer's phone number**
+        if (cupom.clienteTelefone && cupom.clienteTelefone !== clienteId) {
+            Toastify({
+                text: "Este cupom não foi gerado para este número de telefone.",
+                duration: 3000,
+                close: true,
+                gravity: "top",
+                position: "right",
+                style: {
+                    background: "#ef4444"
+                }
+            }).showToast();
+            cupomInput.value = "";
+            return;
+        }
+
+
+        // Verifica se o cupom tá ativo
+        if (!cupom.ativo) {
+            Toastify({
+                text: "Este cupom não está mais ativo.",
+                duration: 3000,
+                close: true,
+                gravity: "top",
+                position: "right",
+                style: {
+                    background: "#ef4444"
+                }
+            }).showToast();
+            return;
+        }
+
+        // Se tá na validade
+        if (hoje.getTime() > cupom.validade) {
+            Toastify({
+                text: "Este cupom expirou!",
+                duration: 3000,
+                close: true,
+                gravity: "top",
+                position: "right",
+                style: {
+                    background: "#ef4444"
+                }
+            }).showToast();
+            return;
+        }
+
+        // Se o valor necessario foi atingido
+        const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        if (cupom.valorMinimo && subtotal < cupom.valorMinimo) {
+            Toastify({
+                text: `Este cupom requer um pedido mínimo de R$ ${cupom.valorMinimo.toFixed(2)}`,
+                duration: 4000,
+                close: true,
+                gravity: "top",
+                position: "right",
+                style: {
+                    background: "#ffc107"
+                }
+            }).showToast();
+            return;
+        }
+
+        // Se o cliente já usou este cupom (VERIFICAÇÃO PRINCIPAL DE REUSO)
+        database.ref(`cupons_usados/${clienteId}/${codigoDigitado}`).once('value', (snapshotUso) => {
+            if (snapshotUso.exists()) {
+                Toastify({
+                    text: "Você já utilizou este cupom!", // <-- Message for already used coupon
+                    duration: 3000,
+                    close: true,
+                    gravity: "top",
+                    position: "right",
+                    style: {
+                        background: "#ef4444"
+                    }
+                }).showToast();
+            } else {
+                // CUPOM APLICADO COM SUCESSO!
+                Toastify({
+                    text: "Cupom aplicado com sucesso!",
+                    duration: 3000,
+                    close: true,
+                    gravity: "top",
+                    position: "right",
+                    style: {
+                        background: "#22c55e"
+                    }
+                }).showToast();
+
+                cupomAplicado = cupom; // Store the valid coupon
+                cupomInput.disabled = true;
+                applycupom.disabled = true;
+
+                // Importante: Recalcula e exibe o novo total com o desconto
+                updateCartModal();
+                atualizarConfirmacao();
+            }
+        });
     });
-  });
 });
