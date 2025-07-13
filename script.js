@@ -1243,19 +1243,16 @@ const scrollbar = document.getElementById('scrollbar')
 menuButton.addEventListener('click', () => {
   sidebar.classList.remove('-translate-x-full');
   overlay.classList.remove('hidden');
-  scrollbar.classList.add('opacity-25')
 });
 
 overlay.addEventListener('click', () => {
   sidebar.classList.add('-translate-x-full');
   overlay.classList.add('hidden');
-  scrollbar.classList.remove('opacity-25')
 });
 
 document.getElementById('close-sidebar-button').addEventListener('click', () => {
   sidebar.classList.add('-translate-x-full');
   overlay.classList.add('hidden');
-  scrollbar.classList.remove('opacity-25')
 });
 
 
