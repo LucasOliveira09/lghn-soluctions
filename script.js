@@ -43,6 +43,12 @@ const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('overlay');
 const cupomInput = document.getElementById('cupom');
 const applycupom = document.getElementById('apply-cupom');
+const cepBtn = document.getElementById('cep-btn');
+const cepModal = document.getElementById('cep-modal');
+const closeCepModalBtn = document.getElementById('close-cep-modal-btn');
+const buscarCepBtn = document.getElementById('buscar-cep-btn');
+const cepInput = document.getElementById('cep-input');
+const cepCache = {}; //Cache de memória
 
 
 const FRETE_VALOR = 5.00;
@@ -1249,19 +1255,16 @@ const scrollbar = document.getElementById('scrollbar')
 menuButton.addEventListener('click', () => {
   sidebar.classList.remove('-translate-x-full');
   overlay.classList.remove('hidden');
-  scrollbar.classList.add('opacity-25')
 });
 
 overlay.addEventListener('click', () => {
   sidebar.classList.add('-translate-x-full');
   overlay.classList.add('hidden');
-  scrollbar.classList.remove('opacity-25')
 });
 
 document.getElementById('close-sidebar-button').addEventListener('click', () => {
   sidebar.classList.add('-translate-x-full');
   overlay.classList.add('hidden');
-  scrollbar.classList.remove('opacity-25')
 });
 
 

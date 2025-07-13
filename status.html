@@ -127,12 +127,16 @@
 </head>
 <body class="bg-[#0E0C0A] text-white font-sans">
 
-    <!-- Botão de Menu (Hamburger) -->
-    <button id="menu-button" class="absolute top-4 right-4 z-20 text-yellow-50 hover:scale-110 transition-transform duration-200">
-    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-    </svg>
-  </button>
+    <header class="w-full p-4 flex justify-between items-center">
+        <!--Adicionando um voltar e o button na mesma posição do index-->
+        <a href="index.html" class="text-2xl"><i class="fas fa-arrow-left"></i></a>
+        <!-- Botão de Menu (Hamburger) -->
+        <button id="menu-button" class="z-20 text-yellow-50 hover:scale-110 transition-transform duration-200">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+        </button>
+    </header>
 
     <!-- Overlay para fechar a sidebar ao clicar fora -->
     <div id="overlay" class="overlay hidden"></div>
@@ -156,17 +160,21 @@
             </a>
             <!-- Adicione mais links conforme necessário -->
             <a href="cupons.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                <i class="fa-solid fa-info-circle"></i>
+                <i class="fa-solid fa-ticket-simple"></i>
                 <span>Cupons</span>
             </a>
             <a href="#" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
                 <i class="fa-solid fa-phone"></i>
                 <span>Contato</span>
             </a>
+            <a href="sobreNos.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                <i class="fa-solid fa-info-circle"></i>
+                <span>Sobre Nós</span>
+            </a>
         </nav>
     </aside>
 
-    <div class="container mx-auto px-4 py-8 max-w-3xl">
+    <div class="container mx-auto px-4 py-2 sm:py-8 max-w-3xl">
 
         <!-- Seção do Pedido Atual -->
         <div class="bg-[#1f1f1f] p-6 rounded-2xl shadow-lg mb-8">
