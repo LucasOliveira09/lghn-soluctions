@@ -14,47 +14,35 @@ firebase.initializeApp(firebaseConfig);
 
 const database = firebase.database();
 const pedidosRef = database.ref('pedidos');
-// Removed promocoesRef as a direct ref since all products will be managed under 'produtos'
 const mesasRef = database.ref('mesas');
 const cuponsRef = database.ref('cupons');
 const produtosRef = database.ref('produtos');
 const ingredientesRef = database.ref('ingredientes');
 const comprasRef = database.ref('compras');
-const garconsInfoRef = database.ref('garcons_info'); // Nova referência para informações de garçons
+const garconsInfoRef = database.ref('garcons_info');
 
-// Objeto para armazenar referências a elementos do DOM.
-// Isso ajuda a manter o código mais limpo e organizado, e a evitar 'null' errors.
 const DOM = {};
 
-// Variáveis de estado global
-let allIngredients = {}; // Armazena todos os ingredientes para referência rápida
-let currentRecipeProduct = null; // Produto atualmente selecionado para configurar a receita
-let currentPurchaseItems = []; // Array temporário para itens da compra (único para ambas as seções)
+let allIngredients = {};
+let currentRecipeProduct = null;
+let currentPurchaseItems = [];
 
-// Variáveis para armazenar as instâncias dos gráficos
 let topProdutosChartInstance = null;
 let vendasPorDiaChartInstance = null;
 let horariosPicoChartInstance = null;
 let metodosPagamentoChartInstance = null;
 
-// Variáveis de estado global para o checkout de mesas
 let currentMesaIdForCheckout = null;
-let currentMesaItemsToPay = []; // Itens do pedido da mesa com quantidades para controle de pagamento
-let currentMesaTotal = 0; // Total original do pedido
-let currentMesaRemainingToPay = 0; // O que resta pagar
-let currentMesaPaymentsHistory = []; // Histórico de pagamentos já efetuados para esta conta
+let currentMesaItemsToPay = [];
+let currentMesaTotal = 0;
+let currentMesaRemainingToPay = 0;
+let currentMesaPaymentsHistory = [];
 
-// Variáveis para edição de pedidos
 let pedidoEmEdicao = null;
 let pedidoOriginal = null;
 
-
-// --- LISTENERS GLOBAIS DO FIREBASE ---
-// Este listener é CRÍTICO pois atualiza 'allIngredients' e as listas de estoque/ponto de pedido.
-// Ele é disparado sempre que há uma mudança nos dados de 'ingredientes' no Firebase.
+// --- LISTENERS GLOBAIS DO FIREBASE lghn--
 ingredientesRef.on('value', (snapshot) => {
-    // Garante que os elementos DOM existem antes de tentar manipulá-los
-    // Se eles ainda não foram inicializados (ex: primeira carga da página), a função retorna.
     if (!DOM.listaIngredientesDetalheContainer || !DOM.ingredientesPontoPedidoList ||
         !DOM.listaConsumoDiarioContainer || !DOM.listaConsumoMensalContainer) {
         console.warn("Elementos DOM de estoque ainda não carregados. Ignorando atualização de ingredientes.");
@@ -63,38 +51,35 @@ ingredientesRef.on('value', (snapshot) => {
 
     DOM.listaIngredientesDetalheContainer.innerHTML = '';
     DOM.ingredientesPontoPedidoList.innerHTML = '';
-    DOM.listaConsumoDiarioContainer.innerHTML = ''; // Limpa antes de preencher
-    DOM.listaConsumoMensalContainer.innerHTML = ''; // Limpa antes de preencher
+    DOM.listaConsumoDiarioContainer.innerHTML = '';
+    DOM.listaConsumoMensalContainer.innerHTML = '';
 
-    allIngredients = {}; // Limpa o objeto global de ingredientes
+    allIngredients = {};
 
     const ingredientesEmPontoDePedido = [];
     const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0); // Zera a hora para comparação de dia (apenas a data)
+    hoje.setHours(0, 0, 0, 0);
 
     snapshot.forEach(childSnapshot => {
         const ingredienteId = childSnapshot.key;
         const ingrediente = childSnapshot.val();
-        allIngredients[ingredienteId] = ingrediente; // Armazena globalmente
+        allIngredients[ingredienteId] = ingrediente;
 
-        // Lógica de "reset" diário automático:
-        // Se a data da última atualização do consumo diário for ANTES de hoje, zera o consumo diário.
         const ultimaAtualizacaoDiariaTimestamp = ingrediente.ultimaAtualizacaoConsumo || 0;
         const ultimaAtualizacaoDiariaDate = new Date(ultimaAtualizacaoDiariaTimestamp);
-        ultimaAtualizacaoDiariaDate.setHours(0, 0, 0, 0); // Zera a hora para comparar apenas a data
+        ultimaAtualizacaoDiariaDate.setHours(0, 0, 0, 0);
 
         if (ultimaAtualizacaoDiariaDate.getTime() < hoje.getTime()) {
             ingredientesRef.child(ingredienteId).update({
                 quantidadeUsadaDiaria: 0,
-                custoUsadaDiaria: 0, // Corrigido o typo aqui, agora consistente
-                ultimaAtualizacaoConsumo: firebase.database.ServerValue.TIMESTAMP // Atualiza o timestamp para "hoje"
+                custoUsadaDiaria: 0,
+                ultimaAtualizacaoConsumo: firebase.database.ServerValue.TIMESTAMP
             }).catch(e => console.error("Erro ao zerar consumo diário automático:", e));
         }
 
         const isBelowMin = (ingrediente.quantidadeAtual || 0) <= (ingrediente.estoqueMinimo || 0) && (ingrediente.estoqueMinimo || 0) > 0;
         const statusClass = isBelowMin ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-gray-50';
 
-        // Renderiza o card de ingrediente para a seção DETALHADA de gerenciamento
         const ingredienteCard = document.createElement('div');
         ingredienteCard.className = `p-4 rounded-lg shadow-sm border ${statusClass}`;
         ingredienteCard.innerHTML = `
@@ -115,39 +100,30 @@ ingredientesRef.on('value', (snapshot) => {
         `;
         DOM.listaIngredientesDetalheContainer.appendChild(ingredienteCard);
 
-        // Adiciona ao relatório de ponto de pedido
         if (isBelowMin) {
             ingredientesEmPontoDePedido.push(ingrediente);
         }
     });
 
-    // Atualiza os Event Listeners para os botões de atualização/deleção do gerenciamento detalhado
-    // Remove listeners antigos antes de adicionar novos para evitar duplicação
     DOM.listaIngredientesDetalheContainer.querySelectorAll('.btn-update-ingrediente').forEach(button => {
-        // Clone and replace to remove all previous event listeners
         const newButton = button.cloneNode(true);
         button.parentNode.replaceChild(newButton, button);
         newButton.addEventListener('click', handleUpdateIngrediente);
     });
     DOM.listaIngredientesDetalheContainer.querySelectorAll('.btn-delete-ingrediente').forEach(button => {
-        // Clone and replace to remove all previous event listeners
         const newButton = button.cloneNode(true);
         button.parentNode.replaceChild(newButton, button);
         newButton.addEventListener('click', handleDeleteIngrediente);
     });
 
-
-    // Renderiza os relatórios no painel principal
     renderIngredientesPontoPedido(ingredientesEmPontoDePedido);
     renderConsumoDiario();
     renderConsumoMensal();
 
-    // Garante que os selects de ingredientes para receitas e compras estejam atualizados
     popularIngredientesParaReceitaSelects();
     popularIngredientesParaCompraSelects();
 });
 
-// Listener de pedidos (já existente no seu código)
 pedidosRef.on('value', (snapshot) => {
     DOM.pedidosOnline = {};
     snapshot.forEach((child) => {
@@ -155,15 +131,13 @@ pedidosRef.on('value', (snapshot) => {
     });
 
     renderizarPedidos();
-    // Only apply date filter if the finalizados tab is active
     if (!DOM.abaFinalizados.classList.contains('hidden')) {
         aplicarFiltroDatas();
     }
 
-
     const totalPedidosAtual = Object.keys(DOM.pedidosOnline).length;
     if (DOM.totalPedidosAnteriores === undefined) {
-        DOM.totalPedidosAnteriores = 0; // Inicializa na primeira carga
+        DOM.totalPedidosAnteriores = 0;
     }
     if (totalPedidosAtual > DOM.totalPedidosAnteriores) {
         tocarNotificacao();
@@ -171,22 +145,18 @@ pedidosRef.on('value', (snapshot) => {
     DOM.totalPedidosAnteriores = totalPedidosAtual;
 });
 
-// Listener de mesas (já existente no seu código)
 mesasRef.on('value', (snapshot) => {
     const mesasData = snapshot.val() || {};
     renderMesas(mesasData);
 });
 
-// Listener de cupons (para carregar a lista em tempo real)
 cuponsRef.on('value', async (snapshot) => {
-    carregarCupons(snapshot); // Passa o snapshot diretamente para evitar re-fetch
+    carregarCupons(snapshot);
 });
 
-// Listener de garçons (para carregar a lista em tempo real)
 garconsInfoRef.on('value', (snapshot) => {
-    carregarGarcom(snapshot); // Passa o snapshot diretamente
+    carregarGarcom(snapshot);
 });
-
 
 // --- FUNÇÕES GERAIS DO PAINEL ---
 function tocarNotificacao() {
@@ -199,6 +169,447 @@ function tocarNotificacao() {
     }
 }
 
+function ativaAba(ativa, ...inativas) {
+    ativa.classList.remove('hidden');
+    inativas.forEach(aba => aba.classList.add('hidden'));
+}
+
+function estilizaBotaoAtivo(botaoAtivo, ...inativos) {
+    botaoAtivo.classList.add('bg-blue-600', 'text-white');
+    botaoAtivo.classList.remove('bg-blue-700');
+
+    inativos.forEach(botao => {
+        botao.classList.remove('bg-blue-600', 'text-white');
+        botao.classList.add('bg-blue-700');
+    });
+}
+
+// --- INICIALIZAÇÃO DO DOM E EVENT LISTENERS lghn---
+document.addEventListener('DOMContentLoaded', () => {
+    Object.assign(DOM, {
+        pedidosAtivosContainer: document.getElementById('pedidos-ativos-container'),
+        pedidosFinalizadosContainer: document.getElementById('pedidos-finalizados-container'),
+        inputDataInicio: document.getElementById('data-inicio'),
+        inputDataFim: document.getElementById('data-fim'),
+        btnFiltrar: document.getElementById('btn-filtrar'),
+        totalPedidosEl: document.getElementById('total-pedidos'),
+        totalVendidoEl: document.getElementById('total-vendido'),
+        btnAtivos: document.getElementById('btn-ativos'),
+        btnFinalizados: document.getElementById('btn-finalizados'),
+        btnEditarCardapio: document.getElementById('btn-editar-cardapio'),
+        btnEditarHorario: document.getElementById('btn-editar-horario'),
+        btnGerenciarMesas: document.getElementById('btn-gerenciar-mesas'),
+        btnConfiguracoesGerais: document.getElementById('btn-configuracoes-gerais'),
+        btnRelatorios: document.getElementById('btn-relatorios'),
+        btnGerenciarCupom: document.getElementById('btn-gerenciar-cupom'),
+        btnGerenciarGarcom: document.getElementById('btn-gerenciar-garcom'),
+        btnGerenciarEstoque: document.getElementById('btn-gerenciar-estoque'),
+
+        dataDiaAnteriorSpan: document.getElementById('data-dia-anterior'),
+        totalGastoDiarioSpan: document.getElementById('total-gasto-diario'),
+        listaConsumoDiarioContainer: document.getElementById('lista-consumo-diario'),
+        nomeMesAtualSpan: document.getElementById('nome-mes-atual'),
+        totalGastoMensalSpan: document.getElementById('total-gasto-mensal'),
+        listaConsumoMensalContainer: document.getElementById('lista-consumo-mensal'),
+
+        ingredientesPontoPedidoList: document.getElementById('ingredientes-ponto-pedido-list'),
+        ingredientesPontoPedidoCount: document.getElementById('ingredientes-ponto-pedido-count'),
+        btnResetarConsumoDiario: document.getElementById('btn-resetar-consumo-diario'),
+        btnResetarConsumoMensal: document.getElementById('btn-resetar-consumo-mensal'),
+        toggleGerenciamentoAvancado: document.getElementById('toggle-gerenciamento-avancado'),
+        gerenciamentoDetalhadoContainer: document.getElementById('gerenciamento-detalhado-container'),
+
+        ingredienteNomeDetalheInput: document.getElementById('ingrediente-nome-detalhe'),
+        ingredienteUnidadeDetalheInput: document.getElementById('ingrediente-unidade-detalhe'),
+        ingredienteEstoqueMinimoDetalheInput: document.getElementById('ingrediente-estoque-minimo-detalhe'),
+        btnSalvarIngredienteDetalhe: document.getElementById('btn-salvar-ingrediente-detalhe'),
+        listaIngredientesDetalheContainer: document.getElementById('lista-ingredientes-detalhe-container'),
+
+        receitaProdutoSelectCategoriaDetalhe: document.getElementById('receita-produto-select-categoria-detalhe'),
+        receitaProdutoSelectDetalhe: document.getElementById('receita-produto-select-detalhe'),
+        receitaConfigDetalheContainer: document.getElementById('receita-config-detalhe-container'),
+        currentRecipeProductNameDetalhe: document.getElementById('current-recipe-product-name-detalhe'),
+        ingredientesParaReceitaDetalheList: document.getElementById('ingredientes-para-receita-detalhe-list'),
+        receitaIngredienteSelectDetalhe: document.getElementById('receita-ingrediente-select-detalhe'),
+        receitaQuantidadeDetalheInput: document.getElementById('receita-quantidade-detalhe'),
+        btnAddIngredienteReceitaDetalhe: document.getElementById('btn-add-ingrediente-receita-detalhe'),
+        btnSalvarReceitaDetalhe: document.getElementById('btn-salvar-receita-detalhe'),
+        pizzaTamanhoSelectContainerDetalhe: document.getElementById('pizza-size-select-container-detalhe'),
+        pizzaTamanhoSelectDetalhe: document.getElementById('pizza-tamanho-select-detalhe'),
+        currentPizzaSizeDetalheSpan: document.getElementById('current-pizza-size-detalhe'),
+
+        compraDataDetalheInput: document.getElementById('compra-data-detalhe'),
+        compraFornecedorDetalheInput: document.getElementById('compra-fornecedor-detalhe'),
+        itensCompraDetalheListContainer: document.getElementById('itens-compra-detalhe-list'),
+        compraIngredienteSelectDetalhe: document.getElementById('compra-ingrediente-select-detalhe'),
+        compraQuantidadeDetalheInput: document.getElementById('compra-quantidade-detalhe'),
+        compraPrecoUnitarioDetalheInput: document.getElementById('compra-preco-unitario-detalhe'),
+        btnAddItemCompraDetalhe: document.getElementById('btn-add-item-compra-detalhe'),
+        btnRegistrarCompraDetalhe: document.getElementById('btn-registrar-compra-detalhe'),
+
+        abaAtivos: document.getElementById('aba-ativos'),
+        abaFinalizados: document.getElementById('aba-finalizados'),
+        EditarCardapio: document.getElementById('editar-cardapio'),
+        editarHorario: document.getElementById('editar-horario'),
+        abaGerenciarMesas: document.getElementById('aba-gerenciar-mesas'),
+        abaConfiguracoesGerais: document.getElementById('aba-configuracoes-gerais'),
+        abaRelatorios: document.getElementById('aba-relatorios'),
+        abaGerenciarCupom: document.getElementById('aba-gerenciar-cupom'),
+        abaGerenciarGarcom: document.getElementById('aba-gerenciar-garcom'),
+        abaGerenciarEstoque: document.getElementById('aba-gerenciar-estoque'),
+
+        searchInput: document.getElementById('search-input'),
+        categoriaSelect: document.getElementById('categoria-select'),
+        modalNovoItem: document.getElementById('modal-novo-item'),
+        btnFecharNovoItem: document.getElementById('btn-fechar-novo-item'),
+        novoImagemInput: document.getElementById('novo-imagem'),
+        previewNovaImagem: document.getElementById('preview-nova-imagem'),
+        btnSalvarNovoItem: document.getElementById('btn-salvar-novo-item'),
+        novoNomeInput: document.getElementById('novo-nome'),
+        novoDescricaoInput: document.getElementById('novo-descricao'),
+        novoPrecoInput: document.getElementById('novo-preco'),
+        novoAtivoCheckbox: document.getElementById('novo-ativo'),
+        novoTipoSelect: document.getElementById('novo-tipo'),
+        itensCardapioContainer: document.getElementById('itens-cardapio-container'),
+
+        menuButton: document.getElementById('menu-button'),
+        sidebar: document.getElementById('sidebar'),
+        overlay: document.getElementById('overlay'),
+        closeSidebarButton: document.getElementById('close-sidebar-button'),
+
+        relatorioDataInicio: document.getElementById('relatorio-data-inicio'),
+        relatorioDataFim: document.getElementById('relatorio-data-fim'),
+        btnGerarRelatorios: document.getElementById('btn-gerar-relatorios'),
+        topProdutosSummary: document.getElementById('top-produtos-summary'),
+        topProdutosChartCanvas: document.getElementById('top-produtos-chart'),
+        vendasPorDiaSummary: document.getElementById('vendas-por-dia-summary'),
+        vendasPorDiaChartCanvas: document.getElementById('vendas-por-dia-chart'),
+        horariosPicoSummary: document.getElementById('horarios-pico-summary'),
+        horariosPicoChartCanvas: document.getElementById('horarios-pico-chart'),
+        metodosPagamentoSummary: document.getElementById('metodos-pagamento-summary'),
+        metodosPagamentoChartCanvas: document.getElementById('metodos-pagamento-chart'),
+        btnUltimos7Dias: document.getElementById('btn-ultimos-7-dias'),
+        btnUltimoMes: document.getElementById('btn-ultimo-mes'),
+        btnUltimos3Meses: document.getElementById('btn-ultimos-3-meses'),
+        btnHoje: document.getElementById('btn-hoje'),
+
+        btnSalvarCupom: document.getElementById('btn-salvar-cupom'),
+        cupomCodigoInput: document.getElementById('cupom-codigo'),
+        cupomValorInput: document.getElementById('cupom-valor'),
+        cupomTipoSelect: document.getElementById('cupom-tipo'),
+        cupomMinValorInput: document.getElementById('cupom-min-valor'),
+        validadeCupomInput: document.getElementById('validade-cupom'),
+        listaCuponsContainer: document.getElementById('lista-cupons-container'),
+
+        btnSalvarGarcom: document.getElementById('btn-salvar-garcom'),
+        garcomNomeInput: document.getElementById('garcom-nome'),
+        garcomSenhaInput: document.getElementById('garcom-senha'),
+        listaGarconsContainer: document.getElementById('lista-garcons-container'),
+
+        numMesasInput: document.getElementById('num-mesas'),
+        btnConfigurarMesas: document.getElementById('btn-configurar-mesas'),
+        mesasContainer: document.getElementById('mesas-container'),
+        modalMesaDetalhes: document.getElementById('modal-mesa-detalhes'),
+        modalMesaNumero: document.getElementById('modal-mesa-numero'),
+        mesaDetalhesInfo: document.getElementById('mesa-detalhes-info'),
+        mesaDetalhesStatus: document.getElementById('mesa-detalhes-status'),
+        mesaDetalhesCliente: document.getElementById('mesa-detalhes-cliente'),
+        mesaDetalhesGarcom: document.getElementById('mesa-detalhes-garcom'),
+        mesaDetalhesObs: document.getElementById('mesa-detalhes-obs'),
+        mesaItensSelecaoContainer: document.getElementById('mesa-itens-selecao-container'),
+        emptyItemsMessage: document.getElementById('empty-items-message'),
+        mesaTotalOriginal: document.getElementById('mesa-total-original'),
+        mesaTotalPago: document.getElementById('mesa-total-pago'),
+        mesaRestantePagar: document.getElementById('mesa-restante-pagar'),
+        valorAPagarInput: document.getElementById('valor-a-pagar-input'),
+        dividirPorInput: document.getElementById('dividir-por-input'),
+        btnDividirRestante: document.getElementById('btn-dividir-restante'),
+        pagamentoMetodoAtual: document.getElementById('pagamento-metodo-atual'),
+        trocoInputGroup: document.getElementById('troco-input-group'),
+        trocoRecebidoInput: document.getElementById('troco-recebido'),
+        btnAdicionarPagamento: document.getElementById('btn-adicionar-pagamento'),
+        historicoPagamentosContainer: document.getElementById('historico-pagamentos'),
+        emptyPaymentsMessage: document.getElementById('empty-payments-message'),
+        btnCancelarPedidoMesa: document.getElementById('btn-cancelar-pedido-mesa'),
+        btnFinalizarContaMesa: document.getElementById('btn-finalizar-conta-mesa'),
+    });
+
+    // --- Event Listeners para a Sidebar ---
+    DOM.menuButton.addEventListener('click', () => {
+        DOM.sidebar.classList.remove('-translate-x-full');
+        DOM.overlay.classList.remove('hidden');
+    });
+
+    DOM.closeSidebarButton.addEventListener('click', () => {
+        DOM.sidebar.classList.add('-translate-x-full');
+        DOM.overlay.classList.add('hidden');
+    });
+
+    DOM.overlay.addEventListener('click', () => {
+        DOM.sidebar.classList.add('-translate-x-full');
+        DOM.overlay.classList.add('hidden');
+    });
+
+    // --- Event Listeners para os botões do menu principal --- lghn
+    DOM.btnAtivos.addEventListener('click', () => {
+        ativaAba(DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
+        estilizaBotaoAtivo(DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
+        DOM.sidebar.classList.add('-translate-x-full');
+        DOM.overlay.classList.add('hidden');
+    });
+
+    DOM.btnFinalizados.addEventListener('click', () => {
+        ativaAba(DOM.abaFinalizados, DOM.abaAtivos, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
+        estilizaBotaoAtivo(DOM.btnFinalizados, DOM.btnAtivos, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
+
+        const hoje = new Date();
+        const seteDiasAtras = new Date(hoje);
+        seteDiasAtras.setDate(hoje.getDate() - 7);
+
+        DOM.inputDataInicio.value = seteDiasAtras.toISOString().split('T')[0];
+        DOM.inputDataFim.value = hoje.toISOString().split('T')[0];
+
+        aplicarFiltroDatas();
+        DOM.sidebar.classList.add('-translate-x-full');
+        DOM.overlay.classList.add('hidden');
+    });
+
+    DOM.btnEditarCardapio.addEventListener('click', () => {
+        ativaAba(DOM.EditarCardapio, DOM.abaFinalizados, DOM.abaAtivos, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
+        estilizaBotaoAtivo(DOM.btnEditarCardapio, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
+        if (!DOM.categoriaSelect.value) {
+            DOM.categoriaSelect.value = 'pizzas';
+        }
+        carregarItensCardapio(DOM.categoriaSelect.value, DOM.searchInput.value);
+        DOM.sidebar.classList.add('-translate-x-full');
+        DOM.overlay.classList.add('hidden');
+    });
+
+    DOM.btnEditarHorario.addEventListener('click', () => {
+        ativaAba(DOM.editarHorario, DOM.abaFinalizados, DOM.abaAtivos, DOM.EditarCardapio, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
+        estilizaBotaoAtivo(DOM.btnEditarHorario, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
+        DOM.sidebar.classList.add('-translate-x-full');
+        DOM.overlay.classList.add('hidden');
+        inicializarEditorHorario();
+    });
+
+    DOM.btnGerenciarMesas.addEventListener('click', () => {
+        ativaAba(DOM.abaGerenciarMesas, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
+        estilizaBotaoAtivo(DOM.btnGerenciarMesas, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
+        DOM.sidebar.classList.add('-translate-x-full');
+        DOM.overlay.classList.add('hidden');
+        carregarMesasDoFirebase();
+    });
+
+    DOM.btnConfiguracoesGerais.addEventListener('click', () => {
+        ativaAba(DOM.abaConfiguracoesGerais, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
+        estilizaBotaoAtivo(DOM.btnConfiguracoesGerais, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
+        DOM.sidebar.classList.add('-translate-x-full');
+        DOM.overlay.classList.add('hidden');
+    });
+
+    DOM.btnRelatorios.addEventListener('click', () => {
+        ativaAba(DOM.abaRelatorios, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
+        estilizaBotaoAtivo(DOM.btnRelatorios, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
+        DOM.sidebar.classList.add('-translate-x-full');
+        DOM.overlay.classList.add('hidden');
+        setRelatorioDateRange(6, 0);
+    });
+
+    DOM.btnGerenciarCupom.addEventListener('click', () => {
+        ativaAba(DOM.abaGerenciarCupom, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
+        estilizaBotaoAtivo(DOM.btnGerenciarCupom, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
+        DOM.sidebar.classList.add('-translate-x-full');
+        DOM.overlay.classList.add('hidden');
+    });
+
+    DOM.btnGerenciarEstoque.addEventListener('click', () => {
+        ativaAba(DOM.abaGerenciarEstoque, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarGarcom);
+        estilizaBotaoAtivo(DOM.btnGerenciarEstoque, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarGarcom);
+        DOM.sidebar.classList.add('-translate-x-full');
+        DOM.overlay.classList.add('hidden');
+
+        DOM.ingredienteNomeDetalheInput.value = '';
+        DOM.ingredienteUnidadeDetalheInput.value = '';
+        DOM.ingredienteEstoqueMinimoDetalheInput.value = '';
+
+        DOM.compraDataDetalheInput.valueAsDate = new Date();
+        DOM.compraFornecedorDetalheInput.value = '';
+        currentPurchaseItems = [];
+        renderItensCompraDetalhe();
+
+        DOM.receitaProdutoSelectCategoriaDetalhe.value = '';
+        DOM.receitaProdutoSelectDetalhe.innerHTML = '<option value="">Selecione uma categoria primeiro</option>';
+        DOM.receitaProdutoSelectDetalhe.disabled = true;
+        DOM.receitaConfigDetalheContainer.classList.add('hidden');
+        DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'none';
+    });
+
+    DOM.btnGerenciarGarcom.addEventListener('click', () => {
+        ativaAba(DOM.abaGerenciarGarcom, DOM.abaGerenciarCupom, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarEstoque);
+        estilizaBotaoAtivo(DOM.btnGerenciarGarcom, DOM.btnGerenciarCupom, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarEstoque);
+        DOM.sidebar.classList.add('-translate-x-full');
+        DOM.overlay.classList.add('hidden');
+    });
+
+    // --- Event Listener para o botão de filtrar na aba de finalizados ---
+    DOM.btnFiltrar.addEventListener('click', aplicarFiltroDatas);
+
+    // --- Event Listeners para Relatórios de Pedidos ---
+    DOM.btnGerarRelatorios.addEventListener('click', gerarRelatorios);
+    DOM.btnHoje.addEventListener('click', () => setRelatorioDateRange(0, 0));
+    DOM.btnUltimos7Dias.addEventListener('click', () => setRelatorioDateRange(6, 0));
+    DOM.btnUltimoMes.addEventListener('click', () => setRelatorioDateRange(0, 0, 1));
+    DOM.btnUltimos3Meses.addEventListener('click', () => setRelatorioDateRange(0, 0, 3));
+
+    // --- Event Listeners para a aba de Estoque (Relatórios Rápidos e Ações) ---
+    DOM.btnResetarConsumoDiario.addEventListener('click', async () => {
+        const confirmacao = confirm('Tem certeza que deseja RESETAR o consumo do dia anterior? Isso vai zerar as quantidades e valores diários para todos os ingredientes. Esta ação é para ser feita no início de cada novo dia.');
+        if (!confirmacao) return;
+
+        try {
+            const updates = {};
+            Object.keys(allIngredients).forEach(ingredienteId => {
+                updates[ingredienteId + '/quantidadeUsadaDiaria'] = 0;
+                updates[ingredienteId + '/custoUsadaDiaria'] = 0;
+                updates[ingredienteId + '/ultimaAtualizacaoConsumo'] = firebase.database.ServerValue.TIMESTAMP;
+            });
+            await ingredientesRef.update(updates);
+            alert('Consumo do dia anterior resetado com sucesso!');
+        } catch (error) {
+            console.error('Erro ao resetar consumo diário:', error);
+            alert('Erro ao resetar consumo do dia anterior.');
+        }
+    });
+
+    DOM.btnResetarConsumoMensal.addEventListener('click', async () => {
+        const today = new Date();
+        const yearMonth = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
+
+        if (confirm(`Tem certeza que deseja RESETAR o consumo mensal de TODOS os ingredientes para o mês de ${yearMonth}? Esta ação salvará o consumo atual em um histórico e zerará os contadores para o novo mês.`)) {
+            try {
+                const snapshot = await ingredientesRef.once('value');
+                const updates = {};
+                const consumoHistoricoMensal = {};
+
+                snapshot.forEach(childSnapshot => {
+                    const ingredienteId = childSnapshot.key;
+                    const ingredienteData = childSnapshot.val();
+                    if (ingredienteData.quantidadeUsadaMensal > 0) {
+                        consumoHistoricoMensal[ingredienteId] = {
+                            nome: ingredienteData.nome,
+                            unidadeMedida: ingredienteData.unidadeMedida,
+                            quantidadeConsumida: ingredienteData.quantidadeUsadaMensal,
+                            custoConsumido: ingredienteData.custoUsadoMensal,
+                            timestampReset: firebase.database.ServerValue.TIMESTAMP
+                        };
+                    }
+                    updates[ingredienteId + '/quantidadeUsadaMensal'] = 0;
+                    updates[ingredienteId + '/custoUsadoMensal'] = 0;
+                });
+
+                if (Object.keys(consumoHistoricoMensal).length > 0) {
+                    await database.ref(`historicoConsumo/${yearMonth}`).set(consumoHistoricoMensal);
+                    console.log(`Consumo de ${yearMonth} salvo em histórico.`);
+                }
+
+                await ingredientesRef.update(updates);
+                alert('Consumo mensal de ingredientes resetado com sucesso!');
+            } catch (error) {
+                console.error('Erro ao resetar consumo:', error);
+                alert('Erro ao resetar consumo de ingredientes.');
+            }
+        }
+    });
+
+    DOM.toggleGerenciamentoAvancado.addEventListener('click', () => {
+        DOM.gerenciamentoDetalhadoContainer.classList.toggle('hidden');
+    });
+
+    // --- Event Listeners para a seção de Gerenciamento Detalhado ---
+    DOM.btnSalvarIngredienteDetalhe.addEventListener('click', handleSalvarIngredienteDetalhe);
+    DOM.btnAddItemCompraDetalhe.addEventListener('click', handleAddItemCompraDetalhe);
+    DOM.btnRegistrarCompraDetalhe.addEventListener('click', handleRegistrarCompraDetalhe);
+    DOM.receitaProdutoSelectCategoriaDetalhe.addEventListener('change', handleReceitaProdutoCategoriaChangeDetalhe);
+    DOM.receitaProdutoSelectDetalhe.addEventListener('change', handleReceitaProdutoSelectChangeDetalhe);
+    DOM.pizzaTamanhoSelectDetalhe.addEventListener('change', handlePizzaTamanhoSelectChangeDetalhe);
+    DOM.btnAddIngredienteReceitaDetalhe.addEventListener('click', handleAddIngredienteReceitaDetalhe);
+    DOM.btnSalvarReceitaDetalhe.addEventListener('click', handleSalvarReceitaDetalhe);
+
+    // --- Event Listeners para o Modal de Mesa ---
+    const closeMesaModalButton = DOM.modalMesaDetalhes.querySelector('.close-modal');
+    if (closeMesaModalButton) {
+        closeMesaModalButton.addEventListener('click', fecharModalMesaDetalhes);
+    }
+
+    DOM.valorAPagarInput.addEventListener('input', updateCheckoutStatus);
+    DOM.pagamentoMetodoAtual.addEventListener('change', updateCheckoutStatus);
+    DOM.trocoRecebidoInput.addEventListener('input', updateCheckoutStatus);
+    DOM.dividirPorInput.addEventListener('input', updateCheckoutStatus);
+
+    DOM.btnAdicionarPagamento.addEventListener('click', adicionarPagamentoMesa);
+    DOM.btnDividirRestante.addEventListener('click', dividirContaMesa);
+    DOM.btnCancelarPedidoMesa.addEventListener('click', cancelarPedidoMesa);
+    DOM.btnFinalizarContaMesa.addEventListener('click', finalizarContaMesa);
+
+    DOM.btnAtivos.click();
+
+    if (DOM.categoriaSelect) {
+        DOM.categoriaSelect.addEventListener("change", (e) => {
+            carregarItensCardapio(e.target.value, DOM.searchInput.value);
+        });
+    }
+    if (DOM.searchInput) {
+        DOM.searchInput.addEventListener("input", () => {
+            carregarItensCardapio(DOM.categoriaSelect.value, DOM.searchInput.value);
+        });
+    }
+
+    if (DOM.btnFecharNovoItem) {
+        DOM.btnFecharNovoItem.addEventListener("click", () => {
+            DOM.modalNovoItem.classList.add("hidden");
+            limparFormularioNovoItem();
+        });
+    }
+
+    if (DOM.novoImagemInput && DOM.previewNovaImagem) {
+        DOM.novoImagemInput.addEventListener("input", () => {
+            const url = DOM.novoImagemInput.value.trim();
+            if (url && url.startsWith('http')) {
+                DOM.previewNovaImagem.src = url;
+                DOM.previewNovaImagem.classList.remove("hidden");
+            } else {
+                DOM.previewNovaImagem.src = '';
+                DOM.previewNovaImagem.classList.add("hidden");
+            }
+        });
+    }
+
+    if (DOM.btnSalvarNovoItem) {
+        DOM.btnSalvarNovoItem.addEventListener("click", handleSalvarNovoItem);
+    }
+
+    document.addEventListener('input', (event) => {
+        if (event.target.classList.contains('uppercase-input')) {
+            const input = event.target;
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            input.value = input.value.toUpperCase();
+            input.setSelectionRange(start, end);
+        }
+    });
+
+    const btnAdicionarItemCardapio = document.getElementById('btn-adicionar-item-cardapio');
+    if (btnAdicionarItemCardapio) {
+        btnAdicionarItemCardapio.addEventListener('click', mostrarNovoitem);
+    }
+});
+
+
+// --- SEÇÃO: PEDIDOS lghn-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+// Gerenciamento de Pedidos Ativos e Finalizados
 function renderizarPedidos() {
     if (!DOM.pedidosAtivosContainer) return;
     DOM.pedidosAtivosContainer.innerHTML = '';
@@ -332,10 +743,9 @@ async function finalizarPedido(pedidoId) {
             return;
         }
 
-        // Lógica de registro de consumo de ingredientes aprimorada para PIZZAS E OUTROS PRODUTOS
         if (pedido.cart && Array.isArray(pedido.cart)) {
             for (const itemPedido of pedido.cart) {
-                await deduzirIngredientesDoEstoque(itemPedido); // Usa a função unificada
+                await deduzirIngredientesDoEstoque(itemPedido);
             }
         }
 
@@ -399,7 +809,6 @@ function gerarHtmlPedido(pedido, pedidoId) {
     if (pedido.tipoAtendimento === 'Mesa' || pedido.tipoAtendimento === 'Presencial') {
         tipoAtendimentoInfo = `<p class="text-sm mb-1"><strong>Atendimento:</strong> Presencial (Mesa ${pedido.mesaNumero || 'N/A'})</p>`;
         const totalExibido = (pedido.totalOriginal || pedido.totalPedido).toFixed(2);
-        // Displaying totalOriginal for table orders, as totalPedido might be partial
         produtos += `<li class="flex justify-between text-sm mt-2 font-bold text-gray-800"><span>TOTAL ORIGINAL:</span><span>R$ ${totalExibido}</span></li>`;
         if (pedido.pagamentosRegistrados && pedido.pagamentosRegistrados.length > 0) {
             produtos += `<li class="flex justify-between text-sm font-bold text-gray-800"><span>PAGAMENTOS:</span></li>`;
@@ -486,480 +895,1311 @@ function getStatusColor(status) {
     }
 }
 
-// Function to calculate elapsed time (not used in HTML, but kept for reference)
-function calcularTempoDecorrido(data) {
-    const agora = new Date();
-    const diffMs = agora - data;
-    const minutos = Math.floor(diffMs / 60000);
-    if (minutos < 1) return "menos de 1 minuto";
-    if (minutos < 60) return `${minutos} min`;
-    const horas = Math.floor(minutos / 60);
-    return `${horas}h ${minutos % 60}min`;
-}
-
-function ativaAba(ativa, ...inativas) {
-    ativa.classList.remove('hidden');
-    inativas.forEach(aba => aba.classList.add('hidden'));
-}
-
-function estilizaBotaoAtivo(botaoAtivo, ...inativos) {
-    botaoAtivo.classList.add('bg-blue-600', 'text-white');
-    botaoAtivo.classList.remove('bg-blue-700');
-
-    inativos.forEach(botao => {
-        botao.classList.remove('bg-blue-600', 'text-white');
-        botao.classList.add('bg-blue-700');
+function imprimirPedido(pedidoId) {
+    database.ref('pedidos/' + pedidoId).once('value').then(snapshot => {
+        const pedido = snapshot.val();
+        gerarNota(pedido);
     });
 }
 
-// --- INICIALIZAÇÃO DO DOM E EVENT LISTENERS ---
-document.addEventListener('DOMContentLoaded', () => {
-    // Inicialização das referências DOM
-    Object.assign(DOM, {
-        pedidosAtivosContainer: document.getElementById('pedidos-ativos-container'),
-        pedidosFinalizadosContainer: document.getElementById('pedidos-finalizados-container'),
-        inputDataInicio: document.getElementById('data-inicio'),
-        inputDataFim: document.getElementById('data-fim'),
-        btnFiltrar: document.getElementById('btn-filtrar'),
-        totalPedidosEl: document.getElementById('total-pedidos'),
-        totalVendidoEl: document.getElementById('total-vendido'),
-        btnAtivos: document.getElementById('btn-ativos'),
-        btnFinalizados: document.getElementById('btn-finalizados'),
-        btnEditarCardapio: document.getElementById('btn-editar-cardapio'),
-        btnEditarHorario: document.getElementById('btn-editar-horario'),
-        btnGerenciarMesas: document.getElementById('btn-gerenciar-mesas'),
-        btnConfiguracoesGerais: document.getElementById('btn-configuracoes-gerais'),
-        btnRelatorios: document.getElementById('btn-relatorios'),
-        btnGerenciarCupom: document.getElementById('btn-gerenciar-cupom'),
-        btnGerenciarGarcom: document.getElementById('btn-gerenciar-garcom'),
-        btnGerenciarEstoque: document.getElementById('btn-gerenciar-estoque'),
-
-
-        // Elementos da seção de ANÁLISE RÁPIDA (Estoque)
-        dataDiaAnteriorSpan: document.getElementById('data-dia-anterior'),
-        totalGastoDiarioSpan: document.getElementById('total-gasto-diario'),
-        listaConsumoDiarioContainer: document.getElementById('lista-consumo-diario'),
-        nomeMesAtualSpan: document.getElementById('nome-mes-atual'),
-        totalGastoMensalSpan: document.getElementById('total-gasto-mensal'),
-        listaConsumoMensalContainer: document.getElementById('lista-consumo-mensal'),
-
-        ingredientesPontoPedidoList: document.getElementById('ingredientes-ponto-pedido-list'),
-        ingredientesPontoPedidoCount: document.getElementById('ingredientes-ponto-pedido-count'),
-        btnResetarConsumoDiario: document.getElementById('btn-resetar-consumo-diario'),
-        btnResetarConsumoMensal: document.getElementById('btn-resetar-consumo-mensal'),
-        toggleGerenciamentoAvancado: document.getElementById('toggle-gerenciamento-avancado'),
-        gerenciamentoDetalhadoContainer: document.getElementById('gerenciamento-detalhado-container'),
-
-        // Elementos da seção de GERENCIAMENTO DETALHADO (Estoque)
-        ingredienteNomeDetalheInput: document.getElementById('ingrediente-nome-detalhe'),
-        ingredienteUnidadeDetalheInput: document.getElementById('ingrediente-unidade-detalhe'),
-        ingredienteEstoqueMinimoDetalheInput: document.getElementById('ingrediente-estoque-minimo-detalhe'),
-        btnSalvarIngredienteDetalhe: document.getElementById('btn-salvar-ingrediente-detalhe'),
-        listaIngredientesDetalheContainer: document.getElementById('lista-ingredientes-detalhe-container'),
-
-        receitaProdutoSelectCategoriaDetalhe: document.getElementById('receita-produto-select-categoria-detalhe'),
-        receitaProdutoSelectDetalhe: document.getElementById('receita-produto-select-detalhe'),
-        receitaConfigDetalheContainer: document.getElementById('receita-config-detalhe-container'),
-        currentRecipeProductNameDetalhe: document.getElementById('current-recipe-product-name-detalhe'),
-        ingredientesParaReceitaDetalheList: document.getElementById('ingredientes-para-receita-detalhe-list'),
-        receitaIngredienteSelectDetalhe: document.getElementById('receita-ingrediente-select-detalhe'),
-        receitaQuantidadeDetalheInput: document.getElementById('receita-quantidade-detalhe'),
-        btnAddIngredienteReceitaDetalhe: document.getElementById('btn-add-ingrediente-receita-detalhe'),
-        btnSalvarReceitaDetalhe: document.getElementById('btn-salvar-receita-detalhe'),
-        pizzaTamanhoSelectContainerDetalhe: document.getElementById('pizza-size-select-container-detalhe'),
-        pizzaTamanhoSelectDetalhe: document.getElementById('pizza-tamanho-select-detalhe'),
-        currentPizzaSizeDetalheSpan: document.getElementById('current-pizza-size-detalhe'),
-
-        compraDataDetalheInput: document.getElementById('compra-data-detalhe'),
-        compraFornecedorDetalheInput: document.getElementById('compra-fornecedor-detalhe'),
-        itensCompraDetalheListContainer: document.getElementById('itens-compra-detalhe-list'),
-        compraIngredienteSelectDetalhe: document.getElementById('compra-ingrediente-select-detalhe'),
-        compraQuantidadeDetalheInput: document.getElementById('compra-quantidade-detalhe'),
-        compraPrecoUnitarioDetalheInput: document.getElementById('compra-preco-unitario-detalhe'),
-        btnAddItemCompraDetalhe: document.getElementById('btn-add-item-compra-detalhe'),
-        btnRegistrarCompraDetalhe: document.getElementById('btn-registrar-compra-detalhe'),
-
-
-        abaAtivos: document.getElementById('aba-ativos'),
-        abaFinalizados: document.getElementById('aba-finalizados'),
-        EditarCardapio: document.getElementById('editar-cardapio'),
-        editarHorario: document.getElementById('editar-horario'),
-        abaGerenciarMesas: document.getElementById('aba-gerenciar-mesas'),
-        abaConfiguracoesGerais: document.getElementById('aba-configuracoes-gerais'),
-        abaRelatorios: document.getElementById('aba-relatorios'),
-        abaGerenciarCupom: document.getElementById('aba-gerenciar-cupom'),
-        abaGerenciarGarcom: document.getElementById('aba-gerenciar-garcom'),
-        abaGerenciarEstoque: document.getElementById('aba-gerenciar-estoque'),
-
-        // Elementos de cardápio
-        searchInput: document.getElementById('search-input'),
-        categoriaSelect: document.getElementById('categoria-select'),
-        // New item modal elements
-        modalNovoItem: document.getElementById('modal-novo-item'),
-        btnFecharNovoItem: document.getElementById('btn-fechar-novo-item'),
-        novoImagemInput: document.getElementById('novo-imagem'),
-        previewNovaImagem: document.getElementById('preview-nova-imagem'),
-        btnSalvarNovoItem: document.getElementById('btn-salvar-novo-item'),
-        novoNomeInput: document.getElementById('novo-nome'),
-        novoDescricaoInput: document.getElementById('novo-descricao'),
-        novoPrecoInput: document.getElementById('novo-preco'),
-        novoAtivoCheckbox: document.getElementById('novo-ativo'),
-        novoTipoSelect: document.getElementById('novo-tipo'),
-        itensCardapioContainer: document.getElementById('itens-cardapio-container'),
-
-
-        menuButton: document.getElementById('menu-button'),
-        sidebar: document.getElementById('sidebar'),
-        overlay: document.getElementById('overlay'),
-        closeSidebarButton: document.getElementById('close-sidebar-button'),
-
-        relatorioDataInicio: document.getElementById('relatorio-data-inicio'),
-        relatorioDataFim: document.getElementById('relatorio-data-fim'),
-        btnGerarRelatorios: document.getElementById('btn-gerar-relatorios'),
-        topProdutosSummary: document.getElementById('top-produtos-summary'),
-        topProdutosChartCanvas: document.getElementById('top-produtos-chart'),
-        vendasPorDiaSummary: document.getElementById('vendas-por-dia-summary'),
-        vendasPorDiaChartCanvas: document.getElementById('vendas-por-dia-chart'),
-        horariosPicoSummary: document.getElementById('horarios-pico-summary'),
-        horariosPicoChartCanvas: document.getElementById('horarios-pico-chart'),
-        metodosPagamentoSummary: document.getElementById('metodos-pagamento-summary'),
-        metodosPagamentoChartCanvas: document.getElementById('metodos-pagamento-chart'),
-        btnUltimos7Dias: document.getElementById('btn-ultimos-7-dias'),
-        btnUltimoMes: document.getElementById('btn-ultimo-mes'),
-        btnUltimos3Meses: document.getElementById('btn-ultimos-3-meses'),
-        btnHoje: document.getElementById('btn-hoje'),
-
-        // Elementos da aba de Gerenciar Cupons
-        btnSalvarCupom: document.getElementById('btn-salvar-cupom'),
-        cupomCodigoInput: document.getElementById('cupom-codigo'),
-        cupomValorInput: document.getElementById('cupom-valor'),
-        cupomTipoSelect: document.getElementById('cupom-tipo'),
-        cupomMinValorInput: document.getElementById('cupom-min-valor'),
-        validadeCupomInput: document.getElementById('validade-cupom'),
-        listaCuponsContainer: document.getElementById('lista-cupons-container'),
-
-        // Elementos para gerenciar Garçons (Adicionados ou Confirmados)
-        btnSalvarGarcom: document.getElementById('btn-salvar-garcom'),
-        garcomNomeInput: document.getElementById('garcom-nome'),
-        garcomSenhaInput: document.getElementById('garcom-senha'),
-        listaGarconsContainer: document.getElementById('lista-garcons-container'),
-
-        numMesasInput: document.getElementById('num-mesas'),
-        btnConfigurarMesas: document.getElementById('btn-configurar-mesas'),
-        mesasContainer: document.getElementById('mesas-container'),
-        modalMesaDetalhes: document.getElementById('modal-mesa-detalhes'),
-        modalMesaNumero: document.getElementById('modal-mesa-numero'),
-        mesaDetalhesInfo: document.getElementById('mesa-detalhes-info'),
-        mesaDetalhesStatus: document.getElementById('mesa-detalhes-status'),
-        mesaDetalhesCliente: document.getElementById('mesa-detalhes-cliente'),
-        mesaDetalhesGarcom: document.getElementById('mesa-detalhes-garcom'),
-        mesaDetalhesObs: document.getElementById('mesa-detalhes-obs'),
-        mesaItensSelecaoContainer: document.getElementById('mesa-itens-selecao-container'),
-        emptyItemsMessage: document.getElementById('empty-items-message'),
-        mesaTotalOriginal: document.getElementById('mesa-total-original'),
-        mesaTotalPago: document.getElementById('mesa-total-pago'),
-        mesaRestantePagar: document.getElementById('mesa-restante-pagar'),
-        valorAPagarInput: document.getElementById('valor-a-pagar-input'),
-        dividirPorInput: document.getElementById('dividir-por-input'),
-        btnDividirRestante: document.getElementById('btn-dividir-restante'),
-        pagamentoMetodoAtual: document.getElementById('pagamento-metodo-atual'),
-        trocoInputGroup: document.getElementById('troco-input-group'),
-        trocoRecebidoInput: document.getElementById('troco-recebido'),
-        btnAdicionarPagamento: document.getElementById('btn-adicionar-pagamento'),
-        historicoPagamentosContainer: document.getElementById('historico-pagamentos'),
-        emptyPaymentsMessage: document.getElementById('empty-payments-message'),
-        btnCancelarPedidoMesa: document.getElementById('btn-cancelar-pedido-mesa'),
-        btnFinalizarContaMesa: document.getElementById('btn-finalizar-conta-mesa'),
-    });
-
-    // --- Event Listeners para a Sidebar ---
-    DOM.menuButton.addEventListener('click', () => {
-        DOM.sidebar.classList.remove('-translate-x-full');
-        DOM.overlay.classList.remove('hidden');
-    });
-
-    DOM.closeSidebarButton.addEventListener('click', () => {
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-    });
-
-    DOM.overlay.addEventListener('click', () => {
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-    });
-
-
-    // --- Event Listeners para os botões do menu principal ---
-    DOM.btnAtivos.addEventListener('click', () => {
-        ativaAba(DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
-        estilizaBotaoAtivo(DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-    });
-
-    DOM.btnFinalizados.addEventListener('click', () => {
-        ativaAba(DOM.abaFinalizados, DOM.abaAtivos, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
-        estilizaBotaoAtivo(DOM.btnFinalizados, DOM.btnAtivos, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
-
-        const hoje = new Date();
-        const seteDiasAtras = new Date(hoje);
-        seteDiasAtras.setDate(hoje.getDate() - 7);
-
-        DOM.inputDataInicio.value = seteDiasAtras.toISOString().split('T')[0];
-        DOM.inputDataFim.value = hoje.toISOString().split('T')[0];
-
-        aplicarFiltroDatas();
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-    });
-
-    DOM.btnEditarCardapio.addEventListener('click', () => {
-        ativaAba(DOM.EditarCardapio, DOM.abaFinalizados, DOM.abaAtivos, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
-        estilizaBotaoAtivo(DOM.btnEditarCardapio, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
-        // Set a default category if none is selected
-        if (!DOM.categoriaSelect.value) {
-            DOM.categoriaSelect.value = 'pizzas'; // Default to 'pizzas' or another appropriate category
+function gerarNota(pedido) {
+    let html = `
+    <html>
+    <head>
+        <title>Nota do Pedido</title>
+        <style>
+            @page {
+                size: A4;
+                margin: 10mm;
+            }
+            html, body {
+                width: 100%;
+                height: 100%;
+                padding: 0;
+                margin: 0;
+                font-family: Arial, sans-serif;
+            }
+            body {
+                box-sizing: border-box;
+                padding: 10mm;
+                font-size: 14pt;
+            }
+            h1 {
+                text-align: center;
+                font-size: 24pt;
+                margin-bottom: 10mm;
+            }
+            hr {
+                border: none;
+                border-top: 2pt solid #000;
+                margin: 5mm 0;
+            }
+            .info {
+                font-size: 14pt;
+                margin: 2mm 0;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 10mm;
+                font-size: 14pt;
+            }
+            th, td {
+                padding: 2mm 4mm;
+                border: 1pt solid #000;
+            }
+            th {
+                background: #eee;
+            }
+            .total {
+                font-size: 18pt;
+                font-weight: bold;
+                text-align: right;
+                margin-top: 10mm;
+            }
+            .obs {
+                font-size: 12pt;
+                margin-top: 5mm;
+            }
+            .footer {
+                text-align: center;
+                margin-top: auto;
+                padding-top: 10mm;
+                font-size: 12pt;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Nota do Pedido</h1>
+        <hr/>
+        <div class="info"><strong>Cliente:</strong> ${pedido.nomeCliente || '-'}</div>
+        <div class="info"><strong>Telefone:</strong> ${pedido.telefone || '-'}</div>
+        <div class="info"><strong>Entrega:</strong> ${pedido.tipoEntrega}</div>
+        ${
+            pedido.tipoEntrega === 'Entrega' ? `
+            <div class="info"><strong>Endereço:</strong> ${pedido.endereco?.rua}, ${pedido.endereco?.numero} - ${pedido.endereco?.bairro}</div>
+            <div class="info"><strong>Referência:</strong> ${pedido.referencia || '-'}</div>
+            ` : '<div class="info"><strong>Retirada no local</strong></div>'
         }
-        carregarItensCardapio(DOM.categoriaSelect.value, DOM.searchInput.value);
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
+        <hr/>
+        <table>
+            <thead>
+                <tr>
+                    <th>Qtd</th>
+                    <th>Produto</th>
+                    <th>Unitário</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+    pedido.cart.forEach(item => {
+        let sizeInfo = item.size ? ` (${item.size})` : '';
+        html += `
+            <tr>
+                <td>${item.quantity}</td>
+                <td>${item.name}${sizeInfo}</td>
+                <td>R$ ${(item.price).toFixed(2)}</td>
+                <td>R$ ${(item.price * item.quantity).toFixed(2)}</td>
+            </tr>`;
     });
 
-    DOM.btnEditarHorario.addEventListener('click', () => {
-        ativaAba(DOM.editarHorario, DOM.abaFinalizados, DOM.abaAtivos, DOM.EditarCardapio, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
-        estilizaBotaoAtivo(DOM.btnEditarHorario, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-        // Inicializa a funcionalidade do editor de horário
-        inicializarEditorHorario();
+    html += `
+            </tbody>
+        </table>
+        <div class="info"><strong>Pagamento:</strong> ${pedido.pagamento} ${pedido.dinheiroTotal ? `(Troco p/ R$ ${parseFloat(pedido.dinheiroTotal).toFixed(2)})` : ''}</div>
+        <div class="obs"><strong>Observação:</strong> ${pedido.observacao || '-'}</div>
+        <div class="total">Total do pedido: R$ ${pedido.totalPedido.toFixed(2)}</div>
+        <div class="footer">Obrigado por comprar conosco! 🍽️</div>
+    </body>
+    </html>`;
+
+    const printWindow = window.open('', '', 'width=1024,height=768');
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+}
+
+
+// --- SEÇÃO: EDIÇÃO DE PEDIDOS lghn----------------------------------------------------------------------------------------------------------------------------------
+
+function editarPedido(pedidoId) {
+    pedidoEmEdicao = pedidoId;
+
+    database.ref('pedidos/' + pedidoId).once('value').then(snapshot => {
+        pedidoOriginal = snapshot.val() || {};
+        renderizarItensModal(pedidoOriginal.cart || []);
+        document.getElementById('modal-pedido-id').textContent = pedidoId;
+        document.getElementById('modal-editar-pedido').classList.remove('hidden');
+        document.getElementById('modal-editar-pedido').classList.add('flex');
+    });
+}
+
+function renderizarItensModal(itens) {
+    const container = document.getElementById('modal-itens');
+    container.innerHTML = '';
+
+    itens.forEach((item, index) => {
+        let sizeInfo = item.size ? ` (${item.size})` : '';
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'flex justify-between items-center gap-2 border p-2 rounded';
+        itemDiv.innerHTML = `
+            <input type="number" min="0" value="${item.quantity}"
+                class="w-16 border p-1 rounded text-center"
+                data-index="${index}"
+                data-name="${item.name}"
+                data-price="${item.price}"
+                data-size="${item.size || ''}"
+            />
+            <span class="flex-1 ml-2">${item.name}${sizeInfo}</span>
+            <span>R$ ${(item.price * item.quantity).toFixed(2)}</span>
+        `;
+        container.appendChild(itemDiv);
     });
 
-    DOM.btnGerenciarMesas.addEventListener('click', () => {
-        ativaAba(DOM.abaGerenciarMesas, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
-        estilizaBotaoAtivo(DOM.btnGerenciarMesas, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-        carregarMesasDoFirebase();
-    });
-
-    DOM.btnConfiguracoesGerais.addEventListener('click', () => {
-        ativaAba(DOM.abaConfiguracoesGerais, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
-        estilizaBotaoAtivo(DOM.btnConfiguracoesGerais, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-    });
-
-    DOM.btnRelatorios.addEventListener('click', () => {
-        ativaAba(DOM.abaRelatorios, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
-        estilizaBotaoAtivo(DOM.btnRelatorios, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-        // Define o período padrão para os últimos 7 dias e gera os relatórios
-        setRelatorioDateRange(6, 0); // Sets to last 7 days
-    });
-
-    DOM.btnGerenciarCupom.addEventListener('click', () => {
-        ativaAba(DOM.abaGerenciarCupom, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
-        estilizaBotaoAtivo(DOM.btnGerenciarCupom, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-        // The real-time listener for cuponsRef.on('value') will call carregarCupons automatically
-    });
-
-    DOM.btnGerenciarEstoque.addEventListener('click', () => {
-        ativaAba(DOM.abaGerenciarEstoque, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarGarcom);
-        estilizaBotaoAtivo(DOM.btnGerenciarEstoque, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarGarcom);
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-
-        // Resetar campos de gerenciamento detalhado ao abrir a aba
-        DOM.ingredienteNomeDetalheInput.value = '';
-        DOM.ingredienteUnidadeDetalheInput.value = '';
-        DOM.ingredienteEstoqueMinimoDetalheInput.value = '';
-
-        DOM.compraDataDetalheInput.valueAsDate = new Date(); // Data atual
-        DOM.compraFornecedorDetalheInput.value = '';
-        currentPurchaseItems = [];
-        renderItensCompraDetalhe();
-
-        DOM.receitaProdutoSelectCategoriaDetalhe.value = '';
-        DOM.receitaProdutoSelectDetalhe.innerHTML = '<option value="">Selecione uma categoria primeiro</option>';
-        DOM.receitaProdutoSelectDetalhe.disabled = true;
-        DOM.receitaConfigDetalheContainer.classList.add('hidden');
-        DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'none';
-        // The real-time listener for ingredientesRef.on('value') will call render functions
-    });
-
-    DOM.btnGerenciarGarcom.addEventListener('click', () => {
-        ativaAba(DOM.abaGerenciarGarcom, DOM.abaGerenciarCupom, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarEstoque);
-        estilizaBotaoAtivo(DOM.btnGerenciarGarcom, DOM.btnGerenciarCupom, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarEstoque);
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-        // The real-time listener for garconsInfoRef.on('value') will call carregarGarcom automatically
-    });
-
-
-    // --- Event Listener para o botão de filtrar na aba de finalizados ---
-    DOM.btnFiltrar.addEventListener('click', aplicarFiltroDatas);
-
-    // --- Event Listeners para Relatórios de Pedidos ---
-    DOM.btnGerarRelatorios.addEventListener('click', gerarRelatorios);
-    DOM.btnHoje.addEventListener('click', () => setRelatorioDateRange(0, 0));
-    DOM.btnUltimos7Dias.addEventListener('click', () => setRelatorioDateRange(6, 0));
-    DOM.btnUltimoMes.addEventListener('click', () => setRelatorioDateRange(0, 0, 1));
-    DOM.btnUltimos3Meses.addEventListener('click', () => setRelatorioDateRange(0, 0, 3));
-
-    // --- Event Listeners para a aba de Estoque (Relatórios Rápidos e Ações) ---
-    DOM.btnResetarConsumoDiario.addEventListener('click', async () => {
-        const confirmacao = confirm('Tem certeza que deseja RESETAR o consumo do dia anterior? Isso vai zerar as quantidades e valores diários para todos os ingredientes. Esta ação é para ser feita no início de cada novo dia.');
-        if (!confirmacao) return;
-
-        try {
-            const updates = {};
-            Object.keys(allIngredients).forEach(ingredienteId => {
-                updates[ingredienteId + '/quantidadeUsadaDiaria'] = 0;
-                updates[ingredienteId + '/custoUsadaDiaria'] = 0;
-                updates[ingredienteId + '/ultimaAtualizacaoConsumo'] = firebase.database.ServerValue.TIMESTAMP;
-            });
-            await ingredientesRef.update(updates);
-            alert('Consumo do dia anterior resetado com sucesso!');
-        } catch (error) {
-            console.error('Erro ao resetar consumo diário:', error);
-            alert('Erro ao resetar consumo do dia anterior.');
-        }
-    });
-
-    DOM.btnResetarConsumoMensal.addEventListener('click', async () => {
-        const today = new Date();
-        const yearMonth = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
-
-        if (confirm(`Tem certeza que deseja RESETAR o consumo mensal de TODOS os ingredientes para o mês de ${yearMonth}? Esta ação salvará o consumo atual em um histórico e zerará os contadores para o novo mês.`)) {
-            try {
-                const snapshot = await ingredientesRef.once('value');
-                const updates = {};
-                const consumoHistoricoMensal = {};
-
-                snapshot.forEach(childSnapshot => {
-                    const ingredienteId = childSnapshot.key;
-                    const ingredienteData = childSnapshot.val();
-                    if (ingredienteData.quantidadeUsadaMensal > 0) {
-                        consumoHistoricoMensal[ingredienteId] = {
-                            nome: ingredienteData.nome,
-                            unidadeMedida: ingredienteData.unidadeMedida,
-                            quantidadeConsumida: ingredienteData.quantidadeUsadaMensal,
-                            custoConsumido: ingredienteData.custoUsadoMensal,
-                            timestampReset: firebase.database.ServerValue.TIMESTAMP
-                        };
+    container.querySelectorAll('input[type="number"]').forEach(input => {
+        input.addEventListener('input', (event) => {
+            const idx = parseInt(event.target.dataset.index);
+            const newQuantity = parseInt(event.target.value, 10);
+            if (!isNaN(newQuantity) && newQuantity >= 0) {
+                if (pedidoOriginal.cart[idx]) {
+                    pedidoOriginal.cart[idx].quantity = newQuantity;
+                    const itemPriceElement = event.target.closest('div').querySelector('span:last-child');
+                    if (itemPriceElement) {
+                        itemPriceElement.textContent = `R$ ${(pedidoOriginal.cart[idx].price * newQuantity).toFixed(2)}`;
                     }
-                    updates[ingredienteId + '/quantidadeUsadaMensal'] = 0;
-                    updates[ingredienteId + '/custoUsadoMensal'] = 0;
-                });
-
-                if (Object.keys(consumoHistoricoMensal).length > 0) {
-                    await database.ref(`historicoConsumo/${yearMonth}`).set(consumoHistoricoMensal);
-                    console.log(`Consumo de ${yearMonth} salvo em histórico.`);
                 }
-
-                await ingredientesRef.update(updates);
-                alert('Consumo mensal de ingredientes resetado com sucesso!');
-            } catch (error) {
-                console.error('Erro ao resetar consumo:', error);
-                alert('Erro ao resetar consumo de ingredientes.');
-            }
-        }
-    });
-
-    DOM.toggleGerenciamentoAvancado.addEventListener('click', () => {
-        DOM.gerenciamentoDetalhadoContainer.classList.toggle('hidden');
-    });
-
-    // --- Event Listeners para a seção de Gerenciamento Detalhado ---
-    DOM.btnSalvarIngredienteDetalhe.addEventListener('click', handleSalvarIngredienteDetalhe);
-    DOM.btnAddItemCompraDetalhe.addEventListener('click', handleAddItemCompraDetalhe);
-    DOM.btnRegistrarCompraDetalhe.addEventListener('click', handleRegistrarCompraDetalhe);
-    DOM.receitaProdutoSelectCategoriaDetalhe.addEventListener('change', handleReceitaProdutoCategoriaChangeDetalhe);
-    DOM.receitaProdutoSelectDetalhe.addEventListener('change', handleReceitaProdutoSelectChangeDetalhe);
-    DOM.pizzaTamanhoSelectDetalhe.addEventListener('change', handlePizzaTamanhoSelectChangeDetalhe);
-    DOM.btnAddIngredienteReceitaDetalhe.addEventListener('click', handleAddIngredienteReceitaDetalhe);
-    DOM.btnSalvarReceitaDetalhe.addEventListener('click', handleSalvarReceitaDetalhe);
-
-    // --- Event Listeners para o Modal de Mesa ---
-    // Selecionador corrigido para o botão de fechar, usando a classe '.close-modal'
-    const closeMesaModalButton = DOM.modalMesaDetalhes.querySelector('.close-modal');
-    if (closeMesaModalButton) {
-        closeMesaModalButton.addEventListener('click', fecharModalMesaDetalhes);
-    }
-
-    DOM.valorAPagarInput.addEventListener('input', updateCheckoutStatus);
-    DOM.pagamentoMetodoAtual.addEventListener('change', updateCheckoutStatus);
-    DOM.trocoRecebidoInput.addEventListener('input', updateCheckoutStatus);
-    DOM.dividirPorInput.addEventListener('input', updateCheckoutStatus);
-
-    DOM.btnAdicionarPagamento.addEventListener('click', adicionarPagamentoMesa);
-    DOM.btnDividirRestante.addEventListener('click', dividirContaMesa);
-    DOM.btnCancelarPedidoMesa.addEventListener('click', cancelarPedidoMesa);
-    DOM.btnFinalizarContaMesa.addEventListener('click', finalizarContaMesa);
-
-
-    // Inicializa a primeira aba ao carregar a página
-    DOM.btnAtivos.click(); // This will also trigger renderizarPedidos
-
-    // Initialize Cardapio Management Listeners
-    if (DOM.categoriaSelect) {
-        DOM.categoriaSelect.addEventListener("change", (e) => {
-            carregarItensCardapio(e.target.value, DOM.searchInput.value);
-        });
-    }
-    if (DOM.searchInput) {
-        DOM.searchInput.addEventListener("input", () => {
-            carregarItensCardapio(DOM.categoriaSelect.value, DOM.searchInput.value);
-        });
-    }
-
-    // New Item Modal Listeners
-    if (DOM.btnFecharNovoItem) {
-        DOM.btnFecharNovoItem.addEventListener("click", () => {
-            DOM.modalNovoItem.classList.add("hidden");
-            limparFormularioNovoItem();
-        });
-    }
-
-    if (DOM.novoImagemInput && DOM.previewNovaImagem) {
-        DOM.novoImagemInput.addEventListener("input", () => {
-            const url = DOM.novoImagemInput.value.trim();
-            if (url && url.startsWith('http')) {
-                DOM.previewNovaImagem.src = url;
-                DOM.previewNovaImagem.classList.remove("hidden");
             } else {
-                DOM.previewNovaImagem.src = '';
-                DOM.previewNovaImagem.classList.add("hidden");
+                event.target.value = pedidoOriginal.cart[idx].quantity;
             }
         });
-    }
+    });
 
-    if (DOM.btnSalvarNovoItem) {
-        DOM.btnSalvarNovoItem.addEventListener("click", handleSalvarNovoItem);
-    }
+    document.getElementById('btn-salvar-pedido').onclick = salvarPedidoEditado;
+}
 
-    // Uppercase input for coupon code
-    document.addEventListener('input', (event) => {
-        if (event.target.classList.contains('uppercase-input')) {
-            const input = event.target;
-            const start = input.selectionStart;
-            const end = input.selectionEnd;
-            input.value = input.value.toUpperCase();
-            input.setSelectionRange(start, end);
+const btnAdicionarItemModal = document.getElementById('btn-adicionar-item');
+if (btnAdicionarItemModal) {
+    btnAdicionarItemModal.addEventListener('click', () => {
+        const nome = document.getElementById('novo-item-nome').value.trim();
+        const preco = parseFloat(document.getElementById('novo-item-preco').value);
+        const qtd = parseInt(document.getElementById('novo-item-quantidade').value, 10);
+
+        if (!nome || isNaN(preco) || isNaN(qtd) || qtd <= 0 || preco <= 0) {
+            alert('Preencha todos os campos corretamente com valores positivos.');
+            return;
+        }
+
+        pedidoOriginal.cart = pedidoOriginal.cart || [];
+        const existingItemIndex = pedidoOriginal.cart.findIndex(item => item.name === nome);
+        if (existingItemIndex > -1) {
+            pedidoOriginal.cart[existingItemIndex].quantity += qtd;
+        } else {
+            pedidoOriginal.cart.push({ name: nome, price: preco, quantity: qtd, size: '' });
+        }
+
+        document.getElementById('novo-item-nome').value = '';
+        document.getElementById('novo-item-preco').value = '';
+        document.getElementById('novo-item-quantidade').value = '1';
+
+        renderizarItensModal(pedidoOriginal.cart);
+    });
+}
+
+function salvarPedidoEditado() {
+    const inputs = document.querySelectorAll('#modal-itens input[type="number"]');
+
+    const novosItens = [];
+    inputs.forEach(input => {
+        const nome = input.dataset.name;
+        const preco = parseFloat(input.dataset.price);
+        const qtd = parseInt(input.value, 10);
+        const size = input.dataset.size || undefined;
+
+        if (qtd > 0) {
+            novosItens.push({ name: nome, price: preco, quantity: qtd, size: size });
         }
     });
 
-    // Event listener for the "Adicionar Novo Item" button in the Cardápio section
-    const btnAdicionarItemCardapio = document.getElementById('btn-adicionar-item-cardapio');
-    if (btnAdicionarItemCardapio) {
-        btnAdicionarItemCardapio.addEventListener('click', mostrarNovoitem);
+    const novoTotalPedido = novosItens.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    database.ref('pedidos/' + pedidoEmEdicao).update({ cart: novosItens, totalPedido: novoTotalPedido })
+        .then(() => {
+            alert('Pedido atualizado com sucesso!');
+            fecharModalEditarPedido();
+        })
+        .catch(error => {
+            console.error('Erro ao salvar pedido:', error);
+            alert('Erro ao salvar o pedido. Verifique o console para mais detalhes.');
+        });
+}
+
+function fecharModalEditarPedido() {
+    document.getElementById('modal-editar-pedido').classList.add('hidden');
+    pedidoEmEdicao = null;
+    pedidoOriginal = null;
+    renderizarPedidos();
+}
+
+
+// --- SEÇÃO: GERENCIAMENTO DE CARDÁPIO ---
+
+function mostrarNovoitem() {
+    DOM.modalNovoItem.classList.remove("hidden");
+    DOM.modalNovoItem.classList.add("flex");
+    limparFormularioNovoItem();
+}
+
+function handleSalvarNovoItem() {
+    const nome = DOM.novoNomeInput.value.trim();
+    const descricao = DOM.novoDescricaoInput.value.trim();
+    const preco = parseFloat(DOM.novoPrecoInput.value);
+    const imagem = DOM.novoImagemInput.value.trim();
+    const ativo = DOM.novoAtivoCheckbox.checked;
+    const categoria = DOM.novoTipoSelect.value; 
+
+    if (!categoria) {
+        alert("Selecione uma categoria para salvar o item.");
+        return;
+    }
+
+    if (!nome || isNaN(preco) || preco <= 0) {
+        alert("Preencha o nome e o preço corretamente. O preço deve ser um valor positivo.");
+        return;
+    }
+    if (imagem && !imagem.startsWith('http')) {
+        alert("Coloque uma URL de imagem válida (deve começar com http:// ou https://).");
+        return;
+    }
+
+    const novoItem = { nome, descricao, preco, imagem, ativo, tipo: DOM.novoTipoSelect.value, receita: {} };
+
+    database.ref(`produtos/${categoria}`).push(novoItem, (error) => {
+        if (error) {
+            alert("Erro ao adicionar item!");
+            console.error("Erro ao adicionar item:", error);
+        } else {
+            alert("Item adicionado com sucesso!");
+            DOM.modalNovoItem.classList.add("hidden");
+            carregarItensCardapio(categoria, DOM.searchInput.value);
+            limparFormularioNovoItem();
+        }
+    });
+}
+
+function limparFormularioNovoItem() {
+    DOM.novoNomeInput.value = "";
+    DOM.novoDescricaoInput.value = "";
+    DOM.novoPrecoInput.value = "";
+    DOM.novoImagemInput.value = "";
+    if (DOM.previewNovaImagem) DOM.previewNovaImagem.classList.add("hidden");
+    DOM.novoAtivoCheckbox.checked = true;
+    DOM.novoTipoSelect.value = "salgado";
+}
+
+function carregarItensCardapio(categoria, searchQuery = '') {
+    const container = DOM.itensCardapioContainer;
+    if (!container) {
+        console.error("Container de itens do cardápio não encontrado.");
+        return;
+    }
+    container.innerHTML = "Carregando...";
+
+    const ref = database.ref(`produtos/${categoria}`);
+
+    ref.once("value", function(snapshot) {
+        container.innerHTML = "";
+        let itemsToRender = [];
+
+        snapshot.forEach(function(childSnapshot) {
+            const item = childSnapshot.val();
+            const key = childSnapshot.key;
+            itemsToRender.push({ item, key });
+        });
+
+        const lowerCaseSearchQuery = searchQuery.toLowerCase();
+        const filteredItems = itemsToRender.filter(({ item }) => {
+            const name = (item.nome || item.titulo || '').toLowerCase();
+            const description = (item.descricao || '').toLowerCase();
+            return name.includes(lowerCaseSearchQuery) || description.includes(lowerCaseSearchQuery);
+        });
+
+        if (filteredItems.length === 0) {
+            container.innerHTML = `<p class="text-gray-600 text-center col-span-full">Nenhum item encontrado para "${searchQuery}" nesta categoria.</p>`;
+            return;
+        }
+
+        filteredItems.forEach(({ item, key }) => {
+            const card = criarCardItem(item, key, categoria);
+            container.appendChild(card);
+        });
+    }, (error) => {
+        console.error("Erro ao carregar itens do cardápio:", error);
+        container.innerHTML = `<p class="text-red-600 text-center col-span-full">Erro ao carregar itens do cardápio.</p>`;
+    });
+}
+
+function criarCardItem(item, key, categoriaAtual) {
+    const card = document.createElement("div");
+
+    const destaquePromocao = categoriaAtual === "promocoes" ?
+        "border-yellow-500 border-2 shadow-lg" :
+        "border";
+
+    card.className = `bg-white p-4 rounded ${destaquePromocao} flex flex-col gap-2`;
+
+    const itemName = item.nome || item.titulo || '';
+    const itemDescription = item.descricao || '';
+    const itemPrice = item.preco || 0;
+    const itemImage = item.imagem || '';
+    const itemActive = item.ativo ? 'checked' : '';
+    const itemType = item.tipo || "salgado";
+
+    card.innerHTML = `
+        ${categoriaAtual === "promocoes" ? '<span class="text-yellow-600 font-bold text-sm">🔥 Promoção</span>' : ''}
+        <input type="text" value="${itemName}" placeholder="Nome" class="p-2 border rounded nome">
+        <textarea placeholder="Descrição" class="p-2 border rounded descricao">${itemDescription}</textarea>
+        <input type="number" value="${itemPrice}" step="0.01" class="p-2 border rounded preco">
+        <input type="text" value="${itemImage}" placeholder="URL da Imagem" class="p-2 border rounded imagem">
+        <img class="preview-img w-full h-32 object-cover rounded border ${itemImage ? '' : 'hidden'}" src="${itemImage}">
+    `;
+
+    const tipoLabel = document.createElement("label");
+    tipoLabel.className = "text-sm text-gray-700";
+    tipoLabel.textContent = "Tipo (Doce ou Salgado)";
+    card.appendChild(tipoLabel);
+
+    const selectTipo = document.createElement("select");
+    selectTipo.className = "p-2 border rounded tipo";
+    selectTipo.innerHTML = `
+        <option value="salgado">Salgado</option>
+        <option value="doce">Doce</option>
+        <option value="pizza">Pizza</option>
+        <option value="bebida">Bebida</option>
+    `;
+    selectTipo.value = itemType;
+    card.appendChild(selectTipo);
+
+    card.innerHTML += `
+        <label class="flex items-center gap-2 text-sm text-gray-700 mt-2">
+            <input type="checkbox" class="ativo" ${itemActive}> Ativo
+        </label>
+        <div class="flex justify-between gap-2 mt-2">
+            <button class="salvar bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700 w-full">Salvar</button>
+            <button class="excluir bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700 w-full">Excluir</button>
+        </div>
+    `;
+
+    const moveSection = document.createElement("div");
+    moveSection.className = "mt-4 pt-4 border-t border-gray-200 flex flex-col gap-2";
+    moveSection.innerHTML = `
+        <label class="text-sm text-gray-700">Mover para categoria:</label>
+        <select class="p-2 border rounded move-category-select">
+            <option value="">-- Selecione --</option>
+            <option value="pizzas">Pizzas</option>
+            <option value="bebidas">Bebidas</option>
+            <option value="esfirras">Esfirras</option>
+            <option value="calzone">Calzones</option>
+            <option value="promocoes">🔥 Promoções</option>
+            <option value="novidades">✨ Novidades</option>
+        </select>
+        <button class="move-item-btn bg-purple-600 text-white px-3 py-2 rounded hover:bg-purple-700 w-full">Mover Item</button>
+    `;
+    card.appendChild(moveSection);
+
+    const inputImagem = card.querySelector(".imagem");
+    const previewImg = card.querySelector(".preview-img");
+
+    inputImagem.addEventListener("input", () => {
+        if (inputImagem.value.trim() !== "" && inputImagem.value.trim().startsWith('http')) {
+            previewImg.src = inputImagem.value;
+            previewImg.classList.remove("hidden");
+        } else {
+            previewImg.src = '';
+            previewImg.classList.add("hidden");
+        }
+    });
+
+    card.querySelector(".salvar").addEventListener("click", function() {
+        const nome = card.querySelector(".nome").value;
+        const descricao = card.querySelector(".descricao").value;
+        const preco = parseFloat(card.querySelector(".preco").value);
+        const imagem = inputImagem.value;
+        const ativo = card.querySelector(".ativo").checked;
+        const tipo = card.querySelector(".tipo").value;
+
+        if (!nome || isNaN(preco) || preco <= 0) {
+            alert("Preencha o nome e o preço corretamente. O preço deve ser um valor positivo.");
+            return;
+        }
+        if (imagem && !imagem.startsWith('http')) {
+            alert("Coloque uma URL de imagem válida para o item.");
+            return;
+        }
+
+        const updates = {
+            nome: nome,
+            descricao: descricao,
+            preco: preco,
+            imagem: imagem,
+            ativo: ativo,
+            tipo: tipo
+        };
+        if (categoriaAtual === "promocoes") {
+            updates.titulo = nome;
+        }
+
+        database.ref(`produtos/${categoriaAtual}/${key}`).update(updates, function(error) {
+            if (error) {
+                alert("Erro ao salvar! " + error.message);
+                console.error("Erro ao salvar item:", error);
+            } else {
+                alert("Item atualizado com sucesso!");
+            }
+        });
+    });
+
+    card.querySelector(".excluir").addEventListener("click", function() {
+        if (confirm("Tem certeza que deseja excluir este item?")) {
+            database.ref(`produtos/${categoriaAtual}/${key}`).remove(() => {
+                card.remove();
+                alert("Item excluído com sucesso!");
+            }).catch(error => {
+                console.error("Erro ao excluir item:", error);
+                alert("Erro ao excluir item: " + error.message);
+            });
+        }
+    });
+
+    card.querySelector(".move-item-btn").addEventListener("click", function() {
+        const targetCategorySelect = card.querySelector(".move-category-select");
+        const targetCategory = targetCategorySelect.value;
+
+        if (!targetCategory) {
+            alert("Por favor, selecione uma categoria de destino para mover o item.");
+            return;
+        }
+        if (targetCategory === categoriaAtual) {
+            alert("O item já está nesta categoria.");
+            return;
+        }
+
+        if (confirm(`Tem certeza que deseja mover "${itemName}" de "${categoriaAtual}" para "${targetCategory}"?`)) {
+            const updatedItemData = {
+                nome: card.querySelector(".nome").value,
+                descricao: card.querySelector(".descricao").value,
+                preco: parseFloat(card.querySelector(".preco").value),
+                imagem: inputImagem.value,
+                ativo: card.querySelector(".ativo").checked,
+                tipo: card.querySelector(".tipo").value,
+                receita: item.receita || {}
+            };
+            if (targetCategory === "promocoes") {
+                updatedItemData.titulo = updatedItemData.nome;
+            } else if (categoriaAtual === "promocoes" && updatedItemData.titulo) {
+                delete updatedItemData.titulo;
+            }
+
+            database.ref(`produtos/${targetCategory}`).push(updatedItemData)
+                .then(() => {
+                    return database.ref(`produtos/${categoriaAtual}/${key}`).remove();
+                })
+                .then(() => {
+                    alert(`Item movido de "${categoriaAtual}" para "${targetCategory}" com sucesso!`);
+                    carregarItensCardapio(categoriaAtual, DOM.searchInput.value);
+                })
+                .catch(error => {
+                    console.error("Erro ao mover item:", error);
+                    alert("Erro ao mover item: " + error.message);
+                });
+        }
+    });
+
+    return card;
+}
+
+
+// --- SEÇÃO: HORÁRIOS DE FUNCIONAMENTO lghn--------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+function salvarHorariosNoFirebase(horarios) {
+    database.ref('config/horarios')
+        .set(horarios)
+        .then(() => alert("Horários salvos com sucesso!"))
+        .catch((error) => console.error("Erro ao salvar horários:", error));
+}
+
+function checkRestaurantOpen(horarios) {
+    const agora = new Date();
+    const diaSemana = agora.getDay();
+    const horaAtual = agora.getHours();
+
+    if (!horarios || !horarios[diaSemana]) return false;
+
+    const configDia = horarios[diaSemana];
+    if (!configDia.aberto) return false;
+
+    return horaAtual >= configDia.inicio && horaAtual < configDia.fim;
+}
+
+function inicializarEditorHorario() {
+    const dias = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+    const containerHorario = document.getElementById("dias-container");
+    const formHorario = document.getElementById("horario-form");
+    const statusElement = document.getElementById("status");
+
+    if (!containerHorario || !formHorario || !statusElement) {
+        console.error("Elementos essenciais do editor de horário não encontrados.");
+        return;
+    }
+
+    containerHorario.innerHTML = '';
+    dias.forEach((dia, i) => {
+        const linha = document.createElement("div");
+        linha.className = "flex items-center gap-4 border-b pb-3 mb-3";
+        linha.innerHTML = `
+            <label class="w-28 font-semibold text-gray-700">${dia}</label>
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="aberto-${i}" class="form-checkbox h-5 w-5 text-blue-600" />
+                <span class="text-gray-700">Aberto</span>
+            </label>
+            <input type="number" name="inicio-${i}" min="0" max="23" value="18" class="border p-1 w-16 rounded-md" />
+            <span class="text-gray-600">às</span>
+            <input type="number" name="fim-${i}" min="0" max="23" value="23" class="border p-1 w-16 rounded-md" />
+        `;
+        containerHorario.appendChild(linha);
+    });
+
+    database.ref('config/horarios').once('value')
+        .then(snapshot => {
+            if (snapshot.exists()) {
+                const horariosSalvos = snapshot.val();
+                for (let i = 0; i <= 6; i++) {
+                    const diaConfig = horariosSalvos[i];
+                    if (diaConfig) {
+                        const abertoCheckbox = document.querySelector(`[name="aberto-${i}"]`);
+                        const inicioInput = document.querySelector(`[name="inicio-${i}"]`);
+                        const fimInput = document.querySelector(`[name="fim-${i}"]`);
+                        if (abertoCheckbox) abertoCheckbox.checked = diaConfig.aberto;
+                        if (inicioInput) inicioInput.value = diaConfig.inicio;
+                        if (fimInput) fimInput.value = diaConfig.fim;
+                    }
+                }
+            }
+        })
+        .catch(error => console.error("Erro ao carregar horários do Firebase:", error));
+
+    formHorario.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const horarios = {};
+        let hasError = false;
+        for (let i = 0; i <= 6; i++) {
+            const aberto = document.querySelector(`[name="aberto-${i}"]`).checked;
+            const inicio = parseInt(document.querySelector(`[name="inicio-${i}"]`).value);
+            const fim = parseInt(document.querySelector(`[name="fim-${i}"]`).value);
+
+            if (aberto && (isNaN(inicio) || isNaN(fim) || inicio < 0 || inicio > 23 || fim < 0 || fim > 24 || inicio >= fim)) {
+                alert(`Por favor, verifique os horários de ${dias[i]}. Fim deve ser maior que início.`);
+                hasError = true;
+                return;
+            }
+            horarios[i] = { aberto, inicio, fim };
+        }
+        if (!hasError) {
+            salvarHorariosNoFirebase(horarios);
+        }
+    });
+
+    database.ref('config/horarios').on('value', snapshot => {
+        if (snapshot.exists()) {
+            const horarios = snapshot.val();
+            const isOpen = checkRestaurantOpen(horarios);
+            statusElement.textContent = isOpen ? "✅ Aberto agora" : "❌ Fechado agora";
+            statusElement.className = isOpen ? "mb-4 text-green-700 font-bold" : "mb-4 text-red-700 font-bold";
+        } else {
+            statusElement.textContent = "Horários não configurados.";
+            statusElement.className = "mb-4 text-gray-700 font-bold";
+        }
+    });
+}
+
+
+
+// --- SEÇÃO: GERENCIAMENTO DE MESAS lghn-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+DOM.btnConfigurarMesas.addEventListener('click', () => {
+    const numMesas = parseInt(DOM.numMesasInput.value, 10);
+    if (isNaN(numMesas) || numMesas < 1 || numMesas > 20) {
+        alert("Por favor, insira um número de mesas válido entre 1 e 20.");
+        return;
+    }
+
+    if (confirm(`Deseja configurar ${numMesas} mesas? Isso redefinirá o estado de todas as mesas existentes.`)) {
+        mesasRef.remove()
+            .then(() => {
+                const updates = {};
+                for (let i = 1; i <= numMesas; i++) {
+                    updates[i] = {
+                        numero: i,
+                        status: 'Livre',
+                        cliente: '',
+                        garcom: '',
+                        observacoes: '',
+                        pedido: null,
+                        total: 0,
+                        pagamentosRegistrados: null,
+                        lastUpdate: firebase.database.ServerValue.TIMESTAMP
+                    };
+                }
+                return mesasRef.update(updates);
+            })
+            .then(() => {
+                alert(`${numMesas} mesas configuradas com sucesso!`);
+            })
+            .catch(error => {
+                console.error("Erro ao configurar mesas:", error);
+                alert("Erro ao configurar mesas. Verifique o console.");
+            });
     }
 });
 
-// --- FUNÇÕES DE RELATÓRIOS (Pedidos) ---
+function renderMesas(mesasData) {
+    if (!DOM.mesasContainer) return;
+    DOM.mesasContainer.innerHTML = '';
+    const sortedMesas = Object.values(mesasData).sort((a, b) => a.numero - b.numero);
+
+    sortedMesas.forEach(mesa => {
+        const statusClass = mesa.status === 'Livre' ? 'table-status-free' : 'table-status-occupied';
+        const card = document.createElement('div');
+        card.className = `table-card bg-white p-4 rounded-lg shadow-md border-2 text-center flex flex-col items-center justify-center ${statusClass}`;
+        card.dataset.mesaNumero = mesa.numero;
+
+        let ocupiedInfo = '';
+        if (mesa.status !== 'Livre' && mesa.cliente) {
+            ocupiedInfo = `
+                <p class="text-sm font-medium text-gray-700">Cliente: ${mesa.cliente}</p>
+                <p class="text-sm text-gray-600">Garçom: ${mesa.garcom || 'N/A'}</p>
+                <p class="text-md font-semibold text-blue-600 mt-1">Total: R$ ${mesa.total.toFixed(2)}</p>
+            `;
+        }
+
+        card.innerHTML = `
+            <i class="fas fa-utensils text-4xl mb-2 ${mesa.status === 'Livre' ? 'text-green-700' : 'text-red-700'}"></i>
+            <h3 class="text-2xl font-bold">Mesa ${mesa.numero}</h3>
+            <span class="text-sm font-semibold ${mesa.status === 'Livre' ? 'text-green-700' : 'text-red-700'}">${mesa.status}</span>
+            ${ocupiedInfo}
+        `;
+        DOM.mesasContainer.appendChild(card);
+    });
+
+    DOM.mesasContainer.querySelectorAll('.table-card').forEach(card => {
+        card.addEventListener('click', () => abrirModalMesaDetalhes(card.dataset.mesaNumero));
+    });
+}
+
+function carregarMesasDoFirebase() {
+    mesasRef.once('value', (snapshot) => {
+        const mesasData = snapshot.val() || {};
+        if (Object.keys(mesasData).length === 0) {
+            DOM.numMesasInput.value = 10;
+            DOM.mesasContainer.innerHTML = '<p class="text-gray-600 text-center col-span-full">Nenhuma mesa configurada. Defina o número de mesas e clique em "Configurar Mesas".</p>';
+        } else {
+            DOM.numMesasInput.value = Object.keys(mesasData).length;
+            renderMesas(mesasData);
+        }
+    }, (error) => {
+        console.error("Erro ao carregar mesas iniciais:", error);
+        DOM.mesasContainer.innerHTML = '<p class="text-red-600">Erro ao carregar mesas.</p>';
+    });
+}
+
+async function abrirModalMesaDetalhes(mesaNumero) {
+    currentMesaIdForCheckout = mesaNumero;
+    try {
+        const snapshot = await mesasRef.child(mesaNumero).once('value');
+        const mesa = snapshot.val();
+
+        if (!mesa) {
+            alert('Mesa não encontrada ou foi removida.');
+            return;
+        }
+
+        DOM.modalMesaNumero.textContent = mesa.numero;
+        DOM.mesaDetalhesStatus.textContent = mesa.status;
+        DOM.mesaDetalhesStatus.className = `font-semibold ${mesa.status === 'Livre' ? 'text-green-600' : 'text-red-600'}`;
+        DOM.mesaDetalhesCliente.textContent = mesa.cliente || 'N/A';
+        DOM.mesaDetalhesGarcom.textContent = mesa.garcom || 'N/A';
+        DOM.mesaDetalhesObs.textContent = mesa.observacoes || 'N/A';
+
+        currentMesaItemsToPay = mesa.pedido ? mesa.pedido.map(item => ({
+            ...item,
+            originalQuantity: item.quantity,
+            remainingQuantity: item.quantity,
+            selectedToPayQuantity: 0
+        })) : [];
+
+        currentMesaPaymentsHistory = mesa.pagamentosRegistrados || [];
+        const totalAlreadyPaid = currentMesaPaymentsHistory.reduce((sum, p) => sum + p.valorPago, 0);
+
+        currentMesaTotal = mesa.total || 0;
+        currentMesaRemainingToPay = currentMesaTotal - totalAlreadyPaid;
+        if (Math.abs(currentMesaRemainingToPay) < 0.01) {
+            currentMesaRemainingToPay = 0;
+        }
+
+        DOM.mesaTotalOriginal.textContent = `R$ ${currentMesaTotal.toFixed(2)}`;
+        DOM.mesaTotalPago.textContent = `R$ ${totalAlreadyPaid.toFixed(2)}`;
+        DOM.mesaRestantePagar.textContent = `R$ ${currentMesaRemainingToPay.toFixed(2)}`;
+
+        renderMesaItemsForCheckout();
+        renderPagamentoHistory();
+
+        DOM.valorAPagarInput.value = currentMesaRemainingToPay.toFixed(2);
+        DOM.dividirPorInput.value = '';
+        DOM.pagamentoMetodoAtual.value = '';
+        DOM.trocoRecebidoInput.value = '';
+        DOM.trocoInputGroup.classList.add('hidden');
+
+        DOM.btnAdicionarPagamento.disabled = true;
+        DOM.btnDividirRestante.disabled = currentMesaRemainingToPay <= 0.01;
+        DOM.btnFinalizarContaMesa.disabled = currentMesaRemainingToPay > 0.01;
+
+        if (mesa.status === 'Livre' || !mesa.pedido || mesa.pedido.length === 0) {
+            DOM.btnCancelarPedidoMesa.classList.add('hidden');
+            DOM.btnFinalizarContaMesa.disabled = true;
+            DOM.mesaItensSelecaoContainer.innerHTML = '<p class="text-gray-500 text-center" id="empty-items-message">Nenhum item para exibir ou mesa livre.</p>';
+            DOM.emptyItemsMessage.classList.remove('hidden');
+        } else {
+            DOM.btnCancelarPedidoMesa.classList.remove('hidden');
+        }
+
+        updateCheckoutStatus();
+        DOM.modalMesaDetalhes.classList.remove('hidden');
+        DOM.modalMesaDetalhes.classList.add('flex');
+
+    } catch (error) {
+        console.error("Erro ao abrir modal de mesa:", error);
+        alert("Erro ao carregar detalhes da mesa.");
+    }
+}
+
+function fecharModalMesaDetalhes() {
+    DOM.modalMesaDetalhes.classList.add('hidden');
+    currentMesaIdForCheckout = null;
+    currentMesaItemsToPay = [];
+    currentMesaTotal = 0;
+    currentMesaRemainingToPay = 0;
+    currentMesaPaymentsHistory = [];
+}
+
+function renderMesaItemsForCheckout() {
+    if (!DOM.mesaItensSelecaoContainer) return;
+    DOM.mesaItensSelecaoContainer.innerHTML = '';
+    DOM.emptyItemsMessage.classList.add('hidden');
+
+    const pendingItems = currentMesaItemsToPay.filter(item => item.remainingQuantity > 0.001);
+
+    if (pendingItems.length === 0 && currentMesaRemainingToPay > 0) {
+        DOM.emptyItemsMessage.classList.remove('hidden');
+        DOM.emptyItemsMessage.textContent = 'Todos os itens foram marcados para pagamento, mas ainda há um saldo remanescente.';
+    } else if (pendingItems.length === 0 && currentMesaRemainingToPay <= 0) {
+        DOM.emptyItemsMessage.classList.remove('hidden');
+        DOM.emptyItemsMessage.textContent = 'Todos os itens foram pagos.';
+    } else if (pendingItems.length > 0) {
+        DOM.emptyItemsMessage.classList.add('hidden');
+    }
+
+    pendingItems.forEach((item, index) => {
+        let sizeInfo = item.size ? ` (${item.size})` : '';
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'flex justify-between items-center gap-2 border-b border-gray-200 py-2 last:border-b-0';
+        itemDiv.innerHTML = `
+            <div class="flex-1">
+                <p class="font-medium text-gray-800">${item.name}${sizeInfo}</p>
+                <p class="text-sm text-gray-600">Total: ${item.originalQuantity} un. | Restante: ${item.remainingQuantity.toFixed(2)} un.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button class="px-2 py-1 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-700 decrease-pay-quantity-btn" data-index="${index}" ${item.selectedToPayQuantity === 0 ? 'disabled' : ''}>-</button>
+                <input type="number" class="w-16 p-1 border rounded text-center selected-pay-quantity-input"
+                        value="${item.selectedToPayQuantity.toFixed(0)}" min="0" max="${item.remainingQuantity.toFixed(0)}" step="1" data-index="${index}">
+                <button class="px-2 py-1 bg-blue-200 rounded-md hover:bg-blue-300 text-blue-800 increase-pay-quantity-btn" data-index="${index}" ${item.selectedToPayQuantity >= item.remainingQuantity ? 'disabled' : ''}>+</button>
+            </div>
+            <span class="text-gray-700 font-semibold w-20 text-right">R$ ${(item.price * item.selectedToPayQuantity).toFixed(2)}</span>
+        `;
+        DOM.mesaItensSelecaoContainer.appendChild(itemDiv);
+    });
+
+    DOM.mesaItensSelecaoContainer.querySelectorAll('.decrease-pay-quantity-btn').forEach(button => {
+        button.addEventListener('click', handlePayQuantityButton);
+    });
+    DOM.mesaItensSelecaoContainer.querySelectorAll('.increase-pay-quantity-btn').forEach(button => {
+        button.addEventListener('click', handlePayQuantityButton);
+    });
+    DOM.mesaItensSelecaoContainer.querySelectorAll('.selected-pay-quantity-input').forEach(input => {
+        input.addEventListener('input', handlePayQuantityInput);
+    });
+
+    DOM.valorAPagarInput.value = calculateSelectedItemsTotalForCurrentPayment().toFixed(2);
+    updateCheckoutStatus();
+}
+
+function handlePayQuantityButton(event) {
+    const button = event.target.closest('button');
+    const indexInFilteredList = parseInt(button.dataset.index);
+    const item = currentMesaItemsToPay.filter(i => i.remainingQuantity > 0.001)[indexInFilteredList];
+
+    if (!item) return;
+
+    const step = 1;
+
+    if (button.classList.contains('increase-pay-quantity-btn')) {
+        item.selectedToPayQuantity = Math.min(item.remainingQuantity, item.selectedToPayQuantity + step);
+    } else if (button.classList.contains('decrease-pay-quantity-btn')) {
+        item.selectedToPayQuantity = Math.max(0, item.selectedToPayQuantity - step);
+    }
+    item.selectedToPayQuantity = Math.round(item.selectedToPayQuantity);
+
+    renderMesaItemsForCheckout();
+}
+
+function handlePayQuantityInput(event) {
+    const input = event.target;
+    const indexInFilteredList = parseInt(input.dataset.index);
+    const item = currentMesaItemsToPay.filter(i => i.remainingQuantity > 0.001)[indexInFilteredList];
+
+    if (!item) return;
+
+    let newQuantity = parseInt(input.value, 10);
+    if (isNaN(newQuantity) || newQuantity < 0) {
+        newQuantity = 0;
+    }
+    newQuantity = Math.min(newQuantity, Math.round(item.remainingQuantity));
+
+    item.selectedToPayQuantity = newQuantity;
+    input.value = newQuantity.toFixed(0);
+
+    DOM.valorAPagarInput.value = calculateSelectedItemsTotalForCurrentPayment().toFixed(2);
+    updateCheckoutStatus();
+}
+
+function calculateSelectedItemsTotalForCurrentPayment() {
+    return currentMesaItemsToPay.reduce((sum, item) => sum + (item.price * item.selectedToPayQuantity), 0);
+}
+
+function renderPagamentoHistory() {
+    if (!DOM.historicoPagamentosContainer) return;
+    DOM.historicoPagamentosContainer.innerHTML = '';
+    DOM.emptyPaymentsMessage.classList.add('hidden');
+
+    if (currentMesaPaymentsHistory.length === 0) {
+        DOM.emptyPaymentsMessage.classList.remove('hidden');
+        return;
+    }
+
+    currentMesaPaymentsHistory.forEach((payment, index) => {
+        const paymentDiv = document.createElement('div');
+        paymentDiv.className = 'flex justify-between items-center bg-gray-100 p-2 rounded-md mb-1';
+        let trocoInfo = '';
+        if (payment.troco !== null && payment.troco !== undefined && payment.troco > 0) {
+            trocoInfo = `<span class="text-xs text-gray-600 ml-2">(Troco: R$ ${payment.troco.toFixed(2)})</span>`;
+        } else if (payment.troco !== null && payment.troco !== undefined && payment.troco === 0) {
+            trocoInfo = `<span class="text-xs text-gray-600 ml-2">(Sem troco)</span>`;
+        }
+
+        paymentDiv.innerHTML = `
+            <span>${index + 1}. ${payment.metodo} - R$ ${payment.valorPago.toFixed(2)} ${trocoInfo}</span>
+            <button class="text-red-500 hover:text-red-700 remove-payment-btn" data-index="${index}"><i class="fas fa-trash-alt"></i></button>
+        `;
+        DOM.historicoPagamentosContainer.appendChild(paymentDiv);
+    });
+
+    DOM.historicoPagamentosContainer.querySelectorAll('.remove-payment-btn').forEach(button => {
+        const newButton = button.cloneNode(true);
+        button.parentNode.replaceChild(newButton, button);
+        newButton.addEventListener('click', (event) => {
+            const indexToRemove = parseInt(event.target.closest('button').dataset.index);
+            removePayment(indexToRemove);
+        });
+    });
+}
+
+function removePayment(index) {
+    const payment = currentMesaPaymentsHistory[index];
+    if (!payment) return;
+
+    if (!confirm(`Tem certeza que deseja remover este pagamento de R$ ${payment.valorPago.toFixed(2)} (${payment.metodo})?`)) {
+        return;
+    }
+
+    currentMesaPaymentsHistory.splice(index, 1);
+
+    if (payment.itemsPaid) {
+        payment.itemsPaid.forEach(paidItem => {
+            const originalItem = currentMesaItemsToPay.find(item =>
+                item.name === paidItem.name && (item.size || '') === (paidItem.size || '')
+            );
+            if (originalItem) {
+                originalItem.remainingQuantity += paidItem.quantity;
+                if (originalItem.remainingQuantity > originalItem.originalQuantity + 0.001) {
+                    originalItem.remainingQuantity = originalItem.originalQuantity;
+                }
+            }
+        });
+    }
+
+    const totalPaidSoFar = currentMesaPaymentsHistory.reduce((sum, p) => sum + p.valorPago, 0);
+    currentMesaRemainingToPay = currentMesaTotal - totalPaidSoFar;
+    if (Math.abs(currentMesaRemainingToPay) < 0.01) {
+        currentMesaRemainingToPay = 0;
+    }
+
+    currentMesaItemsToPay.forEach(item => item.selectedToPayQuantity = 0);
+
+    DOM.valorAPagarInput.value = currentMesaRemainingToPay.toFixed(2);
+
+    renderMesaItemsForCheckout();
+    renderPagamentoHistory();
+    updateCheckoutStatus();
+}
+
+function updateCheckoutStatus() {
+    let valueToPayInput = parseFloat(DOM.valorAPagarInput.value) || 0;
+    const currentPaymentMethod = DOM.pagamentoMetodoAtual.value;
+    const trocoReceived = parseFloat(DOM.trocoRecebidoInput.value) || 0;
+
+    const totalPaidSoFar = currentMesaPaymentsHistory.reduce((sum, p) => sum + p.valorPago, 0);
+
+    currentMesaRemainingToPay = currentMesaTotal - totalPaidSoFar;
+    if (Math.abs(currentMesaRemainingToPay) < 0.01) {
+        currentMesaRemainingToPay = 0;
+    }
+
+    DOM.mesaTotalPago.textContent = `R$ ${totalPaidSoFar.toFixed(2)}`;
+    DOM.mesaRestantePagar.textContent = `R$ ${currentMesaRemainingToPay.toFixed(2)}`;
+
+    if (currentMesaRemainingToPay <= 0) {
+        DOM.valorAPagarInput.value = '0.00';
+        DOM.valorAPagarInput.disabled = true;
+        DOM.pagamentoMetodoAtual.disabled = true;
+        DOM.trocoRecebidoInput.disabled = true;
+        DOM.btnAdicionarPagamento.disabled = true;
+        DOM.btnDividirRestante.disabled = true;
+        DOM.btnFinalizarContaMesa.disabled = false;
+    } else {
+        DOM.valorAPagarInput.disabled = false;
+        DOM.pagamentoMetodoAtual.disabled = false;
+        DOM.trocoRecebidoInput.disabled = false;
+        DOM.btnFinalizarContaMesa.disabled = true;
+    }
+
+    const hasValueToPay = valueToPayInput > 0;
+    const isValueWithinRemaining = valueToPayInput <= currentMesaRemainingToPay + 0.01;
+
+    const anyItemSelected = currentMesaItemsToPay.some(item => item.selectedToPayQuantity > 0);
+    const payingFullRemaining = Math.abs(valueToPayInput - currentMesaRemainingToPay) < 0.01;
+
+    if (currentPaymentMethod === 'Dinheiro') {
+        DOM.trocoInputGroup.classList.remove('hidden');
+        const hasEnoughChange = trocoReceived >= valueToPayInput;
+        DOM.btnAdicionarPagamento.disabled = !(hasValueToPay && currentPaymentMethod && isValueWithinRemaining && hasEnoughChange && (anyItemSelected || payingFullRemaining));
+    } else {
+        DOM.trocoInputGroup.classList.add('hidden');
+        DOM.trocoRecebidoInput.value = '';
+        DOM.btnAdicionarPagamento.disabled = !(hasValueToPay && currentPaymentMethod && isValueWithinRemaining && (anyItemSelected || payingFullRemaining));
+    }
+
+    const numPessoasDividir = parseInt(DOM.dividirPorInput.value, 10);
+    DOM.btnDividirRestante.disabled = currentMesaRemainingToPay <= 0.01 || isNaN(numPessoasDividir) || numPessoasDividir <= 0;
+}
+
+async function adicionarPagamentoMesa() {
+    let valueToPay = parseFloat(DOM.valorAPagarInput.value);
+    const currentPaymentMethod = DOM.pagamentoMetodoAtual.value;
+    const trocoReceived = parseFloat(DOM.trocoRecebidoInput.value) || 0;
+
+    if (isNaN(valueToPay) || valueToPay <= 0) {
+        alert('Por favor, digite um valor válido para esta parcela.');
+        return;
+    }
+    if (!currentPaymentMethod) {
+        alert('Selecione um método de pagamento.');
+        return;
+    }
+
+    let itemsPaidInThisInstallment = [];
+    let totalFromSelectedItems = calculateSelectedItemsTotalForCurrentPayment();
+
+    if (totalFromSelectedItems > 0.01) {
+        itemsPaidInThisInstallment = currentMesaItemsToPay
+            .filter(item => item.selectedToPayQuantity > 0.001)
+            .map(item => ({
+                name: item.name,
+                price: item.price,
+                quantity: item.selectedToPayQuantity,
+                size: item.size || undefined
+            }));
+
+        if (Math.abs(valueToPay - totalFromSelectedItems) > 0.01) {
+            if (!confirm(`Você selecionou itens totalizando R$ ${totalFromSelectedItems.toFixed(2)}, mas digitou R$ ${valueToPay.toFixed(2)}. Deseja usar o valor digitado e distribuir pros itens restantes, ou usar o valor dos itens selecionados? (OK para usar o digitado, Cancelar para usar o dos itens)`)) {
+                valueToPay = totalFromSelectedItems;
+                DOM.valorAPagarInput.value = valueToPay.toFixed(2);
+            }
+        }
+
+    } else if (Math.abs(valueToPay - currentMesaRemainingToPay) < 0.01) {
+        let amountToDistribute = valueToPay;
+        const itemsToProcess = currentMesaItemsToPay.filter(item => item.remainingQuantity > 0.001);
+        const totalRemainingItemsValue = itemsToProcess.reduce((sum, item) => sum + (item.price * item.remainingQuantity), 0);
+
+        itemsToProcess.forEach(item => {
+            if (item.remainingQuantity > 0.001 && amountToDistribute > 0.001) {
+                const proportion = (item.price * item.remainingQuantity) / totalRemainingItemsValue;
+                let quantityToPayForThisItem = (amountToDistribute * proportion) / item.price;
+
+                if (quantityToPayForThisItem > item.remainingQuantity) {
+                    quantityToPayForThisItem = item.remainingQuantity;
+                }
+
+                itemsPaidInThisInstallment.push({
+                    name: item.name,
+                    price: item.price,
+                    quantity: parseFloat(quantityToPayForThisItem.toFixed(3)),
+                    size: item.size || undefined
+                });
+                amountToDistribute -= (quantityToPayForThisItem * item.price);
+            }
+        });
+
+    } else {
+        alert('Por favor, selecione os itens a serem pagos ou insira o valor total restante no campo "Valor desta Parcela".');
+        return;
+    }
+
+    if (currentPaymentMethod === 'Dinheiro') {
+        if (trocoReceived < valueToPay) {
+            alert(`O valor recebido (R$ ${trocoReceived.toFixed(2)}) é menor que a parcela a pagar (R$ ${valueToPay.toFixed(2)}).`);
+            return;
+        }
+    }
+
+    const trocoADevolver = currentPaymentMethod === 'Dinheiro' ? trocoReceived - valueToPay : 0;
+
+    itemsPaidInThisInstallment.forEach(paidItem => {
+        const originalItem = currentMesaItemsToPay.find(item =>
+            item.name === paidItem.name && (item.size || '') === (paidItem.size || '')
+        );
+        if (originalItem) {
+            originalItem.remainingQuantity -= paidItem.quantity;
+            if (originalItem.remainingQuantity < 0.001) originalItem.remainingQuantity = 0;
+        }
+    });
+
+    currentMesaPaymentsHistory.push({
+        metodo: currentPaymentMethod,
+        valorPago: valueToPay,
+        valorRecebido: currentPaymentMethod === 'Dinheiro' ? trocoReceived : null,
+        troco: currentPaymentMethod === 'Dinheiro' ? trocoADevolver : null,
+        timestamp: firebase.database.ServerValue.TIMESTAMP,
+        itemsPaid: itemsPaidInThisInstallment
+    });
+
+    DOM.valorAPagarInput.value = currentMesaRemainingToPay.toFixed(2);
+    DOM.trocoRecebidoInput.value = '';
+    DOM.pagamentoMetodoAtual.value = '';
+    currentMesaItemsToPay.forEach(item => item.selectedToPayQuantity = 0);
+
+    renderMesaItemsForCheckout();
+    renderPagamentoHistory();
+    updateCheckoutStatus();
+
+    if (currentPaymentMethod === 'Dinheiro' && trocoADevolver > 0) {
+        alert(`Pagamento adicionado com sucesso!\nTROCO A DEVOLVER: R$ ${trocoADevolver.toFixed(2)}`);
+    } else {
+        alert('Pagamento adicionado com sucesso!');
+    }
+}
+
+function dividirContaMesa() {
+    const numPessoas = parseInt(DOM.dividirPorInput.value, 10);
+    if (isNaN(numPessoas) || numPessoas <= 0) {
+        alert('Por favor, digite um número válido de pessoas para dividir.');
+        return;
+    }
+    if (currentMesaRemainingToPay <= 0.01) {
+        alert('Não há valor restante para dividir.');
+        return;
+    }
+
+    const valorPorPessoa = currentMesaRemainingToPay / numPessoas;
+    DOM.valorAPagarInput.value = valorPorPessoa.toFixed(2);
+
+    DOM.dividirPorInput.value = '';
+    updateCheckoutStatus();
+
+    alert(`O valor por pessoa (R$ ${valorPorPessoa.toFixed(2)}) foi preenchido no campo "Valor desta Parcela". Agora, selecione o método de pagamento e clique em "Adicionar Pagamento".`);
+}
+
+function cancelarPedidoMesa() {
+    if (!currentMesaIdForCheckout) return;
+
+    if (currentMesaPaymentsHistory.length > 0) {
+        alert('Não é possível cancelar um pedido de mesa que já possui pagamentos registrados. Se precisar, remova os pagamentos um por um antes de cancelar.');
+        return;
+    }
+
+    if (confirm(`Tem certeza que deseja CANCELAR COMPLETAMENTE o pedido da Mesa ${currentMesaIdForCheckout}? A mesa será liberada e o pedido NÃO será registrado como venda finalizada.`)) {
+        mesasRef.child(currentMesaIdForCheckout).update({
+            status: 'Livre',
+            cliente: '',
+            garcom: '',
+            observacoes: '',
+            pedido: null,
+            total: 0,
+            pagamentosRegistrados: null
+        })
+            .then(() => {
+                alert(`Pedido da Mesa ${currentMesaIdForCheckout} cancelado e mesa liberada.`);
+                fecharModalMesaDetalhes();
+            })
+            .catch(error => {
+                console.error("Erro ao cancelar pedido da mesa:", error);
+                alert("Erro ao cancelar pedido da mesa.");
+            });
+    }
+}
+
+async function finalizarContaMesa() {
+    if (!currentMesaIdForCheckout) return;
+
+    if (currentMesaRemainingToPay > 0.01) {
+        alert(`Ainda há um valor restante a pagar: R$ ${currentMesaRemainingToPay.toFixed(2)}. Adicione todos os pagamentos antes de finalizar.`);
+        return;
+    }
+
+    if (confirm(`Confirmar FINALIZAÇÃO da conta da Mesa ${currentMesaIdForCheckout}?`)) {
+        try {
+            const mesaSnapshot = await mesasRef.child(currentMesaIdForCheckout).once('value');
+            const mesaAtual = mesaSnapshot.val();
+
+            if (!mesaAtual) {
+                alert('Erro: Dados da mesa não encontrados para finalizar a conta.');
+                return;
+            }
+
+            if (mesaAtual.pedido && Array.isArray(mesaAtual.pedido)) {
+                for (const itemPedido of mesaAtual.pedido) {
+                    await deduzirIngredientesDoEstoque(itemPedido);
+                }
+            }
+
+            const novoPedidoId = database.ref('pedidos').push().key;
+            const pedidoFinalizado = {
+                tipoAtendimento: 'Presencial',
+                mesaNumero: mesaAtual.numero,
+                nomeCliente: mesaAtual.cliente,
+                garcom: mesaAtual.garcom,
+                observacao: mesaAtual.observacoes,
+                cart: mesaAtual.pedido,
+                totalOriginal: mesaAtual.total,
+                totalPago: currentMesaTotal,
+                pagamentosRegistrados: currentMesaPaymentsHistory,
+                status: 'Finalizado',
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+
+            await database.ref('pedidos/' + novoPedidoId).set(pedidoFinalizado);
+
+            await mesasRef.child(currentMesaIdForCheckout).update({
+                status: 'Livre',
+                cliente: '',
+                garcom: '',
+                observacoes: '',
+                pedido: null,
+                total: 0,
+                pagamentosRegistrados: null
+            });
+
+            alert(`Conta da Mesa ${mesaAtual.numero} finalizada e mesa liberada!`);
+            fecharModalMesaDetalhes();
+        } catch (error) {
+            console.error("Erro ao finalizar conta da mesa:", error);
+            alert("Erro ao finalizar conta da mesa. Verifique o console para mais detalhes.");
+        }
+    }
+}
+
+async function deduzirIngredientesDoEstoque(itemPedido) {
+    let produtoRefPath = null;
+    const categories = ['pizzas', 'bebidas', 'esfirras', 'calzone', 'promocoes', 'novidades'];
+
+    for (const cat of categories) {
+        let productsSnapshot = await produtosRef.child(cat).orderByChild('nome').equalTo(itemPedido.name).once('value');
+
+        if (!productsSnapshot.exists() && (cat === 'promocoes' || cat === 'novidades')) {
+            productsSnapshot = await produtosRef.child(cat).orderByChild('titulo').equalTo(itemPedido.name).once('value');
+        }
+
+        if (productsSnapshot.exists()) {
+            const productId = Object.keys(productsSnapshot.val())[0];
+            produtoRefPath = `${cat}/${productId}`;
+            break;
+        }
+    }
+
+    if (produtoRefPath) {
+        const produtoSnapshot = await produtosRef.child(produtoRefPath).once('value');
+        const produtoAssociado = produtoSnapshot.val();
+
+        if (produtoAssociado) {
+            let receitaParaConsumo = null;
+            const isPizza = produtoAssociado.tipo === 'pizza';
+
+            if (isPizza && itemPedido.size) {
+                receitaParaConsumo = produtoAssociado.receita?.[itemPedido.size.toLowerCase()];
+            } else {
+                receitaParaConsumo = produtoAssociado.receita;
+            }
+
+            if (receitaParaConsumo) {
+                for (const ingredienteId in receitaParaConsumo) {
+                    const quantidadePorUnidadeProduto = receitaParaConsumo[ingredienteId];
+                    const quantidadeTotalConsumida = quantidadePorUnidadeProduto * itemPedido.quantity;
+                    const custoUnitario = allIngredients[ingredienteId]?.custoUnitarioMedio || 0;
+                    const custoTotalConsumido = quantidadeTotalConsumida * custoUnitario;
+
+                    const ingredienteRef = ingredientesRef.child(ingredienteId);
+                    await ingredienteRef.transaction(currentData => {
+                        if (currentData) {
+                            currentData.quantidadeUsadaMensal = (currentData.quantidadeUsadaMensal || 0) + quantidadeTotalConsumida;
+                            currentData.custoUsadoMensal = (currentData.custoUsadoMensal || 0) + custoTotalConsumido;
+                            currentData.quantidadeUsadaDiaria = (currentData.quantidadeUsadaDiaria || 0) + quantidadeTotalConsumida;
+                            currentData.custoUsadaDiaria = (currentData.custoUsadaDiaria || 0) + custoTotalConsumido;
+                            currentData.ultimaAtualizacaoConsumo = firebase.database.ServerValue.TIMESTAMP;
+                            currentData.quantidadeAtual = (currentData.quantidadeAtual || 0) - quantidadeTotalConsumida;
+                        }
+                        return currentData;
+                    });
+                    console.log(`Consumo de ${allIngredients[ingredienteId]?.nome || ingredienteId} incrementado: Qtd: ${quantidadeTotalConsumida.toFixed(3)}, Custo: R$ ${custoTotalConsumido.toFixed(2)}. Estoque atualizado.`);
+                }
+            } else {
+                console.warn(`Receita para o produto "${itemPedido.name}" (Tamanho: ${itemPedido.size || 'N/A'}) não encontrada ou não configurada. O consumo de ingredientes não será registrado para este item.`);
+            }
+        } else {
+            console.warn(`Produto "${itemPedido.name}" não encontrado no Firebase para dedução de estoque.`);
+        }
+    } else {
+        console.warn(`Produto "${itemPedido.name}" não encontrado em nenhuma categoria para dedução de estoque.`);
+    }
+}
+
+
+// --- SEÇÃO: RELATÓRIOS E ANÁLISES lghn---------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
 function setRelatorioDateRange(daysAgoStart = 0, daysAgoEnd = 0, monthsAgo = 0) {
     const today = new Date();
     let startDate = new Date(today);
@@ -971,7 +2211,7 @@ function setRelatorioDateRange(daysAgoStart = 0, daysAgoEnd = 0, monthsAgo = 0) 
             endDate = new Date(today.getFullYear(), today.getMonth(), 0);
         } else if (monthsAgo === 3) {
             startDate = new Date(today.getFullYear(), today.getMonth() - 3, 1);
-            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); // End of current month
+            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         }
     } else {
         startDate.setDate(today.getDate() - daysAgoStart);
@@ -1028,12 +2268,10 @@ function gerarRelatorios() {
     DOM.horariosPicoChartCanvas.style.display = 'none';
     DOM.metodosPagamentoChartCanvas.style.display = 'none';
 
-
     database.ref('pedidos').orderByChild('timestamp').once('value', (snapshot) => {
         const pedidosNoPeriodo = [];
         snapshot.forEach(childSnapshot => {
             const pedido = childSnapshot.val();
-            // Include both online orders and finalized table orders in reports
             if (pedido.status === 'Finalizado' && pedido.timestamp >= dataInicioTimestamp && pedido.timestamp <= dataFimTimestamp) {
                 pedidosNoPeriodo.push(pedido);
             }
@@ -1429,1413 +2667,19 @@ function analisarMetodosDePagamento(pedidos) {
     }
 }
 
-function gerarNota(pedido) {
-    let html = `
-    <html>
-    <head>
-        <title>Nota do Pedido</title>
-        <style>
-            @page {
-                size: A4;
-                margin: 10mm;
-            }
-            html, body {
-                width: 100%;
-                height: 100%;
-                padding: 0;
-                margin: 0;
-                font-family: Arial, sans-serif;
-            }
-            body {
-                box-sizing: border-box;
-                padding: 10mm;
-                font-size: 14pt;
-            }
-            h1 {
-                text-align: center;
-                font-size: 24pt;
-                margin-bottom: 10mm;
-            }
-            hr {
-                border: none;
-                border-top: 2pt solid #000;
-                margin: 5mm 0;
-            }
-            .info {
-                font-size: 14pt;
-                margin: 2mm 0;
-            }
-            table {
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 10mm;
-                font-size: 14pt;
-            }
-            th, td {
-                padding: 2mm 4mm;
-                border: 1pt solid #000;
-            }
-            th {
-                background: #eee;
-            }
-            .total {
-                font-size: 18pt;
-                font-weight: bold;
-                text-align: right;
-                margin-top: 10mm;
-            }
-            .obs {
-                font-size: 12pt;
-                margin-top: 5mm;
-            }
-            .footer {
-                text-align: center;
-                margin-top: auto;
-                padding-top: 10mm;
-                font-size: 12pt;
-            }
-        </style>
-    </head>
-    <body>
-        <h1>Nota do Pedido</h1>
-        <hr/>
-        <div class="info"><strong>Cliente:</strong> ${pedido.nomeCliente || '-'}</div>
-        <div class="info"><strong>Telefone:</strong> ${pedido.telefone || '-'}</div>
-        <div class="info"><strong>Entrega:</strong> ${pedido.tipoEntrega}</div>
-        ${
-            pedido.tipoEntrega === 'Entrega' ? `
-            <div class="info"><strong>Endereço:</strong> ${pedido.endereco?.rua}, ${pedido.endereco?.numero} - ${pedido.endereco?.bairro}</div>
-            <div class="info"><strong>Referência:</strong> ${pedido.referencia || '-'}</div>
-            ` : '<div class="info"><strong>Retirada no local</strong></div>'
-        }
-        <hr/>
-        <table>
-            <thead>
-                <tr>
-                    <th>Qtd</th>
-                    <th>Produto</th>
-                    <th>Unitário</th>
-                    <th>Total</th>
-                </tr>
-            </thead>
-            <tbody>`;
 
-    pedido.cart.forEach(item => {
-        let sizeInfo = item.size ? ` (${item.size})` : '';
-        html += `
-            <tr>
-                <td>${item.quantity}</td>
-                <td>${item.name}${sizeInfo}</td>
-                <td>R$ ${(item.price).toFixed(2)}</td>
-                <td>R$ ${(item.price * item.quantity).toFixed(2)}</td>
-            </tr>`;
-    });
 
-    html += `
-            </tbody>
-        </table>
-        <div class="info"><strong>Pagamento:</strong> ${pedido.pagamento} ${pedido.dinheiroTotal ? `(Troco p/ R$ ${parseFloat(pedido.dinheiroTotal).toFixed(2)})` : ''}</div>
-        <div class="obs"><strong>Observação:</strong> ${pedido.observacao || '-'}</div>
-        <div class="total">Total do pedido: R$ ${pedido.totalPedido.toFixed(2)}</div>
-        <div class="footer">Obrigado por comprar conosco! 🍽️</div>
-    </body>
-    </html>`;
+// --- SEÇÃO: GERENCIAMENTO DE CUPONS lghn-------------------------------------------------------------------------------------------------------------------------------------------------
 
-    const printWindow = window.open('', '', 'width=1024,height=768');
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-}
 
-function imprimirPedido(pedidoId) {
-    database.ref('pedidos/' + pedidoId).once('value').then(snapshot => {
-        const pedido = snapshot.val();
-        gerarNota(pedido);
-    });
-}
 
-// Removed promoForm and related imagePreview logic for a unified product management.
-// The image preview for the NEW ITEM MODAL is handled by DOM.novoImagemInput and DOM.previewNovaImagem.
-
-
-function editarPedido(pedidoId) {
-    pedidoEmEdicao = pedidoId;
-
-    database.ref('pedidos/' + pedidoId).once('value').then(snapshot => {
-        pedidoOriginal = snapshot.val() || {};
-        renderizarItensModal(pedidoOriginal.cart || []);
-        document.getElementById('modal-pedido-id').textContent = pedidoId;
-        document.getElementById('modal-editar-pedido').classList.remove('hidden');
-        document.getElementById('modal-editar-pedido').classList.add('flex');
-    });
-}
-
-function renderizarItensModal(itens) {
-    const container = document.getElementById('modal-itens');
-    container.innerHTML = '';
-
-    itens.forEach((item, index) => {
-        let sizeInfo = item.size ? ` (${item.size})` : '';
-        const itemDiv = document.createElement('div');
-        itemDiv.className = 'flex justify-between items-center gap-2 border p-2 rounded';
-        itemDiv.innerHTML = `
-            <input type="number" min="0" value="${item.quantity}"
-                class="w-16 border p-1 rounded text-center"
-                data-index="${index}"
-                data-name="${item.name}"
-                data-price="${item.price}"
-                data-size="${item.size || ''}"
-            />
-            <span class="flex-1 ml-2">${item.name}${sizeInfo}</span>
-            <span>R$ ${(item.price * item.quantity).toFixed(2)}</span>
-        `;
-        container.appendChild(itemDiv);
-    });
-
-    // Re-attach event listeners for dynamically created inputs (important for edit functionality)
-    container.querySelectorAll('input[type="number"]').forEach(input => {
-        input.addEventListener('input', (event) => {
-            const idx = parseInt(event.target.dataset.index);
-            const newQuantity = parseInt(event.target.value, 10);
-            if (!isNaN(newQuantity) && newQuantity >= 0) {
-                // Find the original item in the array to update its quantity
-                // This assumes `pedidoOriginal.cart` is the direct source of truth for the modal
-                // and the order of elements in `modal-itens` matches `pedidoOriginal.cart`.
-                // A more robust way might be to store the original item's ID in data-id and search.
-                if (pedidoOriginal.cart[idx]) {
-                    pedidoOriginal.cart[idx].quantity = newQuantity;
-                    // Recalculate total for that item and update its display
-                    const itemPriceElement = event.target.closest('div').querySelector('span:last-child');
-                    if (itemPriceElement) {
-                        itemPriceElement.textContent = `R$ ${(pedidoOriginal.cart[idx].price * newQuantity).toFixed(2)}`;
-                    }
-                }
-            } else {
-                event.target.value = pedidoOriginal.cart[idx].quantity; // Revert to original if invalid
-            }
-        });
-    });
-
-    document.getElementById('btn-salvar-pedido').onclick = salvarPedidoEditado;
-}
-
-const btnAdicionarItemModal = document.getElementById('btn-adicionar-item');
-if (btnAdicionarItemModal) { // Add existence check
-    btnAdicionarItemModal.addEventListener('click', () => {
-        const nome = document.getElementById('novo-item-nome').value.trim();
-        const preco = parseFloat(document.getElementById('novo-item-preco').value);
-        const qtd = parseInt(document.getElementById('novo-item-quantidade').value, 10);
-
-        if (!nome || isNaN(preco) || isNaN(qtd) || qtd <= 0 || preco <= 0) {
-            alert('Preencha todos os campos corretamente com valores positivos.');
-            return;
-        }
-
-        pedidoOriginal.cart = pedidoOriginal.cart || [];
-        // Check if item already exists in cart for this order and update quantity
-        const existingItemIndex = pedidoOriginal.cart.findIndex(item => item.name === nome);
-        if (existingItemIndex > -1) {
-            pedidoOriginal.cart[existingItemIndex].quantity += qtd;
-        } else {
-            pedidoOriginal.cart.push({ name: nome, price: preco, quantity: qtd, size: '' }); // size empty for general items
-        }
-
-
-        document.getElementById('novo-item-nome').value = '';
-        document.getElementById('novo-item-preco').value = '';
-        document.getElementById('novo-item-quantidade').value = '1';
-
-        renderizarItensModal(pedidoOriginal.cart);
-    });
-}
-
-function salvarPedidoEditado() {
-    const inputs = document.querySelectorAll('#modal-itens input[type="number"]');
-
-    const novosItens = [];
-    inputs.forEach(input => {
-        const nome = input.dataset.name;
-        const preco = parseFloat(input.dataset.price);
-        const qtd = parseInt(input.value, 10);
-        const size = input.dataset.size || undefined;
-
-        if (qtd > 0) {
-            novosItens.push({ name: nome, price: preco, quantity: qtd, size: size });
-        }
-    });
-
-    const novoTotalPedido = novosItens.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-    database.ref('pedidos/' + pedidoEmEdicao).update({ cart: novosItens, totalPedido: novoTotalPedido })
-        .then(() => {
-            alert('Pedido atualizado com sucesso!');
-            fecharModalEditarPedido();
-        })
-        .catch(error => {
-            console.error('Erro ao salvar pedido:', error);
-            alert('Erro ao salvar o pedido. Verifique o console para mais detalhes.');
-        });
-}
-
-function fecharModalEditarPedido() {
-    document.getElementById('modal-editar-pedido').classList.add('hidden');
-    pedidoEmEdicao = null;
-    pedidoOriginal = null;
-    // Refresh the active orders display to reflect changes immediately
-    renderizarPedidos();
-}
-
-function mostrarNovoitem() {
-    DOM.modalNovoItem.classList.remove("hidden");
-    DOM.modalNovoItem.classList.add("flex");
-    limparFormularioNovoItem(); // Ensure form is clear when opening
-}
-
-function handleSalvarNovoItem() {
-    const nome = DOM.novoNomeInput.value.trim();
-    const descricao = DOM.novoDescricaoInput.value.trim();
-    const preco = parseFloat(DOM.novoPrecoInput.value);
-    const imagem = DOM.novoImagemInput.value.trim();
-    const ativo = DOM.novoAtivoCheckbox.checked;
-    const categoria = DOM.categoriaSelect.value;
-    const tipo = DOM.novoTipoSelect.value;
-
-    if (!categoria) {
-        alert("Selecione uma categoria para salvar o item.");
-        return;
-    }
-
-    if (!nome || isNaN(preco) || preco <= 0) {
-        alert("Preencha o nome e o preço corretamente. O preço deve ser um valor positivo.");
-        return;
-    }
-    if (imagem && !imagem.startsWith('http')) {
-        alert("Coloque uma URL de imagem válida (deve começar com http:// ou https://).");
-        return;
-    }
-
-    const novoItem = { nome, descricao, preco, imagem, ativo, tipo, receita: {} };
-
-    database.ref(`produtos/${categoria}`).push(novoItem, (error) => {
-        if (error) {
-            alert("Erro ao adicionar item!");
-            console.error("Erro ao adicionar item:", error);
-        } else {
-            alert("Item adicionado com sucesso!");
-            DOM.modalNovoItem.classList.add("hidden");
-            carregarItensCardapio(categoria, DOM.searchInput.value);
-            limparFormularioNovoItem();
-        }
-    });
-}
-
-
-function limparFormularioNovoItem() {
-    DOM.novoNomeInput.value = "";
-    DOM.novoDescricaoInput.value = "";
-    DOM.novoPrecoInput.value = "";
-    DOM.novoImagemInput.value = "";
-    if (DOM.previewNovaImagem) DOM.previewNovaImagem.classList.add("hidden");
-    DOM.novoAtivoCheckbox.checked = true;
-    DOM.novoTipoSelect.value = "salgado";
-}
-
-
-function carregarItensCardapio(categoria, searchQuery = '') {
-    const container = DOM.itensCardapioContainer;
-    if (!container) {
-        console.error("Container de itens do cardápio não encontrado.");
-        return;
-    }
-    container.innerHTML = "Carregando...";
-
-    const ref = database.ref(`produtos/${categoria}`);
-
-    ref.once("value", function(snapshot) {
-        container.innerHTML = "";
-        let itemsToRender = [];
-
-        snapshot.forEach(function(childSnapshot) {
-            const item = childSnapshot.val();
-            const key = childSnapshot.key;
-            itemsToRender.push({ item, key });
-        });
-
-        const lowerCaseSearchQuery = searchQuery.toLowerCase();
-        const filteredItems = itemsToRender.filter(({ item }) => {
-            const name = (item.nome || item.titulo || '').toLowerCase(); // Handles "nome" or "titulo"
-            const description = (item.descricao || '').toLowerCase();
-            return name.includes(lowerCaseSearchQuery) || description.includes(lowerCaseSearchQuery);
-        });
-
-        if (filteredItems.length === 0) {
-            container.innerHTML = `<p class="text-gray-600 text-center col-span-full">Nenhum item encontrado para "${searchQuery}" nesta categoria.</p>`;
-            return;
-        }
-
-        filteredItems.forEach(({ item, key }) => {
-            const card = criarCardItem(item, key, categoria);
-            container.appendChild(card);
-        });
-    }, (error) => {
-        console.error("Erro ao carregar itens do cardápio:", error);
-        container.innerHTML = `<p class="text-red-600 text-center col-span-full">Erro ao carregar itens do cardápio.</p>`;
-    });
-}
-
-function criarCardItem(item, key, categoriaAtual) {
-    const card = document.createElement("div");
-
-    const destaquePromocao = categoriaAtual === "promocoes" ?
-        "border-yellow-500 border-2 shadow-lg" :
-        "border";
-
-    card.className = `bg-white p-4 rounded ${destaquePromocao} flex flex-col gap-2`;
-
-    // Use item.nome or item.titulo for consistency if 'promocoes' items have 'titulo'
-    const itemName = item.nome || item.titulo || '';
-    const itemDescription = item.descricao || '';
-    const itemPrice = item.preco || 0;
-    const itemImage = item.imagem || '';
-    const itemActive = item.ativo ? 'checked' : '';
-    const itemType = item.tipo || "salgado"; // Default type
-
-
-    card.innerHTML = `
-        ${categoriaAtual === "promocoes" ? '<span class="text-yellow-600 font-bold text-sm">🔥 Promoção</span>' : ''}
-        <input type="text" value="${itemName}" placeholder="Nome" class="p-2 border rounded nome">
-        <textarea placeholder="Descrição" class="p-2 border rounded descricao">${itemDescription}</textarea>
-        <input type="number" value="${itemPrice}" step="0.01" class="p-2 border rounded preco">
-        <input type="text" value="${itemImage}" placeholder="URL da Imagem" class="p-2 border rounded imagem">
-        <img class="preview-img w-full h-32 object-cover rounded border ${itemImage ? '' : 'hidden'}" src="${itemImage}">
-    `;
-
-    const tipoLabel = document.createElement("label");
-    tipoLabel.className = "text-sm text-gray-700";
-    tipoLabel.textContent = "Tipo (Doce ou Salgado)";
-    card.appendChild(tipoLabel);
-
-    const selectTipo = document.createElement("select");
-    selectTipo.className = "p-2 border rounded tipo";
-    selectTipo.innerHTML = `
-        <option value="salgado">Salgado</option>
-        <option value="doce">Doce</option>
-        <option value="pizza">Pizza</option>
-        <option value="bebida">Bebida</option>
-    `;
-    selectTipo.value = itemType;
-    card.appendChild(selectTipo);
-
-    card.innerHTML += `
-        <label class="flex items-center gap-2 text-sm text-gray-700 mt-2">
-            <input type="checkbox" class="ativo" ${itemActive}> Ativo
-        </label>
-        <div class="flex justify-between gap-2 mt-2">
-            <button class="salvar bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700 w-full">Salvar</button>
-            <button class="excluir bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700 w-full">Excluir</button>
-        </div>
-    `;
-
-    const moveSection = document.createElement("div");
-    moveSection.className = "mt-4 pt-4 border-t border-gray-200 flex flex-col gap-2";
-    moveSection.innerHTML = `
-        <label class="text-sm text-gray-700">Mover para categoria:</label>
-        <select class="p-2 border rounded move-category-select">
-            <option value="">-- Selecione --</option>
-            <option value="pizzas">Pizzas</option>
-            <option value="bebidas">Bebidas</option>
-            <option value="esfirras">Esfirras</option>
-            <option value="calzone">Calzones</option>
-            <option value="promocoes">🔥 Promoções</option>
-            <option value="novidades">✨ Novidades</option>
-        </select>
-        <button class="move-item-btn bg-purple-600 text-white px-3 py-2 rounded hover:bg-purple-700 w-full">Mover Item</button>
-    `;
-    card.appendChild(moveSection);
-
-    const inputImagem = card.querySelector(".imagem");
-    const previewImg = card.querySelector(".preview-img");
-
-    inputImagem.addEventListener("input", () => {
-        if (inputImagem.value.trim() !== "" && inputImagem.value.trim().startsWith('http')) {
-            previewImg.src = inputImagem.value;
-            previewImg.classList.remove("hidden");
-        } else {
-            previewImg.src = '';
-            previewImg.classList.add("hidden");
-        }
-    });
-
-    card.querySelector(".salvar").addEventListener("click", function() {
-        const nome = card.querySelector(".nome").value;
-        const descricao = card.querySelector(".descricao").value;
-        const preco = parseFloat(card.querySelector(".preco").value);
-        const imagem = inputImagem.value;
-        const ativo = card.querySelector(".ativo").checked;
-        const tipo = card.querySelector(".tipo").value;
-
-        if (!nome || isNaN(preco) || preco <= 0) {
-            alert("Preencha o nome e o preço corretamente. O preço deve ser um valor positivo.");
-            return;
-        }
-        if (imagem && !imagem.startsWith('http')) {
-            alert("Coloque uma URL de imagem válida para o item.");
-            return;
-        }
-
-        const updates = {
-            nome: nome,
-            descricao: descricao,
-            preco: preco,
-            imagem: imagem,
-            ativo: ativo,
-            tipo: tipo
-        };
-        // If it's a "promocoes" item, update 'titulo' as well
-        if (categoriaAtual === "promocoes") {
-            updates.titulo = nome;
-        }
-
-        database.ref(`produtos/${categoriaAtual}/${key}`).update(updates, function(error) {
-            if (error) {
-                alert("Erro ao salvar! " + error.message);
-                console.error("Erro ao salvar item:", error);
-            } else {
-                alert("Item atualizado com sucesso!");
-                // Recarregar o cardápio para refletir a atualização se necessário
-                // carregarItensCardapio(categoriaAtual, DOM.searchInput.value);
-            }
-        });
-    });
-
-    card.querySelector(".excluir").addEventListener("click", function() {
-        if (confirm("Tem certeza que deseja excluir este item?")) {
-            database.ref(`produtos/${categoriaAtual}/${key}`).remove(() => {
-                card.remove();
-                alert("Item excluído com sucesso!");
-            }).catch(error => {
-                console.error("Erro ao excluir item:", error);
-                alert("Erro ao excluir item: " + error.message);
-            });
-        }
-    });
-
-    card.querySelector(".move-item-btn").addEventListener("click", function() {
-        const targetCategorySelect = card.querySelector(".move-category-select");
-        const targetCategory = targetCategorySelect.value;
-
-        if (!targetCategory) {
-            alert("Por favor, selecione uma categoria de destino para mover o item.");
-            return;
-        }
-        if (targetCategory === categoriaAtual) {
-            alert("O item já está nesta categoria.");
-            return;
-        }
-
-        if (confirm(`Tem certeza que deseja mover "${itemName}" de "${categoriaAtual}" para "${targetCategory}"?`)) {
-            const updatedItemData = {
-                nome: card.querySelector(".nome").value,
-                descricao: card.querySelector(".descricao").value,
-                preco: parseFloat(card.querySelector(".preco").value),
-                imagem: inputImagem.value,
-                ativo: card.querySelector(".ativo").checked,
-                tipo: card.querySelector(".tipo").value,
-                receita: item.receita || {} // Keep existing recipe data
-            };
-            // For 'promocoes', also update 'titulo'
-            if (targetCategory === "promocoes") {
-                updatedItemData.titulo = updatedItemData.nome;
-            } else if (categoriaAtual === "promocoes" && updatedItemData.titulo) {
-                // If moving *from* promotions, ensure 'titulo' is not left in new category
-                delete updatedItemData.titulo;
-            }
-
-            // Perform the move (copy to new location, then remove from old)
-            database.ref(`produtos/${targetCategory}`).push(updatedItemData)
-                .then(() => {
-                    return database.ref(`produtos/${categoriaAtual}/${key}`).remove();
-                })
-                .then(() => {
-                    alert(`Item movido de "${categoriaAtual}" para "${targetCategory}" com sucesso!`);
-                    carregarItensCardapio(categoriaAtual, DOM.searchInput.value); // Reload current view
-                })
-                .catch(error => {
-                    console.error("Erro ao mover item:", error);
-                    alert("Erro ao mover item: " + error.message);
-                });
-        }
-    });
-
-    return card;
-}
-
-
-// Horarios
-// Função auxiliar para salvar os horários no Firebase.
-function salvarHorariosNoFirebase(horarios) {
-    database.ref('config/horarios')
-        .set(horarios)
-        .then(() => alert("Horários salvos com sucesso!"))
-        .catch((error) => console.error("Erro ao salvar horários:", error));
-}
-
-// Função auxiliar para verificar se o restaurante está aberto.
-function checkRestaurantOpen(horarios) {
-    const agora = new Date();
-    const diaSemana = agora.getDay();
-    const horaAtual = agora.getHours();
-
-    if (!horarios || !horarios[diaSemana]) return false;
-
-    const configDia = horarios[diaSemana];
-    if (!configDia.aberto) return false;
-
-    return horaAtual >= configDia.inicio && horaAtual < configDia.fim;
-}
-
-// Função principal para inicializar todo o editor de horário.
-function inicializarEditorHorario() {
-    const dias = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-    const containerHorario = document.getElementById("dias-container");
-    const formHorario = document.getElementById("horario-form");
-    const statusElement = document.getElementById("status");
-
-    if (!containerHorario || !formHorario || !statusElement) {
-        console.error("Elementos essenciais do editor de horário não encontrados.");
-        return;
-    }
-
-    // 1. Cria os campos de input para cada dia da semana
-    containerHorario.innerHTML = ''; // Limpa para evitar duplicatas
-    dias.forEach((dia, i) => {
-        const linha = document.createElement("div");
-        linha.className = "flex items-center gap-4 border-b pb-3 mb-3";
-        linha.innerHTML = `
-            <label class="w-28 font-semibold text-gray-700">${dia}</label>
-            <label class="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" name="aberto-${i}" class="form-checkbox h-5 w-5 text-blue-600" />
-                <span class="text-gray-700">Aberto</span>
-            </label>
-            <input type="number" name="inicio-${i}" min="0" max="23" value="18" class="border p-1 w-16 rounded-md" />
-            <span class="text-gray-600">às</span>
-            <input type="number" name="fim-${i}" min="0" max="23" value="23" class="border p-1 w-16 rounded-md" />
-        `;
-        containerHorario.appendChild(linha);
-    });
-
-    // 2. Carrega os horários já salvos do Firebase
-    database.ref('config/horarios').once('value')
-        .then(snapshot => {
-            if (snapshot.exists()) {
-                const horariosSalvos = snapshot.val();
-                for (let i = 0; i <= 6; i++) {
-                    const diaConfig = horariosSalvos[i];
-                    if (diaConfig) {
-                        const abertoCheckbox = document.querySelector(`[name="aberto-${i}"]`);
-                        const inicioInput = document.querySelector(`[name="inicio-${i}"]`);
-                        const fimInput = document.querySelector(`[name="fim-${i}"]`);
-                        if (abertoCheckbox) abertoCheckbox.checked = diaConfig.aberto;
-                        if (inicioInput) inicioInput.value = diaConfig.inicio;
-                        if (fimInput) fimInput.value = diaConfig.fim;
-                    }
-                }
-            }
-        })
-        .catch(error => console.error("Erro ao carregar horários do Firebase:", error));
-
-    // 3. Adiciona o listener para salvar o formulário
-    formHorario.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const horarios = {};
-        let hasError = false;
-        for (let i = 0; i <= 6; i++) {
-            const aberto = document.querySelector(`[name="aberto-${i}"]`).checked;
-            const inicio = parseInt(document.querySelector(`[name="inicio-${i}"]`).value);
-            const fim = parseInt(document.querySelector(`[name="fim-${i}"]`).value);
-
-            if (aberto && (isNaN(inicio) || isNaN(fim) || inicio < 0 || inicio > 23 || fim < 0 || fim > 24 || inicio >= fim)) { // fim can be 24 for midnight
-                alert(`Por favor, verifique os horários de ${dias[i]}. Fim deve ser maior que início.`);
-                hasError = true;
-                return;
-            }
-            horarios[i] = { aberto, inicio, fim };
-        }
-        if (!hasError) {
-            salvarHorariosNoFirebase(horarios);
-        }
-    });
-
-    // 4. Adiciona o listener para mostrar o status (aberto/fechado) em tempo real
-    database.ref('config/horarios').on('value', snapshot => {
-        if (snapshot.exists()) {
-            const horarios = snapshot.val();
-            const isOpen = checkRestaurantOpen(horarios);
-            statusElement.textContent = isOpen ? "✅ Aberto agora" : "❌ Fechado agora";
-            statusElement.className = isOpen ? "mb-4 text-green-700 font-bold" : "mb-4 text-red-700 font-bold";
-        } else {
-            statusElement.textContent = "Horários não configurados.";
-            statusElement.className = "mb-4 text-gray-700 font-bold";
-        }
-    });
-}
-
-// --- FUNÇÕES DE GERENCIAMENTO DE MESAS (Painel Administrativo) ---
-
-DOM.btnConfigurarMesas.addEventListener('click', () => {
-    const numMesas = parseInt(DOM.numMesasInput.value, 10);
-    if (isNaN(numMesas) || numMesas < 1 || numMesas > 20) {
-        alert("Por favor, insira um número de mesas válido entre 1 e 20.");
-        return;
-    }
-
-    if (confirm(`Deseja configurar ${numMesas} mesas? Isso redefinirá o estado de todas as mesas existentes.`)) {
-        mesasRef.remove()
-            .then(() => {
-                const updates = {};
-                for (let i = 1; i <= numMesas; i++) {
-                    updates[i] = {
-                        numero: i,
-                        status: 'Livre',
-                        cliente: '',
-                        garcom: '',
-                        observacoes: '',
-                        pedido: null,
-                        total: 0,
-                        pagamentosRegistrados: null, // Garante que é inicializado como null
-                        lastUpdate: firebase.database.ServerValue.TIMESTAMP
-                    };
-                }
-                return mesasRef.update(updates);
-            })
-            .then(() => {
-                alert(`${numMesas} mesas configuradas com sucesso!`);
-            })
-            .catch(error => {
-                console.error("Erro ao configurar mesas:", error);
-                alert("Erro ao configurar mesas. Verifique o console.");
-            });
-    }
-});
-
-function renderMesas(mesasData) {
-    if (!DOM.mesasContainer) return;
-    DOM.mesasContainer.innerHTML = '';
-    const sortedMesas = Object.values(mesasData).sort((a, b) => a.numero - b.numero);
-
-    sortedMesas.forEach(mesa => {
-        const statusClass = mesa.status === 'Livre' ? 'table-status-free' : 'table-status-occupied';
-        const card = document.createElement('div');
-        card.className = `table-card bg-white p-4 rounded-lg shadow-md border-2 text-center flex flex-col items-center justify-center ${statusClass}`;
-        card.dataset.mesaNumero = mesa.numero;
-
-        let ocupiedInfo = '';
-        if (mesa.status !== 'Livre' && mesa.cliente) {
-            ocupiedInfo = `
-                <p class="text-sm font-medium text-gray-700">Cliente: ${mesa.cliente}</p>
-                <p class="text-sm text-gray-600">Garçom: ${mesa.garcom || 'N/A'}</p>
-                <p class="text-md font-semibold text-blue-600 mt-1">Total: R$ ${mesa.total.toFixed(2)}</p>
-            `;
-        }
-
-        card.innerHTML = `
-            <i class="fas fa-utensils text-4xl mb-2 ${mesa.status === 'Livre' ? 'text-green-700' : 'text-red-700'}"></i>
-            <h3 class="text-2xl font-bold">Mesa ${mesa.numero}</h3>
-            <span class="text-sm font-semibold ${mesa.status === 'Livre' ? 'text-green-700' : 'text-red-700'}">${mesa.status}</span>
-            ${ocupiedInfo}
-        `;
-        DOM.mesasContainer.appendChild(card);
-    });
-
-    // Adiciona o listener para cada card de mesa APÓS eles serem criados
-    DOM.mesasContainer.querySelectorAll('.table-card').forEach(card => {
-        card.addEventListener('click', () => abrirModalMesaDetalhes(card.dataset.mesaNumero));
-    });
-}
-
-function carregarMesasDoFirebase() {
-    mesasRef.once('value', (snapshot) => {
-        const mesasData = snapshot.val() || {};
-        if (Object.keys(mesasData).length === 0) {
-            // If no mesas are configured, set the input value to 10 but don't auto-click
-            // The user should manually click "Configurar Mesas"
-            DOM.numMesasInput.value = 10;
-            DOM.mesasContainer.innerHTML = '<p class="text-gray-600 text-center col-span-full">Nenhuma mesa configurada. Defina o número de mesas e clique em "Configurar Mesas".</p>';
-        } else {
-            DOM.numMesasInput.value = Object.keys(mesasData).length;
-            renderMesas(mesasData);
-        }
-    }, (error) => {
-        console.error("Erro ao carregar mesas iniciais:", error);
-        DOM.mesasContainer.innerHTML = '<p class="text-red-600">Erro ao carregar mesas.</p>';
-    });
-}
-
-async function abrirModalMesaDetalhes(mesaNumero) {
-    currentMesaIdForCheckout = mesaNumero; // Define a mesa atual
-    try {
-        const snapshot = await mesasRef.child(mesaNumero).once('value');
-        const mesa = snapshot.val();
-
-        if (!mesa) {
-            alert('Mesa não encontrada ou foi removida.');
-            return;
-        }
-
-        DOM.modalMesaNumero.textContent = mesa.numero;
-        DOM.mesaDetalhesStatus.textContent = mesa.status;
-        DOM.mesaDetalhesStatus.className = `font-semibold ${mesa.status === 'Livre' ? 'text-green-600' : 'text-red-600'}`;
-        DOM.mesaDetalhesCliente.textContent = mesa.cliente || 'N/A';
-        DOM.mesaDetalhesGarcom.textContent = mesa.garcom || 'N/A';
-        DOM.mesaDetalhesObs.textContent = mesa.observacoes || 'N/A';
-
-        // Carrega os itens do pedido da mesa. É CRÍTICO que estes sejam a fonte da verdade para o cálculo.
-        // Inicializa remainingQuantity e selectedToPayQuantity
-        currentMesaItemsToPay = mesa.pedido ? mesa.pedido.map(item => ({
-            ...item,
-            originalQuantity: item.quantity, // Quantidade original do item no pedido
-            remainingQuantity: item.quantity, // Quantidade restante a ser paga/considerada
-            selectedToPayQuantity: 0 // Quantidade selecionada para o pagamento atual
-        })) : [];
-
-        // Inicializa o histórico de pagamentos e o total pago
-        currentMesaPaymentsHistory = mesa.pagamentosRegistrados || [];
-        const totalAlreadyPaid = currentMesaPaymentsHistory.reduce((sum, p) => sum + p.valorPago, 0);
-
-        // Define o total original do pedido (imutável para esta sessão de checkout)
-        currentMesaTotal = mesa.total || 0;
-        currentMesaRemainingToPay = currentMesaTotal - totalAlreadyPaid; // Calcula o restante a pagar
-        // Adjust for floating point inaccuracies
-        if (Math.abs(currentMesaRemainingToPay) < 0.01) {
-            currentMesaRemainingToPay = 0;
-        }
-
-        DOM.mesaTotalOriginal.textContent = `R$ ${currentMesaTotal.toFixed(2)}`;
-        DOM.mesaTotalPago.textContent = `R$ ${totalAlreadyPaid.toFixed(2)}`;
-        DOM.mesaRestantePagar.textContent = `R$ ${currentMesaRemainingToPay.toFixed(2)}`;
-
-        // Renderiza as interfaces
-        renderMesaItemsForCheckout();
-        renderPagamentoHistory();
-
-        // Reseta campos do formulário de pagamento
-        DOM.valorAPagarInput.value = currentMesaRemainingToPay.toFixed(2); // Sugere o valor restante
-        DOM.dividirPorInput.value = '';
-        DOM.pagamentoMetodoAtual.value = '';
-        DOM.trocoRecebidoInput.value = '';
-        DOM.trocoInputGroup.classList.add('hidden');
-
-        // Habilita/desabilita botões com base no status da mesa
-        DOM.btnAdicionarPagamento.disabled = true; // Desabilita por padrão, só habilita se valor e método forem válidos
-        DOM.btnDividirRestante.disabled = currentMesaRemainingToPay <= 0.01;
-        DOM.btnFinalizarContaMesa.disabled = currentMesaRemainingToPay > 0.01; // Desabilita se ainda há algo a pagar
-
-        if (mesa.status === 'Livre' || !mesa.pedido || mesa.pedido.length === 0) {
-            DOM.btnCancelarPedidoMesa.classList.add('hidden');
-            DOM.btnFinalizarContaMesa.disabled = true;
-            DOM.mesaItensSelecaoContainer.innerHTML = '<p class="text-gray-500 text-center" id="empty-items-message">Nenhum item para exibir ou mesa livre.</p>';
-            DOM.emptyItemsMessage.classList.remove('hidden'); // Ensure message is visible
-        } else {
-            DOM.btnCancelarPedidoMesa.classList.remove('hidden');
-        }
-
-        updateCheckoutStatus(); // Faz uma atualização inicial para garantir o estado dos botões
-        DOM.modalMesaDetalhes.classList.remove('hidden');
-        DOM.modalMesaDetalhes.classList.add('flex');
-
-    } catch (error) {
-        console.error("Erro ao abrir modal de mesa:", error);
-        alert("Erro ao carregar detalhes da mesa.");
-    }
-}
-
-function fecharModalMesaDetalhes() {
-    DOM.modalMesaDetalhes.classList.add('hidden');
-    currentMesaIdForCheckout = null;
-    currentMesaItemsToPay = [];
-    currentMesaTotal = 0;
-    currentMesaRemainingToPay = 0;
-    currentMesaPaymentsHistory = [];
-}
-
-// Renderiza a lista de itens do pedido da mesa para seleção de pagamento
-function renderMesaItemsForCheckout() {
-    if (!DOM.mesaItensSelecaoContainer) return;
-    DOM.mesaItensSelecaoContainer.innerHTML = '';
-    DOM.emptyItemsMessage.classList.add('hidden'); // Hide by default
-
-    const pendingItems = currentMesaItemsToPay.filter(item => item.remainingQuantity > 0.001); // Filter out items already paid
-
-    if (pendingItems.length === 0 && currentMesaRemainingToPay > 0) {
-        DOM.emptyItemsMessage.classList.remove('hidden');
-        DOM.emptyItemsMessage.textContent = 'Todos os itens foram marcados para pagamento, mas ainda há um saldo remanescente.';
-    } else if (pendingItems.length === 0 && currentMesaRemainingToPay <= 0) {
-        DOM.emptyItemsMessage.classList.remove('hidden');
-        DOM.emptyItemsMessage.textContent = 'Todos os itens foram pagos.';
-    } else if (pendingItems.length > 0) {
-        DOM.emptyItemsMessage.classList.add('hidden');
-    }
-
-
-    pendingItems.forEach((item, index) => {
-        let sizeInfo = item.size ? ` (${item.size})` : '';
-        const itemDiv = document.createElement('div');
-        itemDiv.className = 'flex justify-between items-center gap-2 border-b border-gray-200 py-2 last:border-b-0';
-        itemDiv.innerHTML = `
-            <div class="flex-1">
-                <p class="font-medium text-gray-800">${item.name}${sizeInfo}</p>
-                <p class="text-sm text-gray-600">Total: ${item.originalQuantity} un. | Restante: ${item.remainingQuantity.toFixed(2)} un.</p>
-            </div>
-            <div class="flex items-center gap-2">
-                <button class="px-2 py-1 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-700 decrease-pay-quantity-btn" data-index="${index}" ${item.selectedToPayQuantity === 0 ? 'disabled' : ''}>-</button>
-                <input type="number" class="w-16 p-1 border rounded text-center selected-pay-quantity-input"
-                        value="${item.selectedToPayQuantity.toFixed(0)}" min="0" max="${item.remainingQuantity.toFixed(0)}" step="1" data-index="${index}">
-                <button class="px-2 py-1 bg-blue-200 rounded-md hover:bg-blue-300 text-blue-800 increase-pay-quantity-btn" data-index="${index}" ${item.selectedToPayQuantity >= item.remainingQuantity ? 'disabled' : ''}>+</button>
-            </div>
-            <span class="text-gray-700 font-semibold w-20 text-right">R$ ${(item.price * item.selectedToPayQuantity).toFixed(2)}</span>
-        `;
-        DOM.mesaItensSelecaoContainer.appendChild(itemDiv);
-    });
-
-    // Re-adiciona os event listeners após recriar os elementos
-    DOM.mesaItensSelecaoContainer.querySelectorAll('.decrease-pay-quantity-btn').forEach(button => {
-        button.addEventListener('click', handlePayQuantityButton);
-    });
-    DOM.mesaItensSelecaoContainer.querySelectorAll('.increase-pay-quantity-btn').forEach(button => {
-        button.addEventListener('click', handlePayQuantityButton);
-    });
-    DOM.mesaItensSelecaoContainer.querySelectorAll('.selected-pay-quantity-input').forEach(input => {
-        input.addEventListener('input', handlePayQuantityInput);
-    });
-
-    // Update the "Valor desta Parcela" input based on selected items
-    DOM.valorAPagarInput.value = calculateSelectedItemsTotalForCurrentPayment().toFixed(2);
-    updateCheckoutStatus();
-}
-
-function handlePayQuantityButton(event) {
-    const button = event.target.closest('button');
-    // We need to map the index back to the original `currentMesaItemsToPay` array correctly
-    // Since we filtered `pendingItems`, the index might not be the same.
-    // A better approach would be to store the actual `item` reference or a unique ID.
-    // For simplicity with current structure, we'll find the item based on the current filtered list.
-    const indexInFilteredList = parseInt(button.dataset.index);
-    const item = currentMesaItemsToPay.filter(i => i.remainingQuantity > 0.001)[indexInFilteredList];
-
-    if (!item) return; // Should not happen
-
-    const step = 1; // Assuming integer units for items
-
-    if (button.classList.contains('increase-pay-quantity-btn')) {
-        item.selectedToPayQuantity = Math.min(item.remainingQuantity, item.selectedToPayQuantity + step);
-    } else if (button.classList.contains('decrease-pay-quantity-btn')) {
-        item.selectedToPayQuantity = Math.max(0, item.selectedToPayQuantity - step);
-    }
-    // Ensure integer quantity
-    item.selectedToPayQuantity = Math.round(item.selectedToPayQuantity);
-
-    renderMesaItemsForCheckout(); // Re-render to update the UI and recalculate
-}
-
-function handlePayQuantityInput(event) {
-    const input = event.target;
-    const indexInFilteredList = parseInt(input.dataset.index);
-    const item = currentMesaItemsToPay.filter(i => i.remainingQuantity > 0.001)[indexInFilteredList];
-
-    if (!item) return;
-
-    let newQuantity = parseInt(input.value, 10);
-    if (isNaN(newQuantity) || newQuantity < 0) {
-        newQuantity = 0;
-    }
-    // Cap at remaining quantity
-    newQuantity = Math.min(newQuantity, Math.round(item.remainingQuantity));
-
-    item.selectedToPayQuantity = newQuantity;
-    input.value = newQuantity.toFixed(0); // Ensure input displays integer
-
-    DOM.valorAPagarInput.value = calculateSelectedItemsTotalForCurrentPayment().toFixed(2);
-    updateCheckoutStatus();
-}
-
-
-function calculateSelectedItemsTotalForCurrentPayment() {
-    return currentMesaItemsToPay.reduce((sum, item) => sum + (item.price * item.selectedToPayQuantity), 0);
-}
-
-function renderPagamentoHistory() {
-    if (!DOM.historicoPagamentosContainer) return;
-    DOM.historicoPagamentosContainer.innerHTML = '';
-    DOM.emptyPaymentsMessage.classList.add('hidden');
-
-    if (currentMesaPaymentsHistory.length === 0) {
-        DOM.emptyPaymentsMessage.classList.remove('hidden');
-        return;
-    }
-
-    currentMesaPaymentsHistory.forEach((payment, index) => {
-        const paymentDiv = document.createElement('div');
-        paymentDiv.className = 'flex justify-between items-center bg-gray-100 p-2 rounded-md mb-1';
-        let trocoInfo = '';
-        if (payment.troco !== null && payment.troco !== undefined && payment.troco > 0) {
-            trocoInfo = `<span class="text-xs text-gray-600 ml-2">(Troco: R$ ${payment.troco.toFixed(2)})</span>`;
-        } else if (payment.troco !== null && payment.troco !== undefined && payment.troco === 0) {
-            trocoInfo = `<span class="text-xs text-gray-600 ml-2">(Sem troco)</span>`;
-        }
-
-        paymentDiv.innerHTML = `
-            <span>${index + 1}. ${payment.metodo} - R$ ${payment.valorPago.toFixed(2)} ${trocoInfo}</span>
-            <button class="text-red-500 hover:text-red-700 remove-payment-btn" data-index="${index}"><i class="fas fa-trash-alt"></i></button>
-        `;
-        DOM.historicoPagamentosContainer.appendChild(paymentDiv);
-    });
-
-    // Re-attach event listeners for remove buttons
-    DOM.historicoPagamentosContainer.querySelectorAll('.remove-payment-btn').forEach(button => {
-        // Use cloneNode(true) and replace to remove existing listeners
-        const newButton = button.cloneNode(true);
-        button.parentNode.replaceChild(newButton, button);
-        newButton.addEventListener('click', (event) => {
-            const indexToRemove = parseInt(event.target.closest('button').dataset.index);
-            removePayment(indexToRemove);
-        });
-    });
-}
-
-function removePayment(index) {
-    const payment = currentMesaPaymentsHistory[index];
-    if (!payment) return;
-
-    if (!confirm(`Tem certeza que deseja remover este pagamento de R$ ${payment.valorPago.toFixed(2)} (${payment.metodo})?`)) {
-        return;
-    }
-
-    currentMesaPaymentsHistory.splice(index, 1);
-
-    // Reverte as quantidades pagas para os itens correspondentes
-    if (payment.itemsPaid) {
-        payment.itemsPaid.forEach(paidItem => {
-            const originalItem = currentMesaItemsToPay.find(item =>
-                item.name === paidItem.name && (item.size || '') === (paidItem.size || '')
-            );
-            if (originalItem) {
-                originalItem.remainingQuantity += paidItem.quantity;
-                // Ensure remainingQuantity does not exceed originalQuantity due to floating point
-                if (originalItem.remainingQuantity > originalItem.originalQuantity + 0.001) {
-                    originalItem.remainingQuantity = originalItem.originalQuantity;
-                }
-            }
-        });
-    }
-
-    // Recalcula o total pago e o restante a pagar
-    const totalPaidSoFar = currentMesaPaymentsHistory.reduce((sum, p) => sum + p.valorPago, 0);
-    currentMesaRemainingToPay = currentMesaTotal - totalPaidSoFar;
-    if (Math.abs(currentMesaRemainingToPay) < 0.01) {
-        currentMesaRemainingToPay = 0;
-    }
-
-    // Reset selected quantities for next payment entry
-    currentMesaItemsToPay.forEach(item => item.selectedToPayQuantity = 0);
-
-    // Update the value to pay input with the current remaining balance
-    DOM.valorAPagarInput.value = currentMesaRemainingToPay.toFixed(2);
-
-    renderMesaItemsForCheckout(); // Re-render to reflect remaining quantities
-    renderPagamentoHistory();
-    updateCheckoutStatus();
-}
-
-
-function updateCheckoutStatus() {
-    let valueToPayInput = parseFloat(DOM.valorAPagarInput.value) || 0;
-    const currentPaymentMethod = DOM.pagamentoMetodoAtual.value;
-    const trocoReceived = parseFloat(DOM.trocoRecebidoInput.value) || 0;
-
-    // Calculate total paid so far
-    const totalPaidSoFar = currentMesaPaymentsHistory.reduce((sum, p) => sum + p.valorPago, 0);
-
-    // Calculate remaining to pay based on currentMesaTotal and totalPaidSoFar
-    currentMesaRemainingToPay = currentMesaTotal - totalPaidSoFar;
-    // Adjust for small floating point inaccuracies
-    if (Math.abs(currentMesaRemainingToPay) < 0.01) {
-        currentMesaRemainingToPay = 0;
-    }
-
-    DOM.mesaTotalPago.textContent = `R$ ${totalPaidSoFar.toFixed(2)}`;
-    DOM.mesaRestantePagar.textContent = `R$ ${currentMesaRemainingToPay.toFixed(2)}`;
-
-    // If there's nothing left to pay, disable payment inputs/buttons
-    if (currentMesaRemainingToPay <= 0) {
-        DOM.valorAPagarInput.value = '0.00';
-        DOM.valorAPagarInput.disabled = true;
-        DOM.pagamentoMetodoAtual.disabled = true;
-        DOM.trocoRecebidoInput.disabled = true;
-        DOM.btnAdicionarPagamento.disabled = true;
-        DOM.btnDividirRestante.disabled = true;
-        DOM.btnFinalizarContaMesa.disabled = false; // Enable finalize if paid
-    } else {
-        DOM.valorAPagarInput.disabled = false;
-        DOM.pagamentoMetodoAtual.disabled = false;
-        DOM.trocoRecebidoInput.disabled = false; // Always enable troco input to allow user entry
-        DOM.btnFinalizarContaMesa.disabled = true; // Disable finalize if still owe
-    }
-
-
-    // Validation for adding payment button
-    const hasValueToPay = valueToPayInput > 0;
-    const isValueWithinRemaining = valueToPayInput <= currentMesaRemainingToPay + 0.01; // Allow slight overshoot for rounding
-
-    // Check if any items are selected for payment, or if the value to pay is exactly the remaining balance
-    const anyItemSelected = currentMesaItemsToPay.some(item => item.selectedToPayQuantity > 0);
-    const payingFullRemaining = Math.abs(valueToPayInput - currentMesaRemainingToPay) < 0.01;
-
-
-    if (currentPaymentMethod === 'Dinheiro') {
-        DOM.trocoInputGroup.classList.remove('hidden');
-        const hasEnoughChange = trocoReceived >= valueToPayInput;
-        DOM.btnAdicionarPagamento.disabled = !(hasValueToPay && hasPaymentMethod && isValueWithinRemaining && hasEnoughChange && (anyItemSelected || payingFullRemaining));
-    } else {
-        DOM.trocoInputGroup.classList.add('hidden');
-        DOM.trocoRecebidoInput.value = ''; // Clear troco if not cash
-        DOM.btnAdicionarPagamento.disabled = !(hasValueToPay && hasPaymentMethod && isValueWithinRemaining && (anyItemSelected || payingFullRemaining));
-    }
-
-    // Validation for splitting remaining button
-    const numPessoasDividir = parseInt(DOM.dividirPorInput.value, 10);
-    DOM.btnDividirRestante.disabled = currentMesaRemainingToPay <= 0.01 || isNaN(numPessoasDividir) || numPessoasDividir <= 0;
-
-    // Reset selected items if the value to pay manually is changed
-    // This logic might be too aggressive. It's often better to let the user select items OR type a value, not both
-    // If the user types a value manually, clear item selections.
-    if (valueToPayInput !== calculateSelectedItemsTotalForCurrentPayment() && anyItemSelected) {
-        // This indicates the user is overriding item selection with a manual value
-        // You might want to ask confirmation or just clear selections.
-        // For now, if the manually entered value differs significantly from selected items,
-        // we'll assume the manual value is preferred and clear item selections for visual consistency.
-        // For now, let's keep selectedToPayQuantity for internal calculations unless manually changed significantly.
-        // The current `renderMesaItemsForCheckout` will update `valorAPagarInput` from selected items.
-        // If the user manually changes `valorAPagarInput`, `anyItemSelected` is checked.
-    }
-}
-
-
-async function adicionarPagamentoMesa() {
-    let valueToPay = parseFloat(DOM.valorAPagarInput.value);
-    const currentPaymentMethod = DOM.pagamentoMetodoAtual.value;
-    const trocoReceived = parseFloat(DOM.trocoRecebidoInput.value) || 0;
-
-    if (isNaN(valueToPay) || valueToPay <= 0) {
-        alert('Por favor, digite um valor válido para esta parcela.');
-        return;
-    }
-    if (!currentPaymentMethod) {
-        alert('Selecione um método de pagamento.');
-        return;
-    }
-
-    // Determine the items paid in this installment
-    let itemsPaidInThisInstallment = [];
-    let totalFromSelectedItems = calculateSelectedItemsTotalForCurrentPayment();
-
-    if (totalFromSelectedItems > 0.01) { // If items were explicitly selected
-        // Only include items with selectedToPayQuantity > 0
-        itemsPaidInThisInstallment = currentMesaItemsToPay
-            .filter(item => item.selectedToPayQuantity > 0.001)
-            .map(item => ({
-                name: item.name,
-                price: item.price,
-                quantity: item.selectedToPayQuantity,
-                size: item.size || undefined
-            }));
-
-        // Adjust valueToPay to be exactly the sum of selected items if user manually adjusted input
-        // Or confirm if there's a discrepancy
-        if (Math.abs(valueToPay - totalFromSelectedItems) > 0.01) {
-            if (!confirm(`Você selecionou itens totalizando R$ ${totalFromSelectedItems.toFixed(2)}, mas digitou R$ ${valueToPay.toFixed(2)}. Deseja usar o valor digitado e distribuir pros itens restantes, ou usar o valor dos itens selecionados? (OK para usar o digitado, Cancelar para usar o dos itens)`)) {
-                valueToPay = totalFromSelectedItems;
-                DOM.valorAPagarInput.value = valueToPay.toFixed(2);
-            }
-        }
-
-    } else if (Math.abs(valueToPay - currentMesaRemainingToPay) < 0.01) {
-        // If no items were selected, but the payment covers the full remaining amount,
-        // then consider all remaining items as paid proportionally
-        let amountToDistribute = valueToPay;
-        const itemsToProcess = currentMesaItemsToPay.filter(item => item.remainingQuantity > 0.001);
-        const totalRemainingItemsValue = itemsToProcess.reduce((sum, item) => sum + (item.price * item.remainingQuantity), 0);
-
-        itemsToProcess.forEach(item => {
-            if (item.remainingQuantity > 0.001 && amountToDistribute > 0.001) {
-                const proportion = (item.price * item.remainingQuantity) / totalRemainingItemsValue;
-                let quantityToPayForThisItem = (amountToDistribute * proportion) / item.price;
-
-                if (quantityToPayForThisItem > item.remainingQuantity) { // Cap at remaining
-                    quantityToPayForThisItem = item.remainingQuantity;
-                }
-
-                itemsPaidInThisInstallment.push({
-                    name: item.name,
-                    price: item.price,
-                    quantity: parseFloat(quantityToPayForThisItem.toFixed(3)),
-                    size: item.size || undefined
-                });
-                amountToDistribute -= (quantityToPayForThisItem * item.price);
-            }
-        });
-
-    } else {
-        alert('Por favor, selecione os itens a serem pagos ou insira o valor total restante no campo "Valor desta Parcela".');
-        return;
-    }
-
-
-    if (currentPaymentMethod === 'Dinheiro') {
-        if (trocoReceived < valueToPay) {
-            alert(`O valor recebido (R$ ${trocoReceived.toFixed(2)}) é menor que a parcela a pagar (R$ ${valueToPay.toFixed(2)}).`);
-            return;
-        }
-    }
-
-    const trocoADevolver = currentPaymentMethod === 'Dinheiro' ? trocoReceived - valueToPay : 0;
-
-    // Apply deduction to `currentMesaItemsToPay` based on `itemsPaidInThisInstallment`
-    itemsPaidInThisInstallment.forEach(paidItem => {
-        const originalItem = currentMesaItemsToPay.find(item =>
-            item.name === paidItem.name && (item.size || '') === (paidItem.size || '')
-        );
-        if (originalItem) {
-            originalItem.remainingQuantity -= paidItem.quantity;
-            if (originalItem.remainingQuantity < 0.001) originalItem.remainingQuantity = 0; // Avoid negative due to float
-        }
-    });
-
-
-    currentMesaPaymentsHistory.push({
-        metodo: currentPaymentMethod,
-        valorPago: valueToPay,
-        valorRecebido: currentPaymentMethod === 'Dinheiro' ? trocoReceived : null,
-        troco: currentPaymentMethod === 'Dinheiro' ? trocoADevolver : null,
-        timestamp: firebase.database.ServerValue.TIMESTAMP,
-        itemsPaid: itemsPaidInThisInstallment // Store which items were paid in this installment
-    });
-
-    // Reset payment fields and item selections for the next entry
-    DOM.valorAPagarInput.value = currentMesaRemainingToPay.toFixed(2); // Auto-fill with remaining
-    DOM.trocoRecebidoInput.value = '';
-    DOM.pagamentoMetodoAtual.value = '';
-    currentMesaItemsToPay.forEach(item => item.selectedToPayQuantity = 0); // Clear selected quantities
-
-
-    renderMesaItemsForCheckout();
-    renderPagamentoHistory();
-    updateCheckoutStatus();
-
-    if (currentPaymentMethod === 'Dinheiro' && trocoADevolver > 0) {
-        alert(`Pagamento adicionado com sucesso!\nTROCO A DEVOLVER: R$ ${trocoADevolver.toFixed(2)}`);
-    } else {
-        alert('Pagamento adicionado com sucesso!');
-    }
-}
-
-
-function dividirContaMesa() {
-    const numPessoas = parseInt(DOM.dividirPorInput.value, 10);
-    if (isNaN(numPessoas) || numPessoas <= 0) {
-        alert('Por favor, digite um número válido de pessoas para dividir.');
-        return;
-    }
-    if (currentMesaRemainingToPay <= 0.01) {
-        alert('Não há valor restante para dividir.');
-        return;
-    }
-
-    const valorPorPessoa = currentMesaRemainingToPay / numPessoas;
-    DOM.valorAPagarInput.value = valorPorPessoa.toFixed(2);
-
-    // No need to reset selected quantities here, as `renderMesaItemsForCheckout`
-    // will be called by `updateCheckoutStatus` and handle the selected quantities.
-    // The user might still select items.
-    DOM.dividirPorInput.value = ''; // Clear the division field
-    updateCheckoutStatus(); // Update button states and total
-
-    alert(`O valor por pessoa (R$ ${valorPorPessoa.toFixed(2)}) foi preenchido no campo "Valor desta Parcela". Agora, selecione o método de pagamento e clique em "Adicionar Pagamento".`);
-}
-
-function cancelarPedidoMesa() {
-    if (!currentMesaIdForCheckout) return;
-
-    if (currentMesaPaymentsHistory.length > 0) {
-        alert('Não é possível cancelar um pedido de mesa que já possui pagamentos registrados. Se precisar, remova os pagamentos um por um antes de cancelar.');
-        return;
-    }
-
-    if (confirm(`Tem certeza que deseja CANCELAR COMPLETAMENTE o pedido da Mesa ${currentMesaIdForCheckout}? A mesa será liberada e o pedido NÃO será registrado como venda finalizada.`)) {
-        mesasRef.child(currentMesaIdForCheckout).update({
-            status: 'Livre',
-            cliente: '',
-            garcom: '',
-            observacoes: '',
-            pedido: null, // Limpa o pedido
-            total: 0,
-            pagamentosRegistrados: null // Garante que histórico de pagamentos também seja removido do Firebase
-        })
-            .then(() => {
-                alert(`Pedido da Mesa ${currentMesaIdForCheckout} cancelado e mesa liberada.`);
-                fecharModalMesaDetalhes();
-            })
-            .catch(error => {
-                console.error("Erro ao cancelar pedido da mesa:", error);
-                alert("Erro ao cancelar pedido da mesa.");
-            });
-    }
-}
-
-async function finalizarContaMesa() {
-    if (!currentMesaIdForCheckout) return;
-
-    // Garante que todo o valor foi pago
-    if (currentMesaRemainingToPay > 0.01) { // Permite uma pequena tolerância
-        alert(`Ainda há um valor restante a pagar: R$ ${currentMesaRemainingToPay.toFixed(2)}. Adicione todos os pagamentos antes de finalizar.`);
-        return;
-    }
-
-    if (confirm(`Confirmar FINALIZAÇÃO da conta da Mesa ${currentMesaIdForCheckout}?`)) {
-        try {
-            const mesaSnapshot = await mesasRef.child(currentMesaIdForCheckout).once('value');
-            const mesaAtual = mesaSnapshot.val();
-
-            if (!mesaAtual) {
-                alert('Erro: Dados da mesa não encontrados para finalizar a conta.');
-                return;
-            }
-
-            // 1. Dedução de Ingredientes
-            if (mesaAtual.pedido && Array.isArray(mesaAtual.pedido)) {
-                for (const itemPedido of mesaAtual.pedido) {
-                    await deduzirIngredientesDoEstoque(itemPedido);
-                }
-            }
-
-            // 2. Criação do Registro de Pedido Finalizado
-            const novoPedidoId = database.ref('pedidos').push().key;
-            const pedidoFinalizado = {
-                tipoAtendimento: 'Presencial',
-                mesaNumero: mesaAtual.numero,
-                nomeCliente: mesaAtual.cliente, // Usar 'nomeCliente' para consistência
-                garcom: mesaAtual.garcom,
-                observacao: mesaAtual.observacoes, // Usar 'observacao' para consistência
-                cart: mesaAtual.pedido,
-                totalOriginal: mesaAtual.total,
-                totalPago: currentMesaTotal, // O total final da conta
-                pagamentosRegistrados: currentMesaPaymentsHistory, // Histórico completo
-                status: 'Finalizado',
-                timestamp: firebase.database.ServerValue.TIMESTAMP
-            };
-
-            await database.ref('pedidos/' + novoPedidoId).set(pedidoFinalizado);
-
-            // 3. Reset da Mesa para 'Livre'
-            await mesasRef.child(currentMesaIdForCheckout).update({
-                status: 'Livre',
-                cliente: '',
-                garcom: '',
-                observacoes: '',
-                pedido: null, // Limpa o pedido
-                total: 0,
-                pagamentosRegistrados: null // Limpa o histórico de pagamentos no Firebase para a mesa
-            });
-
-            alert(`Conta da Mesa ${mesaAtual.numero} finalizada e mesa liberada!`);
-            fecharModalMesaDetalhes(); // Fecha o modal
-        } catch (error) {
-            console.error("Erro ao finalizar conta da mesa:", error);
-            alert("Erro ao finalizar conta da mesa. Verifique o console para mais detalhes.");
-        }
-    }
-}
-
-/**
- * Deduze os ingredientes de um item de pedido do estoque e atualiza os custos de consumo.
- * Esta função é reusada tanto para pedidos online quanto para mesas.
- * @param {object} itemPedido - O objeto do item do carrinho (e.g., { name: 'Pizza Grande', quantity: 1, size: 'grande' })
- */
-async function deduzirIngredientesDoEstoque(itemPedido) {
-    let produtoRefPath = null;
-    const categories = ['pizzas', 'bebidas', 'esfirras', 'calzone', 'promocoes', 'novidades'];
-
-    for (const cat of categories) {
-        // Assume que 'name' do itemPedido corresponde a 'nome' ou 'titulo' do produto
-        let productsSnapshot = await produtosRef.child(cat).orderByChild('nome').equalTo(itemPedido.name).once('value');
-
-        if (!productsSnapshot.exists() && (cat === 'promocoes' || cat === 'novidades')) {
-            // If not found by 'nome', try by 'titulo' for specific categories
-            productsSnapshot = await produtosRef.child(cat).orderByChild('titulo').equalTo(itemPedido.name).once('value');
-        }
-
-        if (productsSnapshot.exists()) {
-            const productId = Object.keys(productsSnapshot.val())[0];
-            produtoRefPath = `${cat}/${productId}`;
-            break;
-        }
-    }
-
-    if (produtoRefPath) {
-        const produtoSnapshot = await produtosRef.child(produtoRefPath).once('value');
-        const produtoAssociado = produtoSnapshot.val();
-
-        if (produtoAssociado) {
-            let receitaParaConsumo = null;
-            const isPizza = produtoAssociado.tipo === 'pizza';
-
-            if (isPizza && itemPedido.size) {
-                receitaParaConsumo = produtoAssociado.receita?.[itemPedido.size.toLowerCase()]; // Usa toLowerCase para consistência
-            } else {
-                receitaParaConsumo = produtoAssociado.receita;
-            }
-
-            if (receitaParaConsumo) {
-                for (const ingredienteId in receitaParaConsumo) {
-                    const quantidadePorUnidadeProduto = receitaParaConsumo[ingredienteId];
-                    const quantidadeTotalConsumida = quantidadePorUnidadeProduto * itemPedido.quantity;
-                    const custoUnitario = allIngredients[ingredienteId]?.custoUnitarioMedio || 0;
-                    const custoTotalConsumido = quantidadeTotalConsumida * custoUnitario;
-
-                    const ingredienteRef = ingredientesRef.child(ingredienteId);
-                    await ingredienteRef.transaction(currentData => {
-                        if (currentData) {
-                            currentData.quantidadeUsadaMensal = (currentData.quantidadeUsadaMensal || 0) + quantidadeTotalConsumida;
-                            currentData.custoUsadoMensal = (currentData.custoUsadoMensal || 0) + custoTotalConsumido;
-                            currentData.quantidadeUsadaDiaria = (currentData.quantidadeUsadaDiaria || 0) + quantidadeTotalConsumida;
-                            currentData.custoUsadaDiaria = (currentData.custoUsadaDiaria || 0) + custoTotalConsumido;
-                            currentData.ultimaAtualizacaoConsumo = firebase.database.ServerValue.TIMESTAMP;
-                            currentData.quantidadeAtual = (currentData.quantidadeAtual || 0) - quantidadeTotalConsumida;
-                        }
-                        return currentData;
-                    });
-                    console.log(`Consumo de ${allIngredients[ingredienteId]?.nome || ingredienteId} incrementado: Qtd: ${quantidadeTotalConsumida.toFixed(3)}, Custo: R$ ${custoTotalConsumido.toFixed(2)}. Estoque atualizado.`);
-                }
-            } else {
-                console.warn(`Receita para o produto "${itemPedido.name}" (Tamanho: ${itemPedido.size || 'N/A'}) não encontrada ou não configurada. O consumo de ingredientes não será registrado para este item.`);
-            }
-        } else {
-            console.warn(`Produto "${itemPedido.name}" não encontrado no Firebase para dedução de estoque.`);
-        }
-    } else {
-        console.warn(`Produto "${itemPedido.name}" não encontrado em nenhuma categoria para dedução de estoque.`);
-    }
-}
-
-
-// --- FUNÇÕES DE GERENCIAMENTO DE CUPONS ---
-if (DOM.btnSalvarCupom) { // Ensure button exists
+if (DOM.btnSalvarCupom) {
     DOM.btnSalvarCupom.addEventListener('click', () => {
         const codigo = DOM.cupomCodigoInput.value.trim().toUpperCase();
         const valor = parseFloat(DOM.cupomValorInput.value);
         const tipo = DOM.cupomTipoSelect.value;
         const valorMinimo = parseFloat(DOM.cupomMinValorInput.value) || 0;
-        const validadeStr = DOM.validadeCupomInput.value; // Pega a string da data
+        const validadeStr = DOM.validadeCupomInput.value;
 
         if (!codigo) {
             alert("O código do cupom é obrigatório.");
@@ -2850,14 +2694,12 @@ if (DOM.btnSalvarCupom) { // Ensure button exists
             return;
         }
 
-        // Criar a data de validade para o final do dia
         const validadeDate = new Date(validadeStr);
-        validadeDate.setHours(23, 59, 59, 999); // Define para o final do dia selecionado
+        validadeDate.setHours(23, 59, 59, 999);
         const validadeTimestamp = validadeDate.getTime();
 
-        // Validação da data
         const hoje = new Date();
-        hoje.setHours(0, 0, 0, 0); // Zera as horas para comparar apenas a data
+        hoje.setHours(0, 0, 0, 0);
         if (validadeDate < hoje) {
             alert("A data de validade não pode ser no passado.");
             return;
@@ -2870,7 +2712,7 @@ if (DOM.btnSalvarCupom) { // Ensure button exists
             valorMinimo: valorMinimo,
             validade: validadeTimestamp,
             ativo: true,
-            usos: 0 // Mantém a contagem de usos no cupom para visualização global
+            usos: 0
         };
 
         cuponsRef.child(codigo).set(cupomData)
@@ -2880,7 +2722,6 @@ if (DOM.btnSalvarCupom) { // Ensure button exists
                 DOM.cupomValorInput.value = '';
                 DOM.cupomMinValorInput.value = '';
                 DOM.validadeCupomInput.value = '';
-                // The real-time listener for cuponsRef will automatically call carregarCupons()
             })
             .catch(error => {
                 console.error("Erro ao salvar cupom:", error);
@@ -2889,7 +2730,7 @@ if (DOM.btnSalvarCupom) { // Ensure button exists
     });
 }
 
-function carregarCupons(snapshot) { // Accepts snapshot directly from listener
+function carregarCupons(snapshot) {
     if (!DOM.listaCuponsContainer) return;
     const cupons = snapshot.val();
     DOM.listaCuponsContainer.innerHTML = '';
@@ -2900,7 +2741,6 @@ function carregarCupons(snapshot) { // Accepts snapshot directly from listener
     }
 
     const cuponsArray = [];
-    // Fetch usage counts from the admin view for each coupon
     const fetchUsagePromises = Object.keys(cupons).map(async (codigo) => {
         const cupom = cupons[codigo];
         const usageSnapshot = await database.ref(`cupons_usados_admin_view/${codigo}/timesUsed`).once('value');
@@ -2909,7 +2749,7 @@ function carregarCupons(snapshot) { // Accepts snapshot directly from listener
     });
 
     Promise.all(fetchUsagePromises).then(() => {
-        cuponsArray.sort((a, b) => a.codigo.localeCompare(b.codigo)); // Sort by code for consistent display
+        cuponsArray.sort((a, b) => a.codigo.localeCompare(b.codigo));
 
         cuponsArray.forEach(cupom => {
             const cupomDiv = document.createElement('div');
@@ -2946,9 +2786,8 @@ function carregarCupons(snapshot) { // Accepts snapshot directly from listener
             DOM.listaCuponsContainer.appendChild(cupomDiv);
         });
 
-        // Add the event listeners to the new buttons
         DOM.listaCuponsContainer.querySelectorAll('.btn-toggle-ativo').forEach(button => {
-            button.addEventListener('click', () => { // Use addEventListener for consistency
+            button.addEventListener('click', () => {
                 const codigo = button.dataset.codigo;
                 const ativo = button.dataset.ativo === 'true';
                 cuponsRef.child(codigo).update({ ativo: !ativo })
@@ -2958,7 +2797,7 @@ function carregarCupons(snapshot) { // Accepts snapshot directly from listener
         });
 
         DOM.listaCuponsContainer.querySelectorAll('.btn-excluir-cupom').forEach(button => {
-            button.addEventListener('click', () => { // Use addEventListener for consistency
+            button.addEventListener('click', () => {
                 const codigo = button.dataset.codigo;
                 if (confirm(`Deseja realmente excluir o cupom ${codigo}?`)) {
                     cuponsRef.child(codigo).remove()
@@ -2974,7 +2813,13 @@ function carregarCupons(snapshot) { // Accepts snapshot directly from listener
 }
 
 
-// --- FUNÇÕES DE GERENCIAMENTO DETALHADO (Cadastrar Ingredientes) ---
+
+
+// --- SEÇÃO: GERENCIAMENTO DE ESTOQUE lghn------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+// Cadastro e Atualização de Ingredientes
 async function handleSalvarIngredienteDetalhe() {
     const nome = DOM.ingredienteNomeDetalheInput.value.trim();
     const unidade = DOM.ingredienteUnidadeDetalheInput.value.trim();
@@ -3024,7 +2869,7 @@ async function handleSalvarIngredienteDetalhe() {
 
 async function handleUpdateIngrediente(event) {
     const ingredienteId = event.target.dataset.id;
-    const input = document.getElementById(`qtd-atual-${ingredienteId}`); // This ID is unique per ingredient
+    const input = document.getElementById(`qtd-atual-${ingredienteId}`);
     const novaQuantidade = parseFloat(input.value);
 
     if (isNaN(novaQuantidade) || novaQuantidade < 0) {
@@ -3055,14 +2900,12 @@ async function handleDeleteIngrediente(event) {
                     productsSnapshot.forEach(produtoChild => {
                         const produtoData = produtoChild.val();
                         if (produtoData.tipo === 'pizza' && produtoData.receita) {
-                            // Check in both sizes
                             if (produtoData.receita.grande && produtoData.receita.grande[ingredienteId]) {
                                 delete produtoData.receita.grande[ingredienteId];
                             }
                             if (produtoData.receita.broto && produtoData.receita.broto[ingredienteId]) {
                                 delete produtoData.receita.broto[ingredienteId];
                             }
-                            // Only update if changes were made to avoid unnecessary writes
                             if (JSON.stringify(produtoData.receita) !== JSON.stringify(produtoChild.val().receita)) {
                                 produtosRef.child(categoria).child(produtoChild.key).update({ receita: produtoData.receita });
                             }
@@ -3082,7 +2925,7 @@ async function handleDeleteIngrediente(event) {
     }
 }
 
-// --- FUNÇÕES DE GERENCIAMENTO DETALHADO (Registro de Compras) ---
+// Registro de Compras
 function popularIngredientesParaCompraSelects() {
     DOM.compraIngredienteSelectDetalhe.innerHTML = '<option value="">Selecione um ingrediente</option>';
     const sortedIngredients = Object.entries(allIngredients).sort(([, a], [, b]) => a.nome.localeCompare(b.nome));
@@ -3148,7 +2991,6 @@ function renderItensCompraDetalhe() {
     });
 
     DOM.itensCompraDetalheListContainer.querySelectorAll('.btn-remove-item-compra').forEach(button => {
-        // Clone and replace to remove all previous event listeners
         const newButton = button.cloneNode(true);
         button.parentNode.replaceChild(newButton, button);
         newButton.addEventListener('click', (e) => {
@@ -3192,14 +3034,14 @@ async function handleRegistrarCompraDetalhe() {
                 data: dataCompra,
                 fornecedor: fornecedor || 'Não Informado',
                 itensComprados: itemsParaFirebase,
-                totalCompra: parseFloat(totalCompra.toFixed(2)), // Store as float
+                totalCompra: parseFloat(totalCompra.toFixed(2)),
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             });
 
             alert('Compra registrada e estoque atualizado com sucesso!');
             DOM.compraDataDetalheInput.valueAsDate = new Date();
             DOM.compraFornecedorDetalheInput.value = '';
-            currentPurchaseItems = []; // Limpa a lista para nova compra
+            currentPurchaseItems = [];
             renderItensCompraDetalhe();
             DOM.btnRegistrarCompraDetalhe.disabled = true;
         } catch (error) {
@@ -3226,7 +3068,7 @@ async function recalcularCustoUnitarioMedio(ingredienteId, quantidadeComprada, p
     });
 }
 
-// --- FUNÇÕES DE GERENCIAMENTO DETALHADO (Configurar Receitas) ---
+// Configuração de Receitas
 function popularIngredientesParaReceitaSelects() {
     DOM.receitaIngredienteSelectDetalhe.innerHTML = '<option value="">Selecione um ingrediente</option>';
     const sortedIngredients = Object.entries(allIngredients).sort(([, a], [, b]) => a.nome.localeCompare(b.nome));
@@ -3244,7 +3086,7 @@ async function handleReceitaProdutoCategoriaChangeDetalhe(event) {
     DOM.receitaProdutoSelectDetalhe.disabled = true;
     DOM.receitaConfigDetalheContainer.classList.add('hidden');
     DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'none';
-    currentRecipeProduct = null; // Clear selected product
+    currentRecipeProduct = null;
 
     if (!selectedCategory) {
         DOM.receitaProdutoSelectDetalhe.innerHTML = '<option value="">Selecione uma categoria primeiro</option>';
@@ -3256,9 +3098,8 @@ async function handleReceitaProdutoCategoriaChangeDetalhe(event) {
         const products = [];
         productsSnapshot.forEach(childSnapshot => {
             const product = childSnapshot.val();
-            // Use 'nome' first, fallback to 'titulo' for promos/news
             const productName = product.nome || product.titulo;
-            if (productName) { // Ensure product has a name
+            if (productName) {
                 products.push({ id: childSnapshot.key, nome: productName, tipo: product.tipo });
             }
         });
@@ -3271,7 +3112,7 @@ async function handleReceitaProdutoCategoriaChangeDetalhe(event) {
             option.value = prod.id;
             option.textContent = prod.nome;
             option.dataset.tipo = prod.tipo;
-            option.dataset.category = selectedCategory; // Store category for later use
+            option.dataset.category = selectedCategory;
             DOM.receitaProdutoSelectDetalhe.appendChild(option);
         });
         DOM.receitaProdutoSelectDetalhe.disabled = false;
@@ -3285,7 +3126,7 @@ async function handleReceitaProdutoSelectChangeDetalhe(event) {
     const selectedProductId = event.target.value;
     const selectedOption = DOM.receitaProdutoSelectDetalhe.options[DOM.receitaProdutoSelectDetalhe.selectedIndex];
     const productType = selectedOption?.dataset.tipo;
-    const selectedCategory = selectedOption?.dataset.category; // Retrieve category from dataset
+    const selectedCategory = selectedOption?.dataset.category;
 
     if (!selectedProductId || !selectedCategory) {
         DOM.receitaConfigDetalheContainer.classList.add('hidden');
@@ -3376,7 +3217,6 @@ function renderIngredientesReceitaDetalhe() {
     });
 
     DOM.ingredientesParaReceitaDetalheList.querySelectorAll('.btn-remove-ingrediente-receita').forEach(button => {
-        // Clone and replace to remove all previous event listeners
         const newButton = button.cloneNode(true);
         button.parentNode.replaceChild(newButton, button);
         newButton.addEventListener('click', handleRemoveIngredienteReceitaDetalhe);
@@ -3424,12 +3264,11 @@ async function handleSalvarReceitaDetalhe() {
     }
 
     let custoCalculadoTotal = 0;
-    // Calculate cost for all existing recipe variations
     if (currentRecipeProduct.tipo === 'pizza') {
         for (const size in currentRecipeProduct.receita) {
             const recipeForSize = currentRecipeProduct.receita[size];
             if (recipeForSize) {
-                custoCalculadoTotal += calcularCustoReceita(recipeForSize); // Sum costs for all sizes for a total
+                custoCalculadoTotal += calcularCustoReceita(recipeForSize);
             }
         }
     } else {
@@ -3438,8 +3277,8 @@ async function handleSalvarReceitaDetalhe() {
 
     try {
         await produtosRef.child(currentRecipeProduct.categoria).child(currentRecipeProduct.id).update({
-            receita: currentRecipeProduct.receita, // Save the complete recipe object (might contain sizes for pizza)
-            custoIngredientes: custoCalculadoTotal // Save a consolidated cost (or adjust based on reporting needs)
+            receita: currentRecipeProduct.receita,
+            custoIngredientes: custoCalculadoTotal
         });
         alert(`Receita para "${currentRecipeProduct.nome}" salva com sucesso! (Custo Total da Receita: R$ ${custoCalculadoTotal.toFixed(2)})`);
     } catch (error) {
@@ -3458,7 +3297,6 @@ function handleRemoveIngredienteReceitaDetalhe(event) {
             if (currentRecipeProduct.receita?.[tamanhoSelecionado]) {
                 delete currentRecipeProduct.receita[tamanhoSelecionado][ingredienteIdToRemove];
                 if (Object.keys(currentRecipeProduct.receita[tamanhoSelecionado]).length === 0) {
-                    // If no more ingredients for this size, remove the size entry
                     delete currentRecipeProduct.receita[tamanhoSelecionado];
                 }
             }
@@ -3483,9 +3321,7 @@ function calcularCustoReceita(receita) {
     return custoTotal;
 }
 
-// --- FUNÇÕES DE RELATÓRIOS E ANÁLISES RÁPIDAS (Estoque) ---
-
-// Renderiza a lista de ingredientes em ponto de pedido
+// Relatórios e Análises Rápidas de Estoque
 function renderIngredientesPontoPedido(ingredientes) {
     if (!DOM.ingredientesPontoPedidoList) return;
     DOM.ingredientesPontoPedidoList.innerHTML = '';
@@ -3509,15 +3345,14 @@ function renderIngredientesPontoPedido(ingredientes) {
     });
 }
 
-// Renderiza o consumo diário (para o dia anterior, ou o consumo acumulado desde o último reset)
 function renderConsumoDiario() {
     if (!DOM.listaConsumoDiarioContainer || !DOM.dataDiaAnteriorSpan || !DOM.totalGastoDiarioSpan) return;
 
     DOM.listaConsumoDiarioContainer.innerHTML = '';
-    let totalCustoDiario = 0; // Renamed to accurately reflect the data
+    let totalCustoDiario = 0;
     const hoje = new Date();
     const options = { day: '2-digit', month: '2-digit', year: 'numeric' };
-    DOM.dataDiaAnteriorSpan.textContent = hoje.toLocaleDateString('pt-BR', options); // Should reflect "today's" consumption since it resets at start of day
+    DOM.dataDiaAnteriorSpan.textContent = hoje.toLocaleDateString('pt-BR', options);
 
     const ingredientesConsumidosDiario = [];
     Object.values(allIngredients).forEach(ingrediente => {
@@ -3544,8 +3379,6 @@ function renderConsumoDiario() {
     DOM.totalGastoDiarioSpan.textContent = `R$ ${totalCustoDiario.toFixed(2)}`;
 }
 
-
-// Renderiza o consumo mensal
 function renderConsumoMensal() {
     if (!DOM.listaConsumoMensalContainer || !DOM.totalGastoMensalSpan || !DOM.nomeMesAtualSpan) return;
 
@@ -3579,9 +3412,13 @@ function renderConsumoMensal() {
     DOM.totalGastoMensalSpan.textContent = `R$ ${totalCustoMes.toFixed(2)}`;
 }
 
-// Garçons
-// Certifique-se de que DOM.btnSalvarGarcom, DOM.garcomNomeInput, DOM.garcomSenhaInput estão corretamente mapeados no DOM object.
-if (DOM.btnSalvarGarcom) { // Adiciona verificação de existência
+
+
+// --- SEÇÃO: GERENCIAMENTO DE GARÇONS -----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+if (DOM.btnSalvarGarcom) {
     DOM.btnSalvarGarcom.addEventListener('click', async () => {
         const nomeGarcom = DOM.garcomNomeInput.value.trim();
         const senhaGarcom = DOM.garcomSenhaInput.value.trim();
@@ -3595,23 +3432,13 @@ if (DOM.btnSalvarGarcom) { // Adiciona verificação de existência
             return;
         }
 
-        // Cria um e-mail "falso" para o Firebase Auth, garantindo que seja único.
-        // Remove espaços e caracteres especiais para formar um e-mail válido.
         const emailGarcom = `${nomeGarcom.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}@seu-restaurante.com`;
 
         try {
-            // Check if user already exists
-            // Firebase Auth does not provide a direct client-side method to check email existence
-            // without trying to create or sign in.
-            // The best practice is to handle 'auth/email-already-in-use' error.
-
-            // Create the user in Firebase Authentication
             const userCredential = await firebase.auth().createUserWithEmailAndPassword(emailGarcom, senhaGarcom);
             const user = userCredential.user;
 
-            // Save additional information (like display name) in Realtime Database
-            // using the UID of the user as key.
-            await garconsInfoRef.child(user.uid).set({ // Using garconsInfoRef here
+            await garconsInfoRef.child(user.uid).set({
                 nome: nomeGarcom,
                 email: emailGarcom,
                 createdAt: firebase.database.ServerValue.TIMESTAMP
@@ -3622,7 +3449,6 @@ if (DOM.btnSalvarGarcom) { // Adiciona verificação de existência
             DOM.garcomSenhaInput.value = '';
         } catch (error) {
             console.error("Erro ao adicionar garçom:", error);
-            // Handle common Firebase Auth errors
             if (error.code === 'auth/email-already-in-use') {
                 alert('Erro: Já existe um garçom com este nome (ou e-mail interno). Use um nome diferente.');
             } else if (error.code === 'auth/weak-password') {
@@ -3634,8 +3460,7 @@ if (DOM.btnSalvarGarcom) { // Adiciona verificação de existência
     });
 }
 
-// Função para carregar e exibir os garçons do Firebase
-function carregarGarcom(snapshot) { // Accepts snapshot directly from listener
+function carregarGarcom(snapshot) {
     if (!DOM.listaGarconsContainer) return;
 
     const garcons = snapshot.val();
@@ -3670,9 +3495,7 @@ function carregarGarcom(snapshot) { // Accepts snapshot directly from listener
         DOM.listaGarconsContainer.appendChild(garcomDiv);
     });
 
-    // Re-attach listeners for the dynamically created buttons
     DOM.listaGarconsContainer.querySelectorAll('.btn-reset-senha-garcom').forEach(button => {
-        // Clone and replace to remove all previous event listeners
         const newButton = button.cloneNode(true);
         button.parentNode.replaceChild(newButton, button);
         newButton.addEventListener('click', (e) => {
@@ -3692,7 +3515,6 @@ function carregarGarcom(snapshot) { // Accepts snapshot directly from listener
     });
 
     DOM.listaGarconsContainer.querySelectorAll('.btn-excluir-garcom').forEach(button => {
-        // Clone and replace to remove all previous event listeners
         const newButton = button.cloneNode(true);
         button.parentNode.replaceChild(newButton, button);
         newButton.addEventListener('click', async (e) => {
@@ -3700,11 +3522,8 @@ function carregarGarcom(snapshot) { // Accepts snapshot directly from listener
             const nome = e.target.dataset.nome;
             if (confirm(`Deseja realmente excluir o garçom ${nome}? Esta ação removerá os dados do banco de dados.`)) {
                 try {
-                    // Remove the garcon's info from Realtime Database
                     await garconsInfoRef.child(uid).remove();
                     alert(`Dados do garçom ${nome} excluídos do banco de dados.`);
-                    // IMPORTANT: To delete the user from Firebase Authentication, you NEED a Cloud Function.
-                    // Client-side code CANNOT delete arbitrary Firebase Auth users.
                     alert("Atenção: O usuário correspondente no Firebase Authentication NÃO foi excluído. Faça isso manualmente no console do Firebase (Authentication).");
                 } catch (error) {
                     alert("Erro ao excluir dados do garçom: " + error.message);
