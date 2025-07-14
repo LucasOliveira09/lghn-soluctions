@@ -41,7 +41,10 @@ let currentMesaPaymentsHistory = [];
 let pedidoEmEdicao = null;
 let pedidoOriginal = null;
 
+
 // --- LISTENERS GLOBAIS DO FIREBASE lghn--
+
+
 ingredientesRef.on('value', (snapshot) => {
     if (!DOM.listaIngredientesDetalheContainer || !DOM.ingredientesPontoPedidoList ||
         !DOM.listaConsumoDiarioContainer || !DOM.listaConsumoMensalContainer) {
@@ -185,6 +188,8 @@ function estilizaBotaoAtivo(botaoAtivo, ...inativos) {
 }
 
 // --- INICIALIZAÇÃO DO DOM E EVENT LISTENERS lghn---
+
+
 document.addEventListener('DOMContentLoaded', () => {
     Object.assign(DOM, {
         pedidosAtivosContainer: document.getElementById('pedidos-ativos-container'),
@@ -2672,14 +2677,14 @@ function analisarMetodosDePagamento(pedidos) {
 // --- SEÇÃO: GERENCIAMENTO DE CUPONS lghn-------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-
-if (DOM.btnSalvarCupom) {
-    DOM.btnSalvarCupom.addEventListener('click', () => {
-        const codigo = DOM.cupomCodigoInput.value.trim().toUpperCase();
+function salvarCupom(){
+    const codigo = DOM.cupomCodigoInput.value.trim().toUpperCase();
         const valor = parseFloat(DOM.cupomValorInput.value);
         const tipo = DOM.cupomTipoSelect.value;
         const valorMinimo = parseFloat(DOM.cupomMinValorInput.value) || 0;
         const validadeStr = DOM.validadeCupomInput.value;
+
+        console.log("Chegou no evento de click do botão salvar cupom!"); // More descriptive log
 
         if (!codigo) {
             alert("O código do cupom é obrigatório.");
@@ -2694,7 +2699,8 @@ if (DOM.btnSalvarCupom) {
             return;
         }
 
-        const validadeDate = new Date(validadeStr);
+        const partesData = validadeStr.split('-');
+        const validadeDate = new Date(Date.UTC(partesData[0], partesData[1] - 1, partesData[2])); // Corrected date parsing for YYYY-MM-DD
         validadeDate.setHours(23, 59, 59, 999);
         const validadeTimestamp = validadeDate.getTime();
 
@@ -2727,13 +2733,15 @@ if (DOM.btnSalvarCupom) {
                 console.error("Erro ao salvar cupom:", error);
                 alert("Erro ao salvar cupom: " + error.message);
             });
-    });
 }
+
+        
+  
 
 function carregarCupons(snapshot) {
     if (!DOM.listaCuponsContainer) return;
-    const cupons = snapshot.val();
-    DOM.listaCuponsContainer.innerHTML = '';
+    const cupons = snapshot.val(); // Obtém todos os cupons do snapshot do Firebase
+    DOM.listaCuponsContainer.innerHTML = ''; // Limpa a lista existente na interface
 
     if (!cupons) {
         DOM.listaCuponsContainer.innerHTML = '<p class="text-gray-600 col-span-full text-center">Nenhum cupom cadastrado.</p>';
@@ -2741,23 +2749,27 @@ function carregarCupons(snapshot) {
     }
 
     const cuponsArray = [];
+    // Buscar contagens de uso de cada cupom de forma assíncrona
     const fetchUsagePromises = Object.keys(cupons).map(async (codigo) => {
         const cupom = cupons[codigo];
+        // Caminho crucial: 'cupons_usados_admin_view' implica um nó separado para rastreamento de uso
         const usageSnapshot = await database.ref(`cupons_usados_admin_view/${codigo}/timesUsed`).once('value');
         const totalUsos = usageSnapshot.val() || 0;
-        cuponsArray.push({ ...cupom, usos: totalUsos });
+        cuponsArray.push({ ...cupom, usos: totalUsos }); // Adiciona os dados do cupom com a contagem de usos
     });
 
+    // Espera todas as buscas de uso serem concluídas
     Promise.all(fetchUsagePromises).then(() => {
-        cuponsArray.sort((a, b) => a.codigo.localeCompare(b.codigo));
+        cuponsArray.sort((a, b) => a.codigo.localeCompare(b.codigo)); // Ordena os cupons pelo código para exibição consistente
 
+        // Renderiza cada cupom na interface
         cuponsArray.forEach(cupom => {
             const cupomDiv = document.createElement('div');
             cupomDiv.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col justify-between';
 
             const validadeDate = new Date(cupom.validade);
             const hoje = new Date();
-            hoje.setHours(0, 0, 0, 0);
+            hoje.setHours(0, 0, 0, 0); // Zera as horas para comparar apenas a data
             const expirado = validadeDate < hoje;
 
             const statusClass = cupom.ativo && !expirado ? 'text-green-600' : 'text-red-600';
@@ -2785,11 +2797,12 @@ function carregarCupons(snapshot) {
             `;
             DOM.listaCuponsContainer.appendChild(cupomDiv);
         });
-
         DOM.listaCuponsContainer.querySelectorAll('.btn-toggle-ativo').forEach(button => {
-            button.addEventListener('click', () => {
-                const codigo = button.dataset.codigo;
-                const ativo = button.dataset.ativo === 'true';
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+            newButton.addEventListener('click', () => { 
+                const codigo = newButton.dataset.codigo;
+                const ativo = newButton.dataset.ativo === 'true';
                 cuponsRef.child(codigo).update({ ativo: !ativo })
                     .then(() => alert(`Status do cupom ${codigo} alterado!`))
                     .catch(error => alert("Erro ao atualizar status do cupom: " + error.message));
@@ -2797,8 +2810,10 @@ function carregarCupons(snapshot) {
         });
 
         DOM.listaCuponsContainer.querySelectorAll('.btn-excluir-cupom').forEach(button => {
-            button.addEventListener('click', () => {
-                const codigo = button.dataset.codigo;
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+            newButton.addEventListener('click', () => { 
+                const codigo = newButton.dataset.codigo;
                 if (confirm(`Deseja realmente excluir o cupom ${codigo}?`)) {
                     cuponsRef.child(codigo).remove()
                         .then(() => alert(`Cupom ${codigo} excluído com sucesso!`))
