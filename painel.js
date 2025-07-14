@@ -2941,14 +2941,14 @@ async function handleDeleteIngrediente(event) {
 }
 
 // Registro de Compras
-function popularIngredientesParaCompraSelects() {
-    DOM.compraIngredienteSelectDetalhe.innerHTML = '<option value="">Selecione um ingrediente</option>';
+function popularIngredientesParaReceitaSelects() {
+    DOM.receitaIngredienteSelectDetalhe.innerHTML = '<option value="">Selecione um ingrediente</option>';
     const sortedIngredients = Object.entries(allIngredients).sort(([, a], [, b]) => a.nome.localeCompare(b.nome));
     sortedIngredients.forEach(([id, ingrediente]) => {
         const option = document.createElement('option');
         option.value = id;
         option.textContent = `${ingrediente.nome} (${ingrediente.unidadeMedida})`;
-        DOM.compraIngredienteSelectDetalhe.appendChild(option);
+        DOM.receitaIngredienteSelectDetalhe.appendChild(option);
     });
 }
 
@@ -3084,7 +3084,7 @@ async function recalcularCustoUnitarioMedio(ingredienteId, quantidadeComprada, p
 }
 
 // Configuração de Receitas
-function popularIngredientesParaReceitaSelects() {
+function popularIngredientesParaCompraSelects() {
     DOM.receitaIngredienteSelectDetalhe.innerHTML = '<option value="">Selecione um ingrediente</option>';
     const sortedIngredients = Object.entries(allIngredients).sort(([, a], [, b]) => a.nome.localeCompare(b.nome));
     sortedIngredients.forEach(([id, ingrediente]) => {
@@ -3095,70 +3095,93 @@ function popularIngredientesParaReceitaSelects() {
     });
 }
 
+// 3. handleReceitaProdutoSelectChangeDetalhe: Lida com a seleção do PRODUTO
 async function handleReceitaProdutoSelectChangeDetalhe(event) {
-    console.log('handleReceitaProdutoSelectChangeDetalhe foi chamada!');
+    console.log('handleReceitaProdutoSelectChangeDetalhe foi chamada!'); // For debugging
     const selectedProductId = event.target.value;
-    // ... (código existente para carregar produtoData)
+    const selectedOption = DOM.receitaProdutoSelectDetalhe.options[DOM.receitaProdutoSelectDetalhe.selectedIndex];
+    
+    // IMPORTANT: Get the category from the option's dataset, as it's correctly set by handleReceitaProdutoCategoriaChangeDetalhe
+    const selectedCategory = selectedOption?.dataset.category; 
 
-    currentRecipeProduct = {
-        // ... (dados existentes)
-        tamanhosDisponiveis: produtoData?.tamanhosDisponiveis || ['grande', 'broto'] // Pega do BD ou usa padrão
-    };
-
-    // Popula o dropdown de tamanhos dinamicamente
-    DOM.pizzaTamanhoSelectDetalhe.innerHTML = ''; // Limpa as opções fixas
-    currentRecipeProduct.tamanhosDisponiveis.forEach(tamanho => {
-        const option = document.createElement('option');
-        option.value = tamanho;
-        option.textContent = tamanho.charAt(0).toUpperCase() + tamanho.slice(1); // Ex: "grande" vira "Grande"
-        DOM.pizzaTamanhoSelectDetalhe.appendChild(option);
-    });
-    const selectedCategory = event.target.value;
-    DOM.receitaProdutoSelectDetalhe.innerHTML = '<option value="">Carregando produtos...</option>';
-    DOM.receitaProdutoSelectDetalhe.disabled = true;
-    DOM.receitaConfigDetalheContainer.classList.add('hidden');
-    DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'none';
-    currentRecipeProduct = null;
-
-    if (!selectedCategory) {
-        DOM.receitaProdutoSelectDetalhe.innerHTML = '<option value="">Selecione uma categoria primeiro</option>';
+    if (!selectedProductId || !selectedCategory) {
+        DOM.receitaConfigDetalheContainer.classList.add('hidden');
+        DOM.pizzaTamanhoSelectContainerDetalhe.classList.add('hidden'); // Hide if no product is selected
+        DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'none'; // Ensure fully hidden
+        DOM.currentPizzaSizeDetalheSpan.textContent = ''; // Clear size text
+        currentRecipeProduct = null;
         return;
     }
 
+    const productName = selectedOption.textContent.trim();
+    DOM.currentRecipeProductNameDetalhe.textContent = productName;
+    DOM.receitaConfigDetalheContainer.classList.remove('hidden'); // Show the recipe configuration area
+
     try {
-        const productsSnapshot = await produtosRef.child(selectedCategory).once('value');
-        const products = [];
-        productsSnapshot.forEach(childSnapshot => {
-            const product = childSnapshot.val();
-            const productName = product.nome || product.titulo;
-            if (productName) {
-                products.push({ id: childSnapshot.key, nome: productName, tipo: product.tipo });
+        // Fetch the product data using the correct category and product ID
+        const produtoSnapshot = await produtosRef.child(selectedCategory).child(selectedProductId).once('value');
+        const produtoData = produtoSnapshot.val();
+
+        // Armazena as informações do produto selecionado.
+        // We now infer 'tipo' based on 'categoria'.
+        currentRecipeProduct = {
+            id: selectedProductId,
+            nome: productName,
+            categoria: selectedCategory, 
+            // Infer the 'tipo' property directly here based on the category for internal logic
+            tipo: selectedCategory === 'pizzas' ? 'pizza' : 'outro', // Set 'pizza' type if category is 'pizzas'
+            receita: produtoData?.receita || {}, // Load existing recipe
+            // Ensure correct default sizes, as per your HTML ('grande', 'broto')
+            tamanhosDisponiveis: produtoData?.tamanhosDisponiveis || ['Grande', 'Broto'] 
+        };
+
+        if (selectedCategory === 'pizzas') { 
+            DOM.pizzaTamanhoSelectContainerDetalhe.classList.remove('hidden'); // Ensure visible
+            DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'flex'; // Set display style for layout
+            console.log("Estou aqui: Produto é pizza (pela categoria)!"); 
+
+            // Populate the dropdown dynamically based on available sizes for the current product
+            DOM.pizzaTamanhoSelectDetalhe.innerHTML = ''; // Clear current options
+            currentRecipeProduct.tamanhosDisponiveis.forEach(tamanho => {
+                const option = document.createElement('option');
+                option.value = tamanho;
+                option.textContent = tamanho.charAt(0).toUpperCase() + tamanho.slice(1);
+                DOM.pizzaTamanhoSelectDetalhe.appendChild(option);
+            });
+            
+            // Set the initial value of the select to the first available size
+            // and update the displayed text.
+            if (currentRecipeProduct.tamanhosDisponiveis.length > 0) {
+                DOM.pizzaTamanhoSelectDetalhe.value = currentRecipeProduct.tamanhosDisponiveis[0];
+                DOM.currentPizzaSizeDetalheSpan.textContent = ` (${DOM.pizzaTamanhoSelectDetalhe.value.charAt(0).toUpperCase() + DOM.pizzaTamanhoSelectDetalhe.value.slice(1)})`;
+            } else {
+                 DOM.currentPizzaSizeDetalheSpan.textContent = ''; // No sizes available
             }
-        });
+           
+        } else {
+            DOM.pizzaTamanhoSelectContainerDetalhe.classList.add('hidden'); // Hide for non-pizza products
+            DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'none'; // Ensure fully hidden
+            DOM.currentPizzaSizeDetalheSpan.textContent = ''; // Clear the size text
+            console.log("Não estou aqui: Produto não é pizza (pela categoria).");
+        }
 
-        products.sort((a, b) => a.nome.localeCompare(b.nome));
+        renderIngredientesReceitaDetalhe(); // Render ingredients for the default size (or the first)
+        DOM.btnSalvarReceitaDetalhe.disabled = false; // Enable the save recipe button
 
-        DOM.receitaProdutoSelectDetalhe.innerHTML = '<option value="">Selecione um produto</option>';
-        products.forEach(prod => {
-            const option = document.createElement('option');
-            option.value = prod.id;
-            option.textContent = prod.nome;
-            option.dataset.tipo = prod.tipo;
-            option.dataset.category = selectedCategory;
-            DOM.receitaProdutoSelectDetalhe.appendChild(option);
-        });
-        DOM.receitaProdutoSelectDetalhe.disabled = false;
     } catch (error) {
-        console.error('Erro ao carregar produtos por categoria:', error);
-        DOM.receitaProdutoSelectDetalhe.innerHTML = '<option value="">Erro ao carregar produtos</option>';
+        console.error('Erro ao carregar receita:', error);
+        alert('Erro ao carregar receita para este produto.');
+        currentRecipeProduct = null;
+        DOM.receitaConfigDetalheContainer.classList.add('hidden');
+        DOM.pizzaTamanhoSelectContainerDetalhe.classList.add('hidden'); // Ensure hidden in case of error
+        DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'none'; // Ensure fully hidden in case of error
     }
 }
 
+
 async function handleReceitaProdutoCategoriaChangeDetalhe(event) {
     console.log('handleReceitaProdutoCategoriaChangeDetalhe foi chamada!'); // Para depuração
-    const selectedCategory = event.target.value; // A categoria selecionada
-
-    // Resetar o select de produtos e o container de configuração
+    let selectedCategory = event.target.value; 
     DOM.receitaProdutoSelectDetalhe.innerHTML = '<option value="">Carregando produtos...</option>';
     DOM.receitaProdutoSelectDetalhe.disabled = true;
     DOM.receitaConfigDetalheContainer.classList.add('hidden'); // Esconde a área de configuração da receita
@@ -3182,6 +3205,11 @@ async function handleReceitaProdutoCategoriaChangeDetalhe(event) {
             }
         });
 
+
+        if(selectedCategory === "pizzas"){
+            DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'flex';
+        }
+
         products.sort((a, b) => a.nome.localeCompare(b.nome));
 
         DOM.receitaProdutoSelectDetalhe.innerHTML = '<option value="">Selecione um produto</option>';
@@ -3193,6 +3221,8 @@ async function handleReceitaProdutoCategoriaChangeDetalhe(event) {
             option.dataset.category = prod.categoria; // Certifique-se de que a categoria também está no dataset
             DOM.receitaProdutoSelectDetalhe.appendChild(option);
         });
+
+
         DOM.receitaProdutoSelectDetalhe.disabled = false; // Habilita o select de produtos
     } catch (error) {
         console.error('Erro ao carregar produtos por categoria:', error);
@@ -3210,7 +3240,7 @@ async function handleReceitaProdutoSelectChangeDetalhe(event) {
 
     if (!selectedProductId || !selectedCategory) {
         DOM.receitaConfigDetalheContainer.classList.add('hidden');
-        DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'none';
+        
         currentRecipeProduct = null;
         return;
     }
@@ -3228,16 +3258,15 @@ async function handleReceitaProdutoSelectChangeDetalhe(event) {
             id: selectedProductId,
             nome: productName,
             categoria: selectedCategory,
-            tipo: productType,
+            tipo: selectedCategory === 'pizzas' ? 'pizza' : 'outro',
             receita: produtoData?.receita || {}, // Carrega a receita existente
-            tamanhosDisponiveis: produtoData?.tamanhosDisponiveis || ['grande', 'broto'] // Pega do BD ou usa padrão
+            tamanhosDisponiveis: produtoData?.tamanhosDisponiveis || ['Grande', 'Broto'] // Pega do BD ou usa padrão
         };
 
         // Lógica para mostrar/esconder e popular o select de tamanho da pizza
-        if (productType === 'pizza') {
-            DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'block'; // Mostra o container do select de tamanho
-            
-            // Popula o dropdown de tamanhos dinamicamente com base nos tamanhos disponíveis do produto
+         if(selectedCategory === "pizzas"){
+           DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'flex';
+            console.log("nasdasd")
             DOM.pizzaTamanhoSelectDetalhe.innerHTML = ''; // Limpa as opções atuais
             currentRecipeProduct.tamanhosDisponiveis.forEach(tamanho => {
                 const option = document.createElement('option');
@@ -3265,7 +3294,7 @@ async function handleReceitaProdutoSelectChangeDetalhe(event) {
 
 function handlePizzaTamanhoSelectChangeDetalhe() {
     if (currentRecipeProduct && currentRecipeProduct.tipo === 'pizza') {
-        DOM.currentPizzaSizeDetalheSpan.textContent = ` (${DOM.pizzaTamanhoSelectDetalhe.value})`;
+        DOM.currentPizzaSizeDetalheSpan.textContent = `(${DOM.pizzaTamanhoSelectDetalhe.value})`;
         renderIngredientesReceitaDetalhe();
     }
 }

@@ -265,19 +265,26 @@ function atualizarOpcoesMeiaMeia(snapshot) {
 }
 
 function handleAddToCart() {
-  const name = this.getAttribute('data-name');
-  const price = parseFloat(this.getAttribute('data-price'));
-  addToCart(name, price);
+  const name = this.getAttribute('data-name');
+  const price = parseFloat(this.getAttribute('data-price'));
+  const productId = this.getAttribute('data-id');      // CAPTURA O ID
+  const productCategory = this.getAttribute('data-category'); // CAPTURA A CATEGORIA
+  
+  addToCart(name, price, productId, productCategory); // PASSA OS NOVOS DADOS
 }
 
 function handleOpenPizzaModal() {
-  const name = this.getAttribute('data-name');
-  const price = parseFloat(this.getAttribute('data-price'));
+  const name = this.getAttribute('data-name');
+  const price = parseFloat(this.getAttribute('data-price'));
+  const productId = this.getAttribute('data-id'); // CAPTURA O ID
+  const productCategory = this.getAttribute('data-category'); // CAPTURA A CATEGORIA
 
-  selectedPizza = {
-    name,
-    price
-  };
+  selectedPizza = {
+    name,
+    price,
+    id: productId,       // SALVA NO selectedPizza
+    category: productCategory // SALVA NO selectedPizza
+  };
   selectedSize = "Grande";
   selectedHalf = "";
   selectedHalfPrice = 0;
@@ -326,20 +333,21 @@ closeModalBtn.addEventListener("click", function() {
 // })
 
 
-function addToCart(name, price) {
-  const existingItem = cart.find(item => item.name === name)
+function addToCart(name, price, productId, productCategory) { // ATUALIZA A ASSINATURA
+  const existingItem = cart.find(item => item.name === name)
 
-  if (existingItem) {
-    existingItem.quantity += 1;
-  } else {
-    cart.push({
-      name,
-      price,
-      quantity: 1,
-    })
-  }
-
-  updateCartModal()
+  if (existingItem) {
+    existingItem.quantity += 1;
+  } else {
+    cart.push({
+      name,
+      price,
+      quantity: 1,
+      originalProductId: productId,     // SALVA NO CARRINHO
+      productCategory: productCategory // SALVA NO CARRINHO
+    })
+  }
+  updateCartModal()
 }
 
 
@@ -931,10 +939,13 @@ document.getElementById('confirm-pizza').addEventListener('click', () => {
   }
 
   const item = {
-    name: nameFinal,
-    price: finalPrice,
-    quantity: 1
-  };
+    name: nameFinal,
+    price: finalPrice,
+    quantity: 1,
+    originalProductId: selectedPizza.id,       // USA O ID SALVO
+    productCategory: selectedPizza.category, // USA A CATEGORIA SALVA
+    pizzaSize: selectedSize // Para pizzas, o tamanho é importante para a receita
+  };
 
   cart.push(item);
   document.getElementById('pizza-modal').style.display = 'none';
