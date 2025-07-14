@@ -938,10 +938,14 @@ document.getElementById('confirm-pizza').addEventListener('click', () => {
   }
 
   const item = {
-    name: nameFinal,
-    price: finalPrice,
-    quantity: 1
-  };
+    name: nameFinal,
+    price: finalPrice,
+    originalProductId: selectedPizza.id,       // USA O ID SALVO
+    productCategory: selectedPizza.category, // USA A CATEGORIA SALVA
+    pizzaSize: selectedSize // Para pizzas, o tamanho é importante para a receita
+  };
+
+  cart.push(item);
 
   document.getElementById('pizza-modal').style.display = 'none';
 });
