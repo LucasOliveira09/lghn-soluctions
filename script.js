@@ -1035,26 +1035,20 @@ async function enviarPedidoParaPainel(pedido) {
         localStorage.setItem('clienteId', phoneNumber);
         setCookie('clienteId', phoneNumber, 60);
 
-        // This section marks the coupon as used for this specific customer
         if (cupomAplicado) {
-            const cupomCode = cupomAplicado.codigo; // Ensure cupomAplicado has 'codigo' property
-            // Mark the coupon as used for this specific customer
-            await database.ref(`cupons_usados/${phoneNumber}/${cupomCode}`).set(true);
-            console.log(`Cupom ${cupomCode} marcado como usado para ${phoneNumber}`);
-
-            // **NEW: Update coupon usage count for admin view**
-            const cupomAdminUsageRef = database.ref(`cupons_usados_admin_view/${cupomCode}`);
-            await cupomAdminUsageRef.transaction((currentUsage) => {
-                if (currentUsage === null) {
-                    return { timesUsed: 1, lastUsed: Date.now() };
-                } else {
-                    currentUsage.timesUsed = (currentUsage.timesUsed || 0) + 1;
-                    currentUsage.lastUsed = Date.now();
-                    return currentUsage;
-                }
-            });
-            console.log(`Contagem de uso do cupom ${cupomCode} atualizada para o admin.`);
+    const cupomCode = cupomAplicado.codigo;
+    const cupomAdminUsageRef = database.ref(`cupons/${cupomCode}`);
+    await cupomAdminUsageRef.transaction((currentUsage) => {
+        if (currentUsage === null) {
+            return { usos: 1, lastUsed: Date.now() };
+        } else {
+            currentUsage.usos = (currentUsage.usos || 0) + 1;
+            currentUsage.lastUsed = Date.now();
+            return currentUsage;
         }
+    });
+    console.log(`Contagem de uso do cupom ${cupomCode} atualizada para o admin.`);
+}
 
         mostrarPedidoSucessoComLogo();
         // Redirect to status page with the new order ID
