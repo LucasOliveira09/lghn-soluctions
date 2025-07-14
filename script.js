@@ -940,6 +940,7 @@ document.getElementById('confirm-pizza').addEventListener('click', () => {
   const item = {
     name: nameFinal,
     price: finalPrice,
+    quantity: 1,
     originalProductId: selectedPizza.id,       // USA O ID SALVO
     productCategory: selectedPizza.category, // USA A CATEGORIA SALVA
     pizzaSize: selectedSize // Para pizzas, o tamanho é importante para a receita
