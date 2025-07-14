@@ -1447,3 +1447,107 @@ applycupom.addEventListener('click', () => {
         });
     });
 });
+
+// Abre o modal de CEP ao clicar no botão principal
+cepBtn.addEventListener('click', function() {
+    cepInput.value = ""; // Limpa o campo ao abrir
+    cepModal.style.display = 'flex';
+    cepInput.focus(); // Foca no campo de input automaticamente
+});
+
+// Fecha o modal de CEP ao clicar em "Cancelar"
+closeCepModalBtn.addEventListener('click', function() {
+    cepModal.style.display = 'none';
+});
+
+// Botão "Buscar" do modal de CEP chama a função de consulta
+buscarCepBtn.addEventListener('click', function() {
+    const cep = cepInput.value;
+    consultarCEP(cep);
+});
+
+// Permite buscar pressionando a tecla "Enter" no campo de CEP
+cepInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        consultarCEP(this.value);
+    }
+});
+
+async function consultarCEP(cep) {
+    // Limpa e valida o CEP
+    const cepLimpo = cep.replace(/\D/g, '');
+    if (cepLimpo.length !== 8) {
+        Toastify({ text: "CEP inválido. Digite 8 números.", duration: 3000, style: { background: "#ef4444" } }).showToast();
+        return;
+    }
+
+    // Tenta buscar no cache em memória (acesso mais rápido)
+    if (cepCache[cepLimpo]) {
+        console.log("CACHE HIT (memória):", cepLimpo);
+        preencherCamposComCEP(cepCache[cepLimpo]);
+        return; // Encontrou, encerra a função aqui
+    }
+
+    // Se não achou na memória, tenta buscar no localStorage (cache persistente)
+    const cepSalvo = localStorage.getItem(cepLimpo);
+    if (cepSalvo) {
+        console.log("CACHE HIT (localStorage):", cepLimpo);
+        const data = JSON.parse(cepSalvo);
+        cepCache[cepLimpo] = data; // Adiciona ao cache em memória para futuros acessos rápidos
+        preencherCamposComCEP(data);
+        return; // Encontrou, encerra a função aqui
+    }
+
+    // Se não encontrou em nenhum cache, busca na API (internet)
+    console.log("CACHE MISS - Buscando na API ViaCEP:", cepLimpo);
+    const url = `https://viacep.com.br/ws/${cepLimpo}/json/`;
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.erro) {
+            Toastify({ text: "CEP não encontrado.", duration: 3000, style: { background: "#ef4444" } }).showToast();
+            return;
+        }
+
+        // SALVA O RESULTADO NOS CACHES para uso futuro
+        cepCache[cepLimpo] = data; // Salva no cache em memória
+        localStorage.setItem(cepLimpo, JSON.stringify(data)); // Salva no localStorage
+
+        // 6. Preenche os campos com os dados recebidos
+        preencherCamposComCEP(data);
+
+    } catch (error) {
+        console.error("Erro ao buscar CEP:", error);
+        Toastify({ text: "Não foi possível buscar o CEP. Tente novamente.", duration: 3000, style: { background: "#ef4444" } }).showToast();
+    }
+}
+
+// FUNÇÃO AUXILIAR para evitar repetição de código
+function preencherCamposComCEP(data) {
+    // Preenche os campos de Rua e Bairro
+    rua.value = data.logradouro;
+    bairro.value = data.bairro;
+
+    // Fecha o modal
+    cepModal.style.display = 'none';
+
+    // Remove os avisos de erro, caso existam
+    ruaWarn.classList.add("hidden");
+    bairroWarn.classList.add("hidden");
+    rua.classList.remove("border-red-500");
+    bairro.classList.remove("border-red-500");
+
+    // Mensagem de sucesso
+    Toastify({
+        text: "Endereço preenchido com sucesso!",
+        duration: 3000,
+        close: true,
+        gravity: "top", position: "right",
+        style: { background: "#22c55e" }
+    }).showToast();
+
+    // Move o foco para o campo "Número"
+    numero.focus();
+}
