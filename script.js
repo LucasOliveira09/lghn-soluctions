@@ -336,18 +336,17 @@ closeModalBtn.addEventListener("click", function() {
 function addToCart(name, price, productId, productCategory) { // ATUALIZA A ASSINATURA
   const existingItem = cart.find(item => item.name === name)
 
-  if (existingItem) {
-    existingItem.quantity += 1;
-  } else {
-    cart.push({
-      name,
-      price,
-      quantity: 1,
-      originalProductId: productId,     // SALVA NO CARRINHO
-      productCategory: productCategory // SALVA NO CARRINHO
-    })
-  }
-  updateCartModal()
+  if (existingItem) {
+    existingItem.quantity += 1;
+  } else {
+    cart.push({
+      name,
+      price,
+      quantity: 1,
+    })
+  }
+
+  updateCartModal()
 }
 
 
@@ -939,17 +938,12 @@ document.getElementById('confirm-pizza').addEventListener('click', () => {
   }
 
   const item = {
-    name: nameFinal,
-    price: finalPrice,
-    quantity: 1,
-    originalProductId: selectedPizza.id,       // USA O ID SALVO
-    productCategory: selectedPizza.category, // USA A CATEGORIA SALVA
-    pizzaSize: selectedSize // Para pizzas, o tamanho é importante para a receita
-  };
+    name: nameFinal,
+    price: finalPrice,
+    quantity: 1
+  };
 
-  cart.push(item);
   document.getElementById('pizza-modal').style.display = 'none';
-  updateCartModal();
 });
 
 

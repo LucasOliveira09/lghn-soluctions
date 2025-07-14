@@ -12,6 +12,22 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 
+// --- VERIFICA SE TÁ LOGADO ---
+const auth = firebase.auth();
+
+auth.onAuthStateChanged(user => {
+    if (user) {
+        // Usuário está logado, permite que o painel seja carregado.
+        console.log("Usuário autenticado:", user.email);
+        document.body.style.display = 'flex'; // Mostra o corpo da página
+    } else {
+        // Usuário não está logado, redireciona para a página de login.
+        // Usar .replace() para que o usuário não possa voltar para o painel com o botão "voltar" do navegador.
+        console.log("Nenhum usuário autenticado. Redirecionando...");
+        window.location.replace('login.html');
+    }
+});
+
 const database = firebase.database();
 const pedidosRef = database.ref('pedidos');
 const mesasRef = database.ref('mesas');
@@ -209,6 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnGerenciarCupom: document.getElementById('btn-gerenciar-cupom'),
         btnGerenciarGarcom: document.getElementById('btn-gerenciar-garcom'),
         btnGerenciarEstoque: document.getElementById('btn-gerenciar-estoque'),
+        btnLogout: document.getElementById('btn-logout'),
 
         dataDiaAnteriorSpan: document.getElementById('data-dia-anterior'),
         totalGastoDiarioSpan: document.getElementById('total-gasto-diario'),
@@ -455,6 +472,14 @@ document.addEventListener('DOMContentLoaded', () => {
         estilizaBotaoAtivo(DOM.btnGerenciarGarcom, DOM.btnGerenciarCupom, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarEstoque);
         DOM.sidebar.classList.add('-translate-x-full');
         DOM.overlay.classList.add('hidden');
+    });
+
+    // --- Event Listener para o botão de Sair ---
+    DOM.btnLogout.addEventListener('click', () => {
+        auth.signOut().then(() => {
+            console.log("Usuário deslogado com sucesso.");
+            // O onAuthStateChanged irá lidar com o redirecionamento
+        }).catch(error => console.error("Erro ao fazer logout:", error));
     });
 
     // --- Event Listener para o botão de filtrar na aba de finalizados ---
