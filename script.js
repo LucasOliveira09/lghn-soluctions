@@ -339,7 +339,19 @@ function addToCart(name, price) {
     })
   }
 
-  updateCartModal()
+  updateCartModal();
+
+  Toastify({
+    text: "Item adicionado ao carrinho!",
+    duration: 3000,
+    close: true,
+    gravity: "top",
+    position: "right",
+    stopOnFocus: true,
+    style: {
+      background: "#22c55e",
+    },
+  }).showToast();
 }
 
 
@@ -930,15 +942,9 @@ document.getElementById('confirm-pizza').addEventListener('click', () => {
     finalPrice += selectedSize === "Broto" ? 10 : 12;
   }
 
-  const item = {
-    name: nameFinal,
-    price: finalPrice,
-    quantity: 1
-  };
+  addToCart(nameFinal, finalPrice);
 
-  cart.push(item);
   document.getElementById('pizza-modal').style.display = 'none';
-  updateCartModal();
 });
 
 
