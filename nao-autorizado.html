@@ -1,0 +1,96 @@
+function handleAddToCart() {
+  const name = this.getAttribute('data-name');
+  const price = parseFloat(this.getAttribute('data-price'));
+  const productId = this.getAttribute('data-id');      // CAPTURA O ID
+  const productCategory = this.getAttribute('data-category'); // CAPTURA A CATEGORIA
+  
+  addToCart(name, price, productId, productCategory); // PASSA OS NOVOS DADOS
+}
+
+function handleOpenPizzaModal() {
+  const name = this.getAttribute('data-name');
+  const price = parseFloat(this.getAttribute('data-price'));
+  const productId = this.getAttribute('data-id'); // CAPTURA O ID
+  const productCategory = this.getAttribute('data-category'); // CAPTURA A CATEGORIA
+
+  selectedPizza = {
+    name,
+    price,
+    id: productId,       // SALVA NO selectedPizza
+    category: productCategory // SALVA NO selectedPizza
+  };
+  selectedSize = "Grande";
+  selectedHalf = "";
+  selectedHalfPrice = 0;
+  wantsCrust = "Não";
+  crustFlavor = "";
+
+  resetSelections();
+  document.getElementById('modal-title').textContent = selectedPizza.name;
+  document.getElementById('pizza-modal').style.display = 'flex';
+  updatePizzaPricePreview();
+}
+
+// Adicione este código no final do seu arquivo, após o DOM estar carregado
+document.addEventListener('DOMContentLoaded', function() {
+  // Adiciona eventos após um pequeno delay para garantir que o DOM esteja pronto
+  setTimeout(() => {
+    adicionarEventosBotoes();
+  }, 1000);
+});
+
+
+cartBtn.addEventListener("click", function() {
+  updateCartModal()
+  cartModal.style.display = "flex"
+})
+
+cartModal.addEventListener("click", function(event) {
+  if (event.target === cartModal) {
+    cartModal.style.display = "none"
+  }
+})
+
+closeModalBtn.addEventListener("click", function() {
+  cartModal.style.display = "none"
+})
+
+
+// **THIS GLOBAL EVENT LISTENER WAS REMOVED AS IT WAS CAUSING DUPLICATE ADDITIONS**
+// document.addEventListener("click", function(event) {
+//   let parentButton = event.target.closest(".add-to-cart-btn")
+//   if (parentButton) {
+//     const name = parentButton.getAttribute('data-name')
+//     const price = parseFloat(parentButton.getAttribute('data-price'))
+//     addToCart(name, price)
+//   }
+// })
+
+
+function addToCart(name, price, productId, productCategory) { // ATUALIZA A ASSINATURA
+  const existingItem = cart.find(item => item.name === name)
+
+  if (existingItem) {
+    existingItem.quantity += 1;
+  } else {
+    cart.push({
+      name,
+      price,
+      quantity: 1,
+      originalProductId: productId,     // SALVA NO CARRINHO
+      productCategory: productCategory // SALVA NO CARRINHO
+    })
+  }
+  updateCartModal()
+}
+
+ const item = {
+    name: nameFinal,
+    price: finalPrice,
+    quantity: 1,
+    originalProductId: selectedPizza.id,       // USA O ID SALVO
+    productCategory: selectedPizza.category, // USA A CATEGORIA SALVA
+    pizzaSize: selectedSize // Para pizzas, o tamanho é importante para a receita
+  };
+
+  cart.push(item);
