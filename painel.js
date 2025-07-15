@@ -3319,7 +3319,7 @@ async function handleReceitaProdutoSelectChangeDetalhe(event) {
 
 function handlePizzaTamanhoSelectChangeDetalhe() {
     if (currentRecipeProduct && currentRecipeProduct.tipo === 'pizza') {
-        DOM.currentPizzaSizeDetalheSpan.textContent = `(${DOM.pizzaTamanhoSelectDetalhe.value})`;
+        DOM.currentPizzaSizeDetalheSpan.textContent = ` (${DOM.pizzaTamanhoSelectDetalhe.value})`;
         renderIngredientesReceitaDetalhe();
     }
 }
@@ -3391,13 +3391,20 @@ function handleAddIngredienteReceitaDetalhe() {
         return;
     }
 
+    // --- VALIDAÇÃO ADICIONAL PARA PIZZAS ---
     if (currentRecipeProduct.tipo === 'pizza') {
         const tamanhoSelecionado = DOM.pizzaTamanhoSelectDetalhe.value;
+        if (!tamanhoSelecionado || tamanhoSelecionado === "") {
+            alert('Para pizzas, selecione um tamanho (Grande, Broto, etc.) antes de adicionar ingredientes à receita.');
+            return;
+        }
+        // Lógica existente para adicionar ingrediente ao tamanho da pizza
         if (!currentRecipeProduct.receita.hasOwnProperty(tamanhoSelecionado)) {
             currentRecipeProduct.receita[tamanhoSelecionado] = {};
         }
         currentRecipeProduct.receita[tamanhoSelecionado][ingredienteId] = quantidade;
     } else {
+        // Lógica existente para produtos não-pizza
         currentRecipeProduct.receita[ingredienteId] = quantidade;
     }
 

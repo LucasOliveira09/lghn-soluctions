@@ -1,18 +1,32 @@
 const firebaseConfig = {
-  apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
-  authDomain: "cardapioweb-99e7b.firebaseapp.com",
-  databaseURL: "https://cardapioweb-99e7b-default-rtdb.firebaseio.com",
-  projectId: "cardapioweb-99e7b",
-  storageBucket: "cardapioweb-99e7b.firebasestorage.app",
-  messagingSenderId: "110849299422",
-  appId: "1:110849299422:web:60285eb408825c3ff9434f",
-  measurementId: "G-QP7K16G4NM"
+    apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
+    authDomain: "cardapioweb-99e7b.firebaseapp.com",
+    databaseURL: "https://cardapioweb-99e7b-default-rtdb.firebaseio.com",
+    projectId: "cardapioweb-99e7b",
+    storageBucket: "cardapioweb-99e7b.firebasestorage.app",
+    messagingSenderId: "110849299422",
+    appId: "1:110849299422:web:60285eb408825c3ff9434f",
+    measurementId: "G-QP7K16G4NM"
 };
 // Inicializar Firebase
 firebase.initializeApp(firebaseConfig);
 
 // Obter referência ao Realtime Database
 const database = firebase.database();
+
+// --- NOVAS DECLARAÇÕES E LISTENERS PARA INGREDIENTES E PRODUTOS ---
+const ingredientesRef = database.ref('ingredientes'); // Referência para os ingredientes no Firebase
+const produtosRef = database.ref('produtos'); // Referência para os produtos no Firebase (categorias)
+
+let allIngredients = {}; // Objeto para armazenar todos os ingredientes localmente
+
+// Listener para manter allIngredients sincronizado com o Firebase
+ingredientesRef.on('value', (snapshot) => {
+    allIngredients = snapshot.val() || {};
+    console.log("allIngredients carregado/atualizado:", Object.keys(allIngredients).length, "ingredientes.");
+});
+// --- FIM DAS NOVAS DECLARAÇÕES E LISTENERS ---
+
 
 const menu = document.getElementById('menu')
 const cartBtn = document.getElementById('cart-btn')
@@ -61,304 +75,305 @@ carregarProdutos()
 
 
 function carregarProdutos() {
-  // Carregar pizzas
-  database.ref('produtos/pizzas').on('value', (snapshot) => {
-    const listaSalgadas = document.getElementById('lista-pizzas-salgadas');
-    const listaDoces = document.getElementById('lista-pizzas-doces');
-    listaSalgadas.innerHTML = '';
-    listaDoces.innerHTML = '';
+    // Carregar pizzas
+    database.ref('produtos/pizzas').on('value', (snapshot) => {
+        const listaSalgadas = document.getElementById('lista-pizzas-salgadas');
+        const listaDoces = document.getElementById('lista-pizzas-doces');
+        listaSalgadas.innerHTML = '';
+        listaDoces.innerHTML = '';
 
-    snapshot.forEach((pizzaSnap) => {
-      const pizza = pizzaSnap.val();
-      if (pizza.ativo) {
-        const card = criarItemCardapio(pizza, 'pizza');
-        if (pizza.tipo === 'doce') {
-          listaDoces.innerHTML += card;
+        snapshot.forEach((pizzaSnap) => {
+            const pizza = pizzaSnap.val();
+            const pizzaId = pizzaSnap.key; // <-- CAPTURA O ID AQUI!
+            if (pizza.ativo) {
+                // Passa o ID para criarItemCardapio
+                const card = criarItemCardapio(pizza, 'pizza', pizzaId); // <-- NOVO ARGUMENTO: pizzaId
+                if (pizza.tipo === 'doce') {
+                    listaDoces.innerHTML += card;
+                } else {
+                    listaSalgadas.innerHTML += card;
+                }
+            }
+        });
+
+        // Você também precisa ajustar atualizarOpcoesMeiaMeia se ela usa `item.id`
+        atualizarOpcoesMeiaMeia(snapshot);
+        adicionarEventosBotoes();
+    });
+
+    // Repita este ajuste para 'bebidas', 'esfirras', 'calzone', 'promocoes', 'novidades'
+    // Exemplo para bebidas:
+    database.ref('produtos/bebidas').on('value', (snapshot) => {
+        const listaBebidas = document.getElementById('lista-bebidas');
+        listaBebidas.innerHTML = '';
+
+        snapshot.forEach((bebidaSnap) => {
+            const bebida = bebidaSnap.val();
+            const bebidaId = bebidaSnap.key; // <-- CAPTURA O ID AQUI!
+            if (bebida.ativo) {
+                listaBebidas.innerHTML += criarItemCardapio(bebida, 'bebida', bebidaId); // <-- NOVO ARGUMENTO: bebidaId
+            }
+        });
+        adicionarEventosBotoes();
+    });
+
+    // ... faça o mesmo para esfirras, calzone, promocoes, novidades ...
+    database.ref('produtos/esfirras').on('value', (snapshot) => {
+        const listaSalgadas = document.getElementById('lista-esfirras-salgadas');
+        const listaDoces = document.getElementById('lista-esfirras-doces');
+        listaSalgadas.innerHTML = '';
+        listaDoces.innerHTML = '';
+
+        snapshot.forEach((esfirraSnap) => {
+            const esfirra = esfirraSnap.val();
+            const esfirraId = esfirraSnap.key; // CAPTURA O ID
+            if (esfirra.ativo) {
+                const card = criarItemCardapio(esfirra, 'esfirra', esfirraId); // PASSA O ID
+                if (esfirra.tipo === 'doce') {
+                    listaDoces.innerHTML += card;
+                } else {
+                    listaSalgadas.innerHTML += card;
+                }
+            }
+        });
+        adicionarEventosBotoes();
+    });
+
+    database.ref('produtos/calzone').on('value', (snapshot) => {
+        const listaLanches = document.getElementById('lista-lanches');
+        listaLanches.innerHTML = '';
+
+        snapshot.forEach((lancheSnap) => {
+            const lanche = lancheSnap.val();
+            const lancheId = lancheSnap.key; // CAPTURA O ID
+            if (lanche.ativo) {
+                listaLanches.innerHTML += criarItemCardapio(lanche, 'lanche', lancheId); // PASSA O ID
+            }
+        });
+        adicionarEventosBotoes();
+    });
+
+    database.ref('produtos/promocoes').on('value', (snapshot) => {
+        const listaPromocoes = document.getElementById('lista-promocoes');
+        listaPromocoes.innerHTML = '';
+
+        let temPromocaoAtiva = false;
+
+        snapshot.forEach((promoSnap) => {
+            const promo = promoSnap.val();
+            const promoId = promoSnap.key; // CAPTURA O ID
+            if (promo.ativo) {
+                temPromocaoAtiva = true;
+                listaPromocoes.innerHTML += criarItemCardapio(promo, 'promocao', promoId); // PASSA O ID
+            }
+        });
+
+        const secaoPromocoes = document.getElementById('show-promocoes');
+        const btnPromocoes = document.getElementById('btn-promocoes');
+
+        if (temPromocaoAtiva) {
+            secaoPromocoes.classList.remove("hidden");
+            btnPromocoes.classList.remove("hidden");
         } else {
-          listaSalgadas.innerHTML += card;
+            secaoPromocoes.classList.add("hidden");
+            btnPromocoes.classList.add("hidden");
         }
-      }
     });
 
-    atualizarOpcoesMeiaMeia(snapshot);
-    adicionarEventosBotoes();
-  });
+    database.ref('produtos/novidades').on('value', (snapshot) => {
+        const listaNovidades = document.getElementById('lista-novidades');
+        listaNovidades.innerHTML = '';
 
-  // Carregar bebidas
-  database.ref('produtos/bebidas').on('value', (snapshot) => {
-    const listaBebidas = document.getElementById('lista-bebidas');
-    listaBebidas.innerHTML = '';
+        let temNovidadeAtiva = false;
 
+        snapshot.forEach((noviSnap) => {
+            const novi = noviSnap.val();
+            const noviId = noviSnap.key; // CAPTURA O ID
+            if (novi.ativo) {
+                temNovidadeAtiva = true;
+                listaNovidades.innerHTML += criarItemCardapio(novi, 'novidade', noviId); // PASSA O ID
+            }
+        });
 
-    snapshot.forEach((bebidaSnap) => {
-      const bebida = bebidaSnap.val();
-      if (bebida.ativo) {
-        listaBebidas.innerHTML += criarItemCardapio(bebida, 'bebida');
-      }
-    });
-    adicionarEventosBotoes();
-  });
+        const secaoNovidades = document.getElementById('show-novidades');
+        const btnNovidades = document.getElementById('btn-novidades');
 
-  // Carregar esfirras
-  database.ref('produtos/esfirras').on('value', (snapshot) => {
-    const listaSalgadas = document.getElementById('lista-esfirras-salgadas');
-    const listaDoces = document.getElementById('lista-esfirras-doces');
-    listaSalgadas.innerHTML = '';
-    listaDoces.innerHTML = '';
-
-
-
-    snapshot.forEach((esfirraSnap) => {
-      const esfirra = esfirraSnap.val();
-      if (esfirra.ativo) {
-        const card = criarItemCardapio(esfirra, 'esfirra');
-        if (esfirra.tipo === 'doce') {
-          listaDoces.innerHTML += card;
+        if (temNovidadeAtiva) {
+            secaoNovidades.classList.remove("hidden");
+            btnNovidades.classList.remove("hidden");
         } else {
-          listaSalgadas.innerHTML += card;
+            secaoNovidades.classList.add("hidden");
+            btnNovidades.classList.add("hidden");
         }
-      }
     });
-    adicionarEventosBotoes();
-  });
-
-  // Carregar lanches
-  database.ref('produtos/calzone').on('value', (snapshot) => {
-    const listaLanches = document.getElementById('lista-lanches');
-    listaLanches.innerHTML = '';
-
-    snapshot.forEach((lancheSnap) => {
-      const lanche = lancheSnap.val();
-      if (lanche.ativo) {
-        listaLanches.innerHTML += criarItemCardapio(lanche, 'lanche');
-      }
-    });
-    adicionarEventosBotoes();
-  });
-
-  // Carregar promoções
-  database.ref('produtos/promocoes').on('value', (snapshot) => {
-    const listaPromocoes = document.getElementById('lista-promocoes');
-    listaPromocoes.innerHTML = '';
-
-    let temPromocaoAtiva = false;
-
-    snapshot.forEach((promoSnap) => {
-      const promo = promoSnap.val();
-      if (promo.ativo) {
-        temPromocaoAtiva = true;
-        listaPromocoes.innerHTML += criarItemCardapio(promo, 'promocao');
-      }
-    });
-
-    // Mostrar/ocultar seção e botão de promoções
-    const secaoPromocoes = document.getElementById('show-promocoes');
-    const btnPromocoes = document.getElementById('btn-promocoes');
-
-    if (temPromocaoAtiva) {
-      secaoPromocoes.classList.remove("hidden");
-      btnPromocoes.classList.remove("hidden");
-    } else {
-      secaoPromocoes.classList.add("hidden");
-      btnPromocoes.classList.add("hidden");
-    }
-  });
-
-  database.ref('produtos/novidades').on('value', (snapshot) => {
-    const listaNovidades = document.getElementById('lista-novidades');
-    listaNovidades.innerHTML = '';
-
-    let temNovidadeAtiva = false;
-
-    snapshot.forEach((noviSnap) => {
-      const novi = noviSnap.val();
-      if (novi.ativo) {
-        temNovidadeAtiva = true;
-        listaNovidades.innerHTML += criarItemCardapio(novi, 'novidade');
-      }
-    });
-
-    // Mostrar/ocultar seção e botão de promoções
-    const secaoNovidades = document.getElementById('show-novidades');
-    const btnNovidades = document.getElementById('btn-novidades');
-
-    if (temNovidadeAtiva) {
-      secaoNovidades.classList.remove("hidden");
-      btnNovidades.classList.remove("hidden");
-    } else {
-      secaoNovidades.classList.add("hidden");
-      btnNovidades.classList.add("hidden");
-    }
-  });
 }
 
-function criarItemCardapio(item, tipo) {
-  const botaoClass = tipo === 'pizza' ? 'open-modal-btn' : 'add-to-cart-btn';
-  const nome = item.nome || item.titulo;
-  const descricao = item.descricao || '';
-  const preco = item.preco.toFixed(2);
-  const imagem = item.imagem || 'assets/default.png';
+function criarItemCardapio(item, tipo, idDoItemFirebase) { // <-- NOVO ARGUMENTO: idDoItemFirebase
+    const botaoClass = tipo === 'pizza' ? 'open-modal-btn' : 'add-to-cart-btn';
+    const nome = item.nome || item.titulo;
+    const descricao = item.descricao || '';
+    const preco = item.preco.toFixed(2);
+    const imagem = item.imagem || 'assets/default.png';
 
-  return `
-  <div class="flex gap-4 p-3 border border-[#3a3a3a] rounded-xl shadow bg-[#111] hover:shadow-md transition-shadow text-[#f5f0e6] font-[Cinzel]">
-    <img src="${imagem}" alt="${nome}" class="w-20 h-20 rounded-lg object-cover hover:scale-105 hover:rotate-1 transition-transform duration-300" />
-    <div class="flex-1">
-      <p class="font-bold text-lg">${nome}</p>
-      <p class="text-sm text-gray-400">${descricao}</p>
-      <div class="flex items-center justify-between mt-3">
-        <p class="text-lg font-bold text-[#f5f0e6]">R$ ${preco}</p>
-        <button
-          class="bg-green-700 hover:bg-green-600 transition-colors px-4 py-1 rounded-md ${botaoClass}"
-          data-name="${nome}"
-          data-price="${item.preco}">
-          <i class="fa fa-cart-plus text-white text-lg"></i>
-        </button>
+    return `
+    <div class="flex gap-4 p-3 border border-[#3a3a3a] rounded-xl shadow bg-[#111] hover:shadow-md transition-shadow text-[#f5f0e6] font-[Cinzel]">
+      <img src="${imagem}" alt="${nome}" class="w-20 h-20 rounded-lg object-cover hover:scale-105 hover:rotate-1 transition-transform duration-300" />
+      <div class="flex-1">
+        <p class="font-bold text-lg">${nome}</p>
+        <p class="text-sm text-gray-400">${descricao}</p>
+        <div class="flex items-center justify-between mt-3">
+          <p class="text-lg font-bold text-[#f5f0e6]">R$ ${preco}</p>
+          <button
+            class="bg-green-700 hover:bg-green-600 transition-colors px-4 py-1 rounded-md ${botaoClass}"
+            data-name="${nome}"
+            data-price="${item.preco}"
+            data-id="${idDoItemFirebase}"  <-- AGORA VAI TER O ID CORRETO!
+            data-category="${tipo === 'pizza' ? 'pizzas' : tipo === 'bebida' ? 'bebidas' : tipo === 'esfirra' ? 'esfirras' : tipo === 'lanche' ? 'calzone' : tipo === 'promocao' ? 'promocoes' : 'novidades'}">
+            <i class="fa fa-cart-plus text-white text-lg"></i>
+          </button>
+        </div>
       </div>
-    </div>
-  </div>`;
+    </div>`;
 }
 
 
 function adicionarEventosBotoes() {
-  // Botões de pizza (abrem modal de personalização)
-  document.querySelectorAll('.open-modal-btn').forEach(button => {
-    button.removeEventListener('click', handleOpenPizzaModal); // Remove event listener antigo para evitar duplicação
-    button.addEventListener('click', handleOpenPizzaModal);
-  });
-  // Botões de adicionar ao carrinho (para não-pizzas)
-  document.querySelectorAll('.add-to-cart-btn').forEach(button => {
-    button.removeEventListener('click', handleAddToCart); // Remove event listener antigo para evitar duplicação
-    button.addEventListener('click', handleAddToCart);
-  });
+    // Botões de pizza (abrem modal de personalização)
+    document.querySelectorAll('.open-modal-btn').forEach(button => {
+        button.removeEventListener('click', handleOpenPizzaModal); // Remove event listener antigo para evitar duplicação
+        button.addEventListener('click', handleOpenPizzaModal);
+    });
+    // Botões de adicionar ao carrinho (para não-pizzas)
+    document.querySelectorAll('.add-to-cart-btn').forEach(button => {
+        button.removeEventListener('click', handleAddToCart); // Remove event listener antigo para evitar duplicação
+        button.addEventListener('click', handleAddToCart);
+    });
 }
 
 // Adicione esta função para atualizar as opções de meia-meia
 function atualizarOpcoesMeiaMeia(snapshot) {
-  const containerMeiaMeia = document.querySelector('#pizza-modal .half-btn[data-half=""]').parentNode;
+    const containerMeiaMeia = document.querySelector('#pizza-modal .half-btn[data-half=""]').parentNode;
 
-  // Limpar opções exceto a primeira ("Não")
-  while (containerMeiaMeia.children.length > 1) {
-    containerMeiaMeia.removeChild(containerMeiaMeia.lastChild);
-  }
-
-  // Adicionar opções de pizzas disponíveis
-  snapshot.forEach((pizzaSnap) => {
-    const pizza = pizzaSnap.val();
-    if (pizza.ativo) {
-      const botaoMeiaMeia = document.createElement('button');
-      botaoMeiaMeia.className = 'half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left';
-      botaoMeiaMeia.setAttribute('data-half', pizza.nome);
-      botaoMeiaMeia.setAttribute('data-price', pizza.preco);
-      botaoMeiaMeia.textContent = pizza.nome;
-
-      botaoMeiaMeia.addEventListener('click', function() {
-        document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
-        this.classList.add('bg-green-500', 'text-white');
-        selectedHalf = this.getAttribute('data-half');
-        selectedHalfPrice = parseFloat(this.getAttribute('data-price'));
-        updatePizzaPricePreview();
-      });
-
-      containerMeiaMeia.appendChild(botaoMeiaMeia);
+    while (containerMeiaMeia.children.length > 1) {
+        containerMeiaMeia.removeChild(containerMeiaMeia.lastChild);
     }
-  });
+
+    snapshot.forEach((pizzaSnap) => {
+        const pizza = pizzaSnap.val();
+        const pizzaId = pizzaSnap.key; // Já está correto aqui!
+        if (pizza.ativo) {
+            const botaoMeiaMeia = document.createElement('button');
+            botaoMeiaMeia.className = 'half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left';
+            botaoMeiaMeia.setAttribute('data-half', pizza.nome);
+            botaoMeiaMeia.setAttribute('data-price', pizza.preco);
+            botaoMeiaMeia.setAttribute('data-id', pizzaId); // Adicionado na minha última resposta, mas reconfirmando
+            botaoMeiaMeia.setAttribute('data-category', 'pizzas'); // Adicionado na minha última resposta, mas reconfirmando
+            botaoMeiaMeia.textContent = pizza.nome;
+
+            botaoMeiaMeia.addEventListener('click', function() {
+                document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+                this.classList.add('bg-green-500', 'text-white');
+                selectedHalf = this.getAttribute('data-half');
+                selectedHalfPrice = parseFloat(this.getAttribute('data-price'));
+                // Não precisa de selectedHalfId aqui porque a dedução se baseia no selectedPizza.id
+                updatePizzaPricePreview();
+            });
+
+            containerMeiaMeia.appendChild(botaoMeiaMeia);
+        }
+    });
 }
 
 function handleAddToCart() {
-  const name = this.getAttribute('data-name');
-  const price = parseFloat(this.getAttribute('data-price'));
-  const productId = this.getAttribute('data-id');      // CAPTURA O ID
-  const productCategory = this.getAttribute('data-category'); // CAPTURA A CATEGORIA
-  
-  addToCart(name, price, productId, productCategory); // PASSA OS NOVOS DADOS
+  // ...
+  const productId = this.getAttribute('data-id');      // CAPTURA O ID
+  const productCategory = this.getAttribute('data-category'); // CAPTURA A CATEGORIA
+  addToCart(name, price, productId, productCategory); // PASSA OS NOVOS DADOS
 }
 
+
 function handleOpenPizzaModal() {
-  const name = this.getAttribute('data-name');
-  const price = parseFloat(this.getAttribute('data-price'));
-  const productId = this.getAttribute('data-id'); // CAPTURA O ID
-  const productCategory = this.getAttribute('data-category'); // CAPTURA A CATEGORIA
+    const name = this.getAttribute('data-name');
+    const price = parseFloat(this.getAttribute('data-price'));
+    const productId = this.getAttribute('data-id'); // CAPTURA O ID
+  const productCategory = this.getAttribute('data-category'); // CAPTURA A CATEGORIA
+  selectedPizza = {
+    name,
+    price,
+    id: productId,       // SALVA NO selectedPizza
+    category: productCategory // SALVA NO selectedPizza
+  };
+    selectedSize = "Grande";
+    selectedHalf = "";
+    selectedHalfPrice = 0;
+    wantsCrust = "Não";
+    crustFlavor = "";
 
-  selectedPizza = {
-    name,
-    price,
-    id: productId,       // SALVA NO selectedPizza
-    category: productCategory // SALVA NO selectedPizza
-  };
-  selectedSize = "Grande";
-  selectedHalf = "";
-  selectedHalfPrice = 0;
-  wantsCrust = "Não";
-  crustFlavor = "";
-
-  resetSelections();
-  document.getElementById('modal-title').textContent = selectedPizza.name;
-  document.getElementById('pizza-modal').style.display = 'flex';
-  updatePizzaPricePreview();
+    resetSelections();
+    document.getElementById('modal-title').textContent = selectedPizza.name;
+    document.getElementById('pizza-modal').style.display = 'flex';
+    updatePizzaPricePreview();
 }
 
 // Adicione este código no final do seu arquivo, após o DOM estar carregado
 document.addEventListener('DOMContentLoaded', function() {
-  // Adiciona eventos após um pequeno delay para garantir que o DOM esteja pronto
-  setTimeout(() => {
-    adicionarEventosBotoes();
-  }, 1000);
+    // Adiciona eventos após um pequeno delay para garantir que o DOM esteja pronto
+    setTimeout(() => {
+        adicionarEventosBotoes();
+    }, 1000);
 });
 
 
 cartBtn.addEventListener("click", function() {
-  updateCartModal()
-  cartModal.style.display = "flex"
+    updateCartModal()
+    cartModal.style.display = "flex"
 })
 
 cartModal.addEventListener("click", function(event) {
-  if (event.target === cartModal) {
-    cartModal.style.display = "none"
-  }
+    if (event.target === cartModal) {
+        cartModal.style.display = "none"
+    }
 })
 
 closeModalBtn.addEventListener("click", function() {
-  cartModal.style.display = "none"
+    cartModal.style.display = "none"
 })
 
 
-// **THIS GLOBAL EVENT LISTENER WAS REMOVED AS IT WAS CAUSING DUPLICATE ADDITIONS**
-// document.addEventListener("click", function(event) {
-//   let parentButton = event.target.closest(".add-to-cart-btn")
-//   if (parentButton) {
-//     const name = parentButton.getAttribute('data-name')
-//     const price = parseFloat(parentButton.getAttribute('data-price'))
-//     addToCart(name, price)
-//   }
-// })
-
-
 function addToCart(name, price, productId, productCategory) { // ATUALIZA A ASSINATURA
-  const existingItem = cart.find(item => item.name === name)
+    // Verifica se já existe um item exato (mesmo nome, ID, categoria, e tamanho se for pizza)
+    const existingItem = cart.find(item =>
+        item.name === name &&
+        item.originalProductId === productId &&
+        item.productCategory === productCategory &&
+        item.pizzaSize === undefined // Ou ajuste esta condição para incluir pizzaSize
+    );
 
-  if (existingItem) {
-    existingItem.quantity += 1;
-  } else {
-    cart.push({
-      name,
-      price,
-      quantity: 1,
-    })
-  }
+    if (existingItem) {
+        existingItem.quantity += 1;
+    } else {
+        cart.push({
+            name,
+            price,
+            quantity: 1,
+            originalProductId: productId,
+            productCategory: productCategory
+        });
+    }
 
-  updateCartModal()
+    updateCartModal()
 }
 
 
 function updateCartModal() {
-  cartItemsContainer.innerHTML = "";
-  let total = 0;
+    cartItemsContainer.innerHTML = "";
+    let total = 0;
 
-  cart.forEach(item => {
-    const cartItemElement = document.createElement("div");
-    cartItemElement.classList.add("flex", "justify-between", "mb-4", "flex-col");
+    cart.forEach(item => {
+        const cartItemElement = document.createElement("div");
+        cartItemElement.classList.add("flex", "justify-between", "mb-4", "flex-col");
 
-    cartItemElement.innerHTML = `
+        cartItemElement.innerHTML = `
                 <div class="bg-gray-100 p-4 rounded-xl shadow flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div class="flex-1">
                         <p class="font-semibold text-base text-gray-900">${item.name}</p>
@@ -375,216 +390,216 @@ function updateCartModal() {
                     </div>
                 </div>
             `;
-    total += item.price * item.quantity;
-    cartItemsContainer.appendChild(cartItemElement);
-  });
+        total += item.price * item.quantity;
+        cartItemsContainer.appendChild(cartItemElement);
+    });
 
-  let finalTotal = total;
-  let discountAmount = 0;
+    let finalTotal = total;
+    let discountAmount = 0;
 
-  if (cupomAplicado) {
-    if (cupomAplicado.tipo === "porcentagem") {
-      discountAmount = total * (cupomAplicado.valor / 100);
-    } else if (cupomAplicado.tipo === "fixo") {
-      discountAmount = cupomAplicado.valor;
+    if (cupomAplicado) {
+        if (cupomAplicado.tipo === "porcentagem") {
+            discountAmount = total * (cupomAplicado.valor / 100);
+        } else if (cupomAplicado.tipo === "fixo") {
+            discountAmount = cupomAplicado.valor;
+        }
+        finalTotal = Math.max(0, total - discountAmount); // Ensure total doesn't go below zero
     }
-    finalTotal = Math.max(0, total - discountAmount); // Ensure total doesn't go below zero
-  }
 
-  cartTotal.textContent = finalTotal.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  });
+    cartTotal.textContent = finalTotal.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL"
+    });
 
-  // Optionally, display the discount amount if a coupon is applied
-  if (cupomAplicado && discountAmount > 0) {
-    const discountElement = document.createElement("p");
-    discountElement.classList.add("text-sm", "text-green-600", "mt-2", "font-bold");
-    discountElement.textContent = `Desconto Cupom: - R$ ${discountAmount.toFixed(2)}`;
-    cartItemsContainer.appendChild(discountElement); // Or append it near the total
-  }
+    // Optionally, display the discount amount if a coupon is applied
+    if (cupomAplicado && discountAmount > 0) {
+        const discountElement = document.createElement("p");
+        discountElement.classList.add("text-sm", "text-green-600", "mt-2", "font-bold");
+        discountElement.textContent = `Desconto Cupom: - R$ ${discountAmount.toFixed(2)}`;
+        cartItemsContainer.appendChild(discountElement); // Or append it near the total
+    }
 
-  cartCounter.innerHTML = cart.length;
+    cartCounter.innerHTML = cart.length;
 }
 
 cartItemsContainer.addEventListener("click", function(event) {
-  if (event.target.classList.contains("remove-btn")) {
-    const name = event.target.getAttribute('data-name')
+    if (event.target.classList.contains("remove-btn")) {
+        const name = event.target.getAttribute('data-name')
 
-    removeItemCart(name);
-  }
-
-  if (event.target.classList.contains("quantity-btn") || event.target.closest(".quantity-btn")) {
-    const button = event.target.closest(".quantity-btn");
-    const name = button.getAttribute('data-name');
-    const action = button.getAttribute('data-action');
-
-    const item = cart.find(i => i.name === name);
-
-    if (item) {
-      if (action === "increase") {
-        item.quantity += 1;
-      } else if (action === "decrease" && item.quantity > 1) {
-        item.quantity -= 1;
-      } else if (action === "decrease" && item.quantity === 1) {
-        cart.splice(cart.indexOf(item), 1);
-      }
+        removeItemCart(name);
     }
 
-    updateCartModal();
-  }
+    if (event.target.classList.contains("quantity-btn") || event.target.closest(".quantity-btn")) {
+        const button = event.target.closest(".quantity-btn");
+        const name = button.getAttribute('data-name');
+        const action = button.getAttribute('data-action');
+
+        const item = cart.find(i => i.name === name);
+
+        if (item) {
+            if (action === "increase") {
+                item.quantity += 1;
+            } else if (action === "decrease" && item.quantity > 1) {
+                item.quantity -= 1;
+            } else if (action === "decrease" && item.quantity === 1) {
+                cart.splice(cart.indexOf(item), 1);
+            }
+        }
+
+        updateCartModal();
+    }
 
 
 })
 
 function removeItemCart(name) {
-  const index = cart.findIndex(item => item.name === name);
+    const index = cart.findIndex(item => item.name === name);
 
-  if (index !== -1) {
-    const item = cart[index];
+    if (index !== -1) {
+        const item = cart[index];
 
-    if (item.quantity > 1) {
-      item.quantity -= 1;
-      updateCartModal()
-      return;
+        if (item.quantity > 1) {
+            item.quantity -= 1;
+            updateCartModal()
+            return;
+        }
+
+        cart.splice(index, 1);
+        updateCartModal()
     }
-
-    cart.splice(index, 1);
-    updateCartModal()
-  }
 }
 
 checkoutBtn.addEventListener("click", function() {
 
-  // Continua se estiver aberto
-  if (cart.length === 0) {
-    Toastify({
-      text: "Carrinho está vazio!",
-      duration: 3000,
-      close: true,
-      gravity: "top",
-      position: "left",
-      stopOnFocus: true,
-      style: {
-        background: "#ef4444",
-      },
-    }).showToast();
-    return;
-  } else {
-    atualizarConfirmacao();
-    confirmModal.classList.remove("hidden");
-  }
+    // Continua se estiver aberto
+    if (cart.length === 0) {
+        Toastify({
+            text: "Carrinho está vazio!",
+            duration: 3000,
+            close: true,
+            gravity: "top",
+            position: "left",
+            stopOnFocus: true,
+            style: {
+                background: "#ef4444",
+            },
+        }).showToast();
+        return;
+    } else {
+        atualizarConfirmacao();
+        confirmModal.classList.remove("hidden");
+    }
 
 });
 
 function getStatusMessage(horarios) {
-  const agora = new Date();
-  const dia = agora.getDay(); // 0 = domingo, ..., 6 = sábado
-  const hora = agora.getHours();
-  const diaConfig = horarios[dia];
+    const agora = new Date();
+    const dia = agora.getDay(); // 0 = domingo, ..., 6 = sábado
+    const hora = agora.getHours();
+    const diaConfig = horarios[dia];
 
-  if (!diaConfig || !diaConfig.aberto) {
-    return {
-      aberto: false,
-      mensagem: "Fechado hoje"
-    };
-  }
+    if (!diaConfig || !diaConfig.aberto) {
+        return {
+            aberto: false,
+            mensagem: "Fechado hoje"
+        };
+    }
 
-  if (hora >= diaConfig.inicio && hora < diaConfig.fim) {
-    return {
-      aberto: true,
-      mensagem: `Aberto agora (fecha às ${diaConfig.fim}h)`
-    };
-  } else {
-    return {
-      aberto: false,
-      mensagem: `Fechado agora (abre às ${diaConfig.inicio}h)`
-    };
-  }
+    if (hora >= diaConfig.inicio && hora < diaConfig.fim) {
+        return {
+            aberto: true,
+            mensagem: `Aberto agora (fecha às ${diaConfig.fim}h)`
+        };
+    } else {
+        return {
+            aberto: false,
+            mensagem: `Fechado agora (abre às ${diaConfig.inicio}h)`
+        };
+    }
 }
 
 // ✅ Atualiza visual do span com cores e texto
 function atualizarStatusVisual() {
-  const spanItem = document.getElementById("date-span");
+    const spanItem = document.getElementById("date-span");
 
-  firebase.database().ref("config/horarios").once("value")
-    .then(snapshot => {
-      if (snapshot.exists()) {
-        const horarios = snapshot.val();
-        const status = getStatusMessage(horarios);
+    firebase.database().ref("config/horarios").once("value")
+        .then(snapshot => {
+            if (snapshot.exists()) {
+                const horarios = snapshot.val();
+                const status = getStatusMessage(horarios);
 
-        if (status.aberto) {
-          spanItem.classList.remove("bg-red-500", "bg-red-600");
-          spanItem.classList.add("bg-green-600");
-        } else {
-          spanItem.classList.remove("bg-green-500", "bg-green-600");
-          spanItem.classList.add("bg-red-600");
-        }
+                if (status.aberto) {
+                    spanItem.classList.remove("bg-red-500", "bg-red-600");
+                    spanItem.classList.add("bg-green-600");
+                } else {
+                    spanItem.classList.remove("bg-green-500", "bg-green-600");
+                    spanItem.classList.add("bg-red-600");
+                }
 
-        spanItem.textContent = status.mensagem;
-      } else {
-        spanItem.textContent = "Horários não configurados.";
-      }
-    })
-    .catch(error => {
-      console.error("Erro ao buscar horários:", error);
-      spanItem.textContent = "Erro ao carregar status.";
-    });
+                spanItem.textContent = status.mensagem;
+            } else {
+                spanItem.textContent = "Horários não configurados.";
+            }
+        })
+        .catch(error => {
+            console.error("Erro ao buscar horários:", error);
+            spanItem.textContent = "Erro ao carregar status.";
+        });
 }
 
 // ✅ Executa ao carregar e a cada minuto
 document.addEventListener("DOMContentLoaded", () => {
-  atualizarStatusVisual();
-  setInterval(atualizarStatusVisual, 60000); // atualiza a cada minuto
+    atualizarStatusVisual();
+    setInterval(atualizarStatusVisual, 60000); // atualiza a cada minuto
 });
 
 function atualizarEntrega() {
-  const retirada = document.getElementById("retirada");
-  const entrega = document.getElementById("entrega");
-  const enderecoSection = document.getElementById("address-section");
-  const retiradaSection = document.getElementById("retirada-section");
+    const retirada = document.getElementById("retirada");
+    const entrega = document.getElementById("entrega");
+    const enderecoSection = document.getElementById("address-section");
+    const retiradaSection = document.getElementById("retirada-section");
 
-  // Permitir apenas um selecionado
-  if (retirada.checked) {
-    entrega.checked = false;
-    retiradaSection.classList.remove("hidden");
-    enderecoSection.classList.add("hidden");
-  } else if (entrega.checked) {
-    retirada.checked = false;
-    enderecoSection.classList.remove("hidden");
-    retiradaSection.classList.add("hidden");
-  } else {
-    // Nenhum selecionado
-    retiradaSection.classList.add("hidden");
-    enderecoSection.classList.add("hidden");
-  }
+    // Permitir apenas um selecionado
+    if (retirada.checked) {
+        entrega.checked = false;
+        retiradaSection.classList.remove("hidden");
+        enderecoSection.classList.add("hidden");
+    } else if (entrega.checked) {
+        retirada.checked = false;
+        enderecoSection.classList.remove("hidden");
+        retiradaSection.classList.add("hidden");
+    } else {
+        // Nenhum selecionado
+        retiradaSection.classList.add("hidden");
+        enderecoSection.classList.add("hidden");
+    }
 
-  atualizarConfirmacao();
+    atualizarConfirmacao();
 }
 
 function atualizarPagamento() {
-  const pagPix = document.getElementById("pagPix");
-  const pagCartao = document.getElementById("pagCartao");
-  const pagDinheiro = document.getElementById("pagDinheiro");
-  const trocoSection = document.getElementById("trocoSection");
+    const pagPix = document.getElementById("pagPix");
+    const pagCartao = document.getElementById("pagCartao");
+    const pagDinheiro = document.getElementById("pagDinheiro");
+    const trocoSection = document.getElementById("trocoSection");
 
-  // Agrupa os pagamentos
-  const pagamentos = [pagPix, pagCartao, pagDinheiro];
-  const ativo = pagamentos.find(p => p.checked);
+    // Agrupa os pagamentos
+    const pagamentos = [pagPix, pagCartao, pagDinheiro];
+    const ativo = pagamentos.find(p => p.checked);
 
-  // Desmarca os outros
-  pagamentos.forEach(p => {
-    if (p !== ativo) p.checked = false;
-  });
+    // Desmarca os outros
+    pagamentos.forEach(p => {
+        if (p !== ativo) p.checked = false;
+    });
 
-  // Exibe troco se dinheiro for selecionado
-  if (pagDinheiro.checked) {
-    trocoSection?.classList.remove("hidden");
-  } else {
-    trocoSection?.classList.add("hidden");
-  }
+    // Exibe troco se dinheiro for selecionado
+    if (pagDinheiro.checked) {
+        trocoSection?.classList.remove("hidden");
+    } else {
+        trocoSection?.classList.add("hidden");
+    }
 
-  atualizarConfirmacao?.();
+    atualizarConfirmacao?.();
 }
 
 // Event listeners for delivery and payment methods
@@ -600,189 +615,189 @@ document.getElementById('pagDinheiro').addEventListener('change', atualizarPagam
 
 
 rua.addEventListener("input", function(event) {
-  let inputValue = event.target.value;
+    let inputValue = event.target.value;
 
-  if (inputValue !== "") {
-    rua.classList.remove("border-red-500")
-    ruaWarn.classList.add("hidden")
-  }
+    if (inputValue !== "") {
+        rua.classList.remove("border-red-500")
+        ruaWarn.classList.add("hidden")
+    }
 })
 
 bairro.addEventListener("input", function(event) {
-  let inputValue = event.target.value;
+    let inputValue = event.target.value;
 
-  if (inputValue !== "") {
-    bairro.classList.remove("border-red-500")
-    bairroWarn.classList.add("hidden")
-  }
+    if (inputValue !== "") {
+        bairro.classList.remove("border-red-500")
+        bairroWarn.classList.add("hidden")
+    }
 })
 
 numero.addEventListener("input", function(event) {
-  let inputValue = event.target.value;
+    let inputValue = event.target.value;
 
-  if (inputValue !== "") {
-    numero.classList.remove("border-red-500")
-    numeroWarn.classList.add("hidden")
-  }
+    if (inputValue !== "") {
+        numero.classList.remove("border-red-500")
+        numeroWarn.classList.add("hidden")
+    }
 })
 
 nomeInput.addEventListener("input", function(event) {
-  let inputValue = event.target.value;
+    let inputValue = event.target.value;
 
-  if (inputValue !== "") {
-    nomeInput.classList.remove("border-red-500")
-    nomeWarn.classList.add("hidden")
-  }
+    if (inputValue !== "") {
+        nomeInput.classList.remove("border-red-500")
+        nomeWarn.classList.add("hidden")
+    }
 })
 
 telefoneInput.addEventListener("input", function(event) {
-  let inputValue = event.target.value;
+    let inputValue = event.target.value;
 
-  if (inputValue !== "") {
-    telefoneInput.classList.remove("border-red-500")
-    telefoneWarn.classList.add("hidden")
-  }
+    if (inputValue !== "") {
+        telefoneInput.classList.remove("border-red-500")
+        telefoneWarn.classList.add("hidden")
+    }
 })
 
 document.getElementById('troco').addEventListener("input", function(event) {
-  let inputValue = event.target.value;
+    let inputValue = event.target.value;
 
-  if (inputValue !== "") {
-    document.getElementById('troco').classList.remove("border-red-500")
-    document.getElementById('troco-aste').classList.add("hidden")
-  }
+    if (inputValue !== "") {
+        document.getElementById('troco').classList.remove("border-red-500")
+        document.getElementById('troco-aste').classList.add("hidden")
+    }
 })
 
 
 // CORREÇÃO AQUI: Torna a função async e usa await
 submitBtn.addEventListener("click", async function() {
-  //verificação de pedido:
+    //verificação de pedido:
 
-  let verEnder = false; // Use boolean for clarity
-  let tipoEntrega = "";
-  if (document.getElementById("retirada").checked) tipoEntrega = "Retirada";
-  if (document.getElementById("entrega").checked) tipoEntrega = "Entrega";
+    let verEnder = false; // Use boolean for clarity
+    let tipoEntrega = "";
+    if (document.getElementById("retirada").checked) tipoEntrega = "Retirada";
+    if (document.getElementById("entrega").checked) tipoEntrega = "Entrega";
 
-  let pagamento = "";
-  if (document.getElementById("pagPix").checked) pagamento = "Pix";
-  if (document.getElementById("pagCartao").checked) pagamento = "Cartão";
-  if (document.getElementById("pagDinheiro").checked) pagamento = "Dinheiro";
+    let pagamento = "";
+    if (document.getElementById("pagPix").checked) pagamento = "Pix";
+    if (document.getElementById("pagCartao").checked) pagamento = "Cartão";
+    if (document.getElementById("pagDinheiro").checked) pagamento = "Dinheiro";
 
-  let checkTel = telefoneInput.value;
-  let checkNome = nomeInput.value;
+    let checkTel = telefoneInput.value;
+    let checkNome = nomeInput.value;
 
-  let trocoInput = document.getElementById('troco').value
+    let trocoInput = document.getElementById('troco').value
 
-  // Nome
+    // Nome
 
-  if (checkNome === "") {
-    nomeWarn.classList.remove("hidden");
-    nomeInput.classList.add("border-red-500");
-    return;
-  }
-
-
-  // Telefone
-
-  if (checkTel === "") {
-    telefoneWarn.classList.remove("hidden");
-    telefoneInput.classList.add("border-red-500");
-    return;
-  }
-
-  //entrega ========
-  if (tipoEntrega === "") {
-    Toastify({
-      text: "Preencha o tipo da entrega!",
-      duration: 3000,
-      close: true,
-      gravity: "top", // `top` or `bottom`
-      position: "left", // `left`, `center` or `right`
-      stopOnFocus: true, // Prevents dismissing of toast on hover
-      style: {
-        background: "#ef4444",
-      },
-    }).showToast();
-    return;
-  }
-
-
-  if (tipoEntrega === "Entrega") {
-    let enderecoRua = document.getElementById("rua").value;
-    let enderecoBairro = document.getElementById("bairro").value;
-    let enderecoNumero = document.getElementById("numero").value;
-
-
-    if (enderecoRua === "") {
-      ruaWarn.classList.remove("hidden");
-      rua.classList.add("border-red-500")
-      verEnder = true
+    if (checkNome === "") {
+        nomeWarn.classList.remove("hidden");
+        nomeInput.classList.add("border-red-500");
+        return;
     }
 
-    if (enderecoBairro === "") {
-      bairroWarn.classList.remove("hidden");
-      bairro.classList.add("border-red-500")
-      verEnder = true
+
+    // Telefone
+
+    if (checkTel === "") {
+        telefoneWarn.classList.remove("hidden");
+        telefoneInput.classList.add("border-red-500");
+        return;
     }
 
-    if (enderecoNumero === "") {
-      numeroWarn.classList.remove("hidden");
-      numero.classList.add("border-red-500")
-      verEnder = true
+    //entrega ========
+    if (tipoEntrega === "") {
+        Toastify({
+            text: "Preencha o tipo da entrega!",
+            duration: 3000,
+            close: true,
+            gravity: "top", // `top` or `bottom`
+            position: "left", // `left`, `center` or `right`
+            stopOnFocus: true, // Prevents dismissing of toast on hover
+            style: {
+                background: "#ef4444",
+            },
+        }).showToast();
+        return;
     }
 
-    if (verEnder) {
-      return;
+
+    if (tipoEntrega === "Entrega") {
+        let enderecoRua = document.getElementById("rua").value;
+        let enderecoBairro = document.getElementById("bairro").value;
+        let enderecoNumero = document.getElementById("numero").value;
+
+
+        if (enderecoRua === "") {
+            ruaWarn.classList.remove("hidden");
+            rua.classList.add("border-red-500")
+            verEnder = true
+        }
+
+        if (enderecoBairro === "") {
+            bairroWarn.classList.remove("hidden");
+            bairro.classList.add("border-red-500")
+            verEnder = true
+        }
+
+        if (enderecoNumero === "") {
+            numeroWarn.classList.remove("hidden");
+            numero.classList.add("border-red-500")
+            verEnder = true
+        }
+
+        if (verEnder) {
+            return;
+        }
     }
-  }
 
 
-  // pagamento
-  if (pagamento === "") {
-    Toastify({
-      text: "Preencha a forma de pagamento!",
-      duration: 3000,
-      close: true,
-      gravity: "top",
-      position: "left",
-      stopOnFocus: true,
-      style: {
-        background: "#ef4444",
-      },
-    }).showToast();
-    return;
-  }
-
-  if (pagamento === "Dinheiro") {
-    if (trocoInput === "") {
-      document.getElementById('troco').classList.add("border-red-500")
-      document.getElementById('troco-aste').classList.remove("hidden")
-      return;
+    // pagamento
+    if (pagamento === "") {
+        Toastify({
+            text: "Preencha a forma de pagamento!",
+            duration: 3000,
+            close: true,
+            gravity: "top",
+            position: "left",
+            stopOnFocus: true,
+            style: {
+                background: "#ef4444",
+            },
+        }).showToast();
+        return;
     }
-  }
 
-  const pedidoFormatado = montarPedido();
-  // USAR AWAIT AQUI: Isso garante que enviarPedidoParaPainel termine antes de zerarCarrinho
-  await enviarPedidoParaPainel(pedidoFormatado);
-  zerarCarrinho(); // Agora esta função será chamada SÓ DEPOIS que o cupom for salvo
+    if (pagamento === "Dinheiro") {
+        if (trocoInput === "") {
+            document.getElementById('troco').classList.add("border-red-500")
+            document.getElementById('troco-aste').classList.remove("hidden")
+            return;
+        }
+    }
+
+    const pedidoFormatado = montarPedido();
+    // USAR AWAIT AQUI: Isso garante que enviarPedidoParaPainel termine antes de zerarCarrinho
+    await enviarPedidoParaPainel(pedidoFormatado);
+    zerarCarrinho(); // Agora esta função será chamada SÓ DEPOIS que o cupom for salvo
 })
 
 backBtn.addEventListener("click", function() {
-  document.getElementById('confirm-modal').classList.add("hidden")
+    document.getElementById('confirm-modal').classList.add("hidden")
 })
 
 
 //-------------------------------------------------
 
 function zerarCarrinho() {
-  cart = [];
-  document.getElementById('confirm-modal').classList.add("hidden");
-  cartModal.style.display = "none";
-  updateCartModal();
-  cupomAplicado = null; // Reset the applied coupon
-  if (cupomInput) cupomInput.disabled = false; // Re-enable input
-  if (applycupom) applycupom.disabled = false; // Re-enable button
-  if (cupomInput) cupomInput.value = ""; // Clear coupon input
+    cart = [];
+    document.getElementById('confirm-modal').classList.add("hidden");
+    cartModal.style.display = "none";
+    updateCartModal();
+    cupomAplicado = null; // Reset the applied coupon
+    if (cupomInput) cupomInput.disabled = false; // Re-enable input
+    if (applycupom) applycupom.disabled = false; // Re-enable button
+    if (cupomInput) cupomInput.value = ""; // Clear coupon input
 }
 
 
@@ -795,232 +810,259 @@ let wantsCrust = "Não";
 let crustFlavor = "";
 
 function resetSelections() {
-  document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
-  document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
-  document.querySelectorAll('.crust-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
-  document.querySelectorAll('.crust-flavor-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+    document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+    document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+    document.querySelectorAll('.crust-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+    document.querySelectorAll('.crust-flavor-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
 
-  // Set default selected state
-  document.querySelector('.size-btn[data-size="Grande"]').classList.add('bg-green-500', 'text-white');
-  document.querySelector('.half-btn[data-half=""]').classList.add('bg-green-500', 'text-white'); // Assuming "Não" is the default for half
-  document.querySelector('.crust-btn[data-crust="Não"]').classList.add('bg-green-500', 'text-white'); // Assuming "Não" is the default for crust
+    // Set default selected state
+    document.querySelector('.size-btn[data-size="Grande"]').classList.add('bg-green-500', 'text-white');
+    document.querySelector('.half-btn[data-half=""]').classList.add('bg-green-500', 'text-white'); // Assuming "Não" is the default for half
+    document.querySelector('.crust-btn[data-crust="Não"]').classList.add('bg-green-500', 'text-white'); // Assuming "Não" is the default for crust
 
-  document.getElementById('crust-flavor-section').classList.add('hidden');
+    document.getElementById('crust-flavor-section').classList.add('hidden');
 }
 
 function updatePizzaPricePreview() {
-  if (!selectedPizza) return;
+    if (!selectedPizza) return;
 
-  let basePrice = selectedPizza.price;
+    let basePrice = selectedPizza.price;
 
-  if (selectedHalf && selectedHalf !== selectedPizza.name) {
-    basePrice = (selectedPizza.price + selectedHalfPrice) / 2; // MÉDIA dos preços
-  }
-
-  if (selectedSize === "Broto") {
-    if (selectedHalf === "Costela" || selectedHalf === "Costela turbinada" || selectedPizza.name === "Costela" || selectedPizza.name === "Costela turbinada") {
-      basePrice = 35
-    } else {
-      basePrice = 30
+    if (selectedHalf && selectedHalf !== selectedPizza.name) {
+        basePrice = (selectedPizza.price + selectedHalfPrice) / 2; // MÉDIA dos preços
     }
-  }
-  let finalPrice = basePrice
+
+    if (selectedSize === "Broto") {
+        if (selectedHalf === "Costela" || selectedHalf === "Costela turbinada" || selectedPizza.name === "Costela" || selectedPizza.name === "Costela turbinada") {
+            basePrice = 35
+        } else {
+            basePrice = 30
+        }
+    }
+    let finalPrice = basePrice
 
 
-  if (wantsCrust === "Sim" && crustFlavor) {
-    finalPrice += selectedSize === "Broto" ? 10 : 12;
-  }
+    if (wantsCrust === "Sim" && crustFlavor) {
+        finalPrice += selectedSize === "Broto" ? 10 : 12;
+    }
 
-  const preview = document.getElementById('pizza-price-preview');
-  preview.textContent = `Valor: R$ ${finalPrice.toFixed(2).replace('.', ',')}`;
+    const preview = document.getElementById('pizza-price-preview');
+    preview.textContent = `Valor: R$ ${finalPrice.toFixed(2).replace('.', ',')}`;
 }
 
 // Abrir modal
 document.querySelectorAll('.open-modal-btn').forEach(button => {
-  button.addEventListener('click', () => {
-    selectedPizza = {
-      name: button.dataset.name,
-      price: parseFloat(button.dataset.price)
-    };
-    selectedSize = "Grande";
-    selectedHalf = "";
-    selectedHalfPrice = 0;
-    wantsCrust = "Não";
-    crustFlavor = "";
+    button.addEventListener('click', () => {
+        selectedPizza = {
+            name: button.dataset.name,
+            price: parseFloat(button.dataset.price),
+            id: button.dataset.id, // Captura o ID
+            category: button.dataset.category // Captura a categoria
+        };
+        selectedSize = "Grande";
+        selectedHalf = "";
+        selectedHalfPrice = 0;
+        wantsCrust = "Não";
+        crustFlavor = "";
 
-    resetSelections();
-    document.getElementById('modal-title').innerText = selectedPizza.name;
-    document.getElementById('pizza-modal').style.display = 'flex';
-    updatePizzaPricePreview();
-  });
+        resetSelections();
+        document.getElementById('modal-title').innerText = selectedPizza.name;
+        document.getElementById('pizza-modal').style.display = 'flex';
+        updatePizzaPricePreview();
+    });
 });
 
 // Cancelar
 document.getElementById('cancel-pizza').addEventListener('click', () => {
-  document.getElementById('pizza-modal').style.display = 'none';
+    document.getElementById('pizza-modal').style.display = 'none';
 });
 
 // Tamanho
 document.querySelectorAll('.size-btn').forEach(button => {
-  button.addEventListener('click', () => {
-    selectedSize = button.dataset.size;
-    document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
-    button.classList.add('bg-green-500', 'text-white');
-    updatePizzaPricePreview();
-  });
+    button.addEventListener('click', () => {
+        selectedSize = button.dataset.size;
+        document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+        button.classList.add('bg-green-500', 'text-white');
+        updatePizzaPricePreview();
+    });
 });
 
 // Meia-Meia
 document.querySelectorAll('.half-btn').forEach(button => {
-  button.addEventListener('click', () => {
-    selectedHalf = button.dataset.half;
-    selectedHalfPrice = parseFloat(button.dataset.price) || 0;
+    button.addEventListener('click', () => {
+        selectedHalf = button.dataset.half;
+        selectedHalfPrice = parseFloat(button.dataset.price) || 0;
 
-    document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
-    button.classList.add('bg-green-500', 'text-white');
+        document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+        button.classList.add('bg-green-500', 'text-white');
 
-    updatePizzaPricePreview();
-  });
+        updatePizzaPricePreview();
+    });
 });
 
 // Borda
 document.querySelectorAll('.crust-btn').forEach(button => {
-  button.addEventListener('click', () => {
-    wantsCrust = button.dataset.crust;
-    crustFlavor = "";
-    document.querySelectorAll('.crust-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
-    button.classList.add('bg-green-500', 'text-white');
+    button.addEventListener('click', () => {
+        wantsCrust = button.dataset.crust;
+        crustFlavor = "";
+        document.querySelectorAll('.crust-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+        button.classList.add('bg-green-500', 'text-white');
 
-    const section = document.getElementById('crust-flavor-section');
-    if (wantsCrust === "Sim") {
-      section.classList.remove('hidden');
-    } else {
-      section.classList.add('hidden');
-    }
-    updatePizzaPricePreview();
-  });
+        const section = document.getElementById('crust-flavor-section');
+        if (wantsCrust === "Sim") {
+            section.classList.remove('hidden');
+        } else {
+            section.classList.add('hidden');
+        }
+        updatePizzaPricePreview();
+    });
 });
 
 document.querySelectorAll('.crust-flavor-btn').forEach(button => {
-  button.addEventListener('click', () => {
-    crustFlavor = button.dataset.flavor;
-    document.querySelectorAll('.crust-flavor-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
-    button.classList.add('bg-green-500', 'text-white');
-    updatePizzaPricePreview();
-  });
+    button.addEventListener('click', () => {
+        crustFlavor = button.dataset.flavor;
+        document.querySelectorAll('.crust-flavor-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+        button.classList.add('bg-green-500', 'text-white');
+        updatePizzaPricePreview();
+    });
 });
 
 // Confirmar
 document.getElementById('confirm-pizza').addEventListener('click', () => {
-  let nameFinal = selectedPizza.name;
-  let basePrice = selectedPizza.price;
+    let nameFinal = selectedPizza.name;
+    let basePrice = selectedPizza.price;
 
-  if (selectedHalf && selectedHalf !== selectedPizza.name) {
-    nameFinal = `${selectedPizza.name} / ${selectedHalf}`;
-    basePrice = (selectedPizza.price + selectedHalfPrice) / 2;
-  }
+    let itemOriginalProductId = selectedPizza.id;
+    let itemProductCategory = selectedPizza.category;
+    let itemHalfProductId = null; // Inicializa como nulo
+    let itemHalfProductCategory = null; // Inicializa como nulo
 
-  nameFinal += ` (${selectedSize})`;
+    // Verifica se é uma pizza meia a meia
+    if (selectedHalf && selectedHalf !== selectedPizza.name) {
+        // Atualiza o nome final para incluir o segundo sabor
+        nameFinal = `${selectedPizza.name} / ${selectedHalf}`;
 
-  if (selectedSize === "Broto") {
-    if (selectedHalf === "Costela" || selectedHalf === "Costela turbinada" || selectedPizza.name === "Costela" || selectedPizza.name === "Costela turbinada") {
-      basePrice = 35
-    } else {
-      basePrice = 30
+        // Calcula o preço médio dos dois sabores
+        basePrice = (selectedPizza.price + selectedHalfPrice) / 2;
+
+        // Procura o botão de meia-meia correspondente para obter o ID do segundo sabor
+        const halfButton = document.querySelector(`.half-btn[data-half="${selectedHalf}"]`);
+        if (halfButton) {
+            itemHalfProductId = halfButton.dataset.id; // Captura o ID do segundo sabor
+            itemHalfProductCategory = halfButton.dataset.category; // Captura a categoria do segundo sabor (deve ser 'pizzas')
+        } else {
+            console.warn(`ID do produto para o segundo sabor "${selectedHalf}" não encontrado nos botões de meia-meia.`);
+            // Se o ID do segundo sabor não for encontrado, a dedução de estoque pode ser imprecisa.
+            // Considere como lidar com isso: talvez não salvar halfProductId ou alertar o usuário.
+        }
     }
-  }
-  let finalPrice = basePrice
 
+    // Adiciona o tamanho da pizza ao nome final (sempre para pizzas)
+    nameFinal += ` (${selectedSize})`;
 
-  if (wantsCrust === "Sim" && crustFlavor) {
-    nameFinal += ` + Borda de ${crustFlavor}`;
-    finalPrice += selectedSize === "Broto" ? 10 : 12;
-  }
+    // Lógica de preço para pizza Broto
+    if (selectedSize === "Broto") {
+        if (selectedHalf === "Costela" || selectedHalf === "Costela turbinada" || selectedPizza.name === "Costela" || selectedPizza.name === "Costela turbinada") {
+            basePrice = 35;
+        } else {
+            basePrice = 30;
+        }
+    }
+    let finalPrice = basePrice;
 
-  const item = {
-    name: nameFinal,
-    price: finalPrice,
-    quantity: 1,
-    originalProductId: selectedPizza.id,       // USA O ID SALVO
-    productCategory: selectedPizza.category, // USA A CATEGORIA SALVA
-    pizzaSize: selectedSize // Para pizzas, o tamanho é importante para a receita
-  };
+    // Lógica de preço e nome para borda recheada
+    if (wantsCrust === "Sim" && crustFlavor) {
+        nameFinal += ` + Borda de ${crustFlavor}`;
+        finalPrice += selectedSize === "Broto" ? 10 : 12;
+    }
 
-  cart.push(item);
+    
+    const item = {
+        name: nameFinal,
+        price: finalPrice,
+        quantity: 1,
+        originalProductId: itemOriginalProductId,       
+        productCategory: itemProductCategory,           
+        pizzaSize: selectedSize,                       
+        halfProductId: itemHalfProductId,              
+        halfProductCategory: itemHalfProductCategory    
+    };
 
-  document.getElementById('pizza-modal').style.display = 'none';
+    cart.push(item);
+    updateCartModal(); // Atualiza o modal do carrinho
+    document.getElementById('pizza-modal').style.display = 'none';
 });
 
 
 function atualizarConfirmacao() {
-  confirmCartItems.innerHTML = "";
+    confirmCartItems.innerHTML = "";
 
-  let subtotal = 0;
+    let subtotal = 0;
 
-  cart.forEach(item => {
-    const itemContainer = document.createElement('div');
-    itemContainer.classList.add('mb-4');
+    cart.forEach(item => {
+        const itemContainer = document.createElement('div');
+        itemContainer.classList.add('mb-4');
 
-    const topBorder = document.createElement('div');
-    topBorder.classList.add('h-[1px]', 'bg-gray-300', 'mb-2');
-    itemContainer.appendChild(topBorder);
+        const topBorder = document.createElement('div');
+        topBorder.classList.add('h-[1px]', 'bg-gray-300', 'mb-2');
+        itemContainer.appendChild(topBorder);
 
-    const itemContent = document.createElement('div');
-    itemContent.classList.add('flex', 'justify-between', 'items-center');
-    itemContent.innerHTML = `
+        const itemContent = document.createElement('div');
+        itemContent.classList.add('flex', 'justify-between', 'items-center');
+        itemContent.innerHTML = `
                 <div>
                     <p class="font-medium">${item.quantity}x ${item.name}</p>
                     <p class="text-sm text-gray-600">Subtotal: R$ ${(item.price * item.quantity).toFixed(2)}</p>
                 </div>
             `;
-    itemContainer.appendChild(itemContent);
+        itemContainer.appendChild(itemContent);
 
-    const bottomBorder = document.createElement('div');
-    bottomBorder.classList.add('h-[1px]', 'bg-gray-300', 'mt-2');
-    itemContainer.appendChild(bottomBorder);
+        const bottomBorder = document.createElement('div');
+        bottomBorder.classList.add('h-[1px]', 'bg-gray-300', 'mt-2');
+        itemContainer.appendChild(bottomBorder);
 
-    confirmCartItems.appendChild(itemContainer);
+        confirmCartItems.appendChild(itemContainer);
 
-    subtotal += item.price * item.quantity;
-  });
+        subtotal += item.price * item.quantity;
+    });
 
-  let totalComFrete = subtotal;
-  const entregaSelecionada = document.getElementById("entrega").checked;
-  if (entregaSelecionada) {
-    totalComFrete += FRETE_VALOR;
-  }
-
-  let discountAmount = 0;
-  if (cupomAplicado) {
-    if (cupomAplicado.tipo === "porcentagem") {
-      discountAmount = subtotal * (cupomAplicado.valor / 100);
-    } else if (cupomAplicado.tipo === "fixo") {
-      discountAmount = cupomAplicado.valor;
+    let totalComFrete = subtotal;
+    const entregaSelecionada = document.getElementById("entrega").checked;
+    if (entregaSelecionada) {
+        totalComFrete += FRETE_VALOR;
     }
-    totalComFrete = Math.max(0, totalComFrete - discountAmount);
-  }
 
-  let totalText = `Total: R$ ${totalComFrete.toFixed(2)}`;
-  if (entregaSelecionada) {
-    totalText += ` (Inclui frete de R$ ${FRETE_VALOR.toFixed(2)})`;
-  }
-  if (cupomAplicado && discountAmount > 0) {
-    totalText += ` - Cupom: R$ ${discountAmount.toFixed(2)}`;
-  }
+    let discountAmount = 0;
+    if (cupomAplicado) {
+        if (cupomAplicado.tipo === "porcentagem") {
+            discountAmount = subtotal * (cupomAplicado.valor / 100);
+        } else if (cupomAplicado.tipo === "fixo") {
+            discountAmount = cupomAplicado.valor;
+        }
+        totalComFrete = Math.max(0, totalComFrete - discountAmount);
+    }
 
-  confirmTotal.textContent = totalText;
+    let totalText = `Total: R$ ${totalComFrete.toFixed(2)}`;
+    if (entregaSelecionada) {
+        totalText += ` (Inclui frete de R$ ${FRETE_VALOR.toFixed(2)})`;
+    }
+    if (cupomAplicado && discountAmount > 0) {
+        totalText += ` - Cupom: R$ ${discountAmount.toFixed(2)}`;
+    }
+
+    confirmTotal.textContent = totalText;
 }
 
 let telefone = ""
 
 function setCookie(name, value, days) {
-  let expires = "";
-  if (days) {
-    const date = new Date();
-    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-    expires = "; expires=" + date.toUTCString();
-  }
-  document.cookie = name + "=" + (value || "") + expires + "; path=/";
+    let expires = "";
+    if (days) {
+        const date = new Date();
+        date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+        expires = "; expires=" + date.toUTCString();
+    }
+    document.cookie = name + "=" + (value || "") + expires + "; path=/";
 }
 
 async function enviarPedidoParaPainel(pedido) {
@@ -1041,24 +1083,31 @@ async function enviarPedidoParaPainel(pedido) {
         await pedidosRef.child(novoId).set(pedido);
         console.log('Pedido enviado com sucesso!', novoId);
 
+        // --- NOVO CÓDIGO AQUI: DEDUÇÃO DE ESTOQUE ---
+        // Itera sobre os itens do carrinho para deduzir os ingredientes do estoque
+        for (const item of pedido.cart) { // 'pedido.cart' contém os itens do carrinho
+            await deduzirEstoqueDoItem(item);
+        }
+        // --- FIM DO NOVO CÓDIGO ---
+
         const phoneNumber = telefoneInput.value;
         localStorage.setItem('clienteId', phoneNumber);
         setCookie('clienteId', phoneNumber, 60);
 
         if (cupomAplicado) {
-    const cupomCode = cupomAplicado.codigo;
-    const cupomAdminUsageRef = database.ref(`cupons/${cupomCode}`);
-    await cupomAdminUsageRef.transaction((currentUsage) => {
-        if (currentUsage === null) {
-            return { usos: 1, lastUsed: Date.now() };
-        } else {
-            currentUsage.usos = (currentUsage.usos || 0) + 1;
-            currentUsage.lastUsed = Date.now();
-            return currentUsage;
+            const cupomCode = cupomAplicado.codigo;
+            const cupomAdminUsageRef = database.ref(`cupons/${cupomCode}`);
+            await cupomAdminUsageRef.transaction((currentUsage) => {
+                if (currentUsage === null) {
+                    return { usos: 1, lastUsed: Date.now() };
+                } else {
+                    currentUsage.usos = (currentUsage.usos || 0) + 1;
+                    currentUsage.lastUsed = Date.now();
+                    return currentUsage;
+                }
+            });
+            console.log(`Contagem de uso do cupom ${cupomCode} atualizada para o admin.`);
         }
-    });
-    console.log(`Contagem de uso do cupom ${cupomCode} atualizada para o admin.`);
-}
 
         mostrarPedidoSucessoComLogo();
         // Redirect to status page with the new order ID
@@ -1081,96 +1130,96 @@ async function enviarPedidoParaPainel(pedido) {
 
 
 function montarPedido() {
-  let tipoEntrega = document.getElementById("retirada").checked ? "Retirada" : "Entrega";
+    let tipoEntrega = document.getElementById("retirada").checked ? "Retirada" : "Entrega";
 
-  let endereco = {};
-  if (tipoEntrega === "Entrega") {
-    endereco = {
-      rua: rua.value,
-      bairro: bairro.value,
-      numero: numero.value
-    };
-  }
-
-  telefone = document.getElementById('telefone').value;
-  let nomeCliente = document.getElementById('nome-cliente').value;
-  let referencia = document.getElementById('referencia').value;
-
-  let pagamento = "";
-  if (document.getElementById("pagPix").checked) pagamento = "Pix";
-  if (document.getElementById("pagCartao").checked) pagamento = "Cartão";
-  if (document.getElementById("pagDinheiro").checked) pagamento = "Dinheiro";
-
-  let dinheiroTotal = pagamento === "Dinheiro" ? document.getElementById("troco").value : null;
-
-  let observacao = observationInput.value;
-
-  // Calculate subtotal FIRST (before freight and discount)
-  let subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-  // Initialize total with subtotal
-  let totalPedido = subtotal;
-
-  // Add freight if applicable
-  if (tipoEntrega === "Entrega") {
-    totalPedido += FRETE_VALOR;
-  }
-
-  // NOW, apply coupon discount if one is active
-  if (cupomAplicado) {
-    let discountAmount = 0;
-    if (cupomAplicado.tipo === "porcentagem") {
-      discountAmount = subtotal * (cupomAplicado.valor / 100);
-    } else if (cupomAplicado.tipo === "fixo") {
-      discountAmount = cupomAplicado.valor;
+    let endereco = {};
+    if (tipoEntrega === "Entrega") {
+        endereco = {
+            rua: rua.value,
+            bairro: bairro.value,
+            numero: numero.value
+        };
     }
-    totalPedido = Math.max(0, totalPedido - discountAmount); // Ensure total doesn't go below zero
-  }
 
-  return {
-    endereco,
-    cart,
-    observacao,
-    tipoEntrega,
-    pagamento,
-    dinheiroTotal,
-    totalPedido, // This will now include the discount and freight
-    telefone,
-    nomeCliente,
-    referencia,
-    // Optionally, send coupon details if it.s applied
-    cupomAplicado: cupomAplicado ? {
-      codigo: cupomAplicado.codigo,
-      valor: cupomAplicado.valor,
-      tipo: cupomAplicado.tipo,
-      valorMinimo: cupomAplicado.valorMinimo || 0
-    } : null
-  };
+    telefone = document.getElementById('telefone').value;
+    let nomeCliente = document.getElementById('nome-cliente').value;
+    let referencia = document.getElementById('referencia').value;
+
+    let pagamento = "";
+    if (document.getElementById("pagPix").checked) pagamento = "Pix";
+    if (document.getElementById("pagCartao").checked) pagamento = "Cartão";
+    if (document.getElementById("pagDinheiro").checked) pagamento = "Dinheiro";
+
+    let dinheiroTotal = pagamento === "Dinheiro" ? document.getElementById("troco").value : null;
+
+    let observacao = observationInput.value;
+
+    // Calculate subtotal FIRST (before freight and discount)
+    let subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    // Initialize total with subtotal
+    let totalPedido = subtotal;
+
+    // Add freight if applicable
+    if (tipoEntrega === "Entrega") {
+        totalPedido += FRETE_VALOR;
+    }
+
+    // NOW, apply coupon discount if one is active
+    if (cupomAplicado) {
+        let discountAmount = 0;
+        if (cupomAplicado.tipo === "porcentagem") {
+            discountAmount = subtotal * (cupomAplicado.valor / 100);
+        } else if (cupomAplicado.tipo === "fixo") {
+            discountAmount = cupomAplicado.valor;
+        }
+        totalPedido = Math.max(0, totalPedido - discountAmount); // Ensure total doesn't go below zero
+    }
+
+    return {
+        endereco,
+        cart,
+        observacao,
+        tipoEntrega,
+        pagamento,
+        dinheiroTotal,
+        totalPedido, // This will now include the discount and freight
+        telefone,
+        nomeCliente,
+        referencia,
+        // Optionally, send coupon details if it.s applied
+        cupomAplicado: cupomAplicado ? {
+            codigo: cupomAplicado.codigo,
+            valor: cupomAplicado.valor,
+            tipo: cupomAplicado.tipo,
+            valorMinimo: cupomAplicado.valorMinimo || 0
+        } : null
+    };
 }
 
 function mostrarPedidoSucessoComLogo() {
-  Toastify({
-    text: `
-        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
-          <img src="assets/logo.png" alt="Logo" style="width: 200px; height: 200px; margin-bottom: 20px; border-radius: 10px;" />
-          <span style="font-size: 20px; font-weight: bold; color: #ffffff;">Pedido realizado com sucesso!</span>
-        </div>
-      `,
-    duration: 3000,
-    close: true,
-    gravity: "center",
-    position: "center",
-    backgroundColor: "rgba(0,0,0,0.8)",
-    stopOnFocus: true,
-    escapeMarkup: false,
-    style: {
-      borderRadius: "15px",
-      padding: "30px 20px",
-      boxShadow: "0 4px 15px rgba(0,0,0,0.5)",
-      backdropFilter: "blur(5px)",
-      width: "320px",
-    }
-  }).showToast();
+    Toastify({
+        text: `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+              <img src="assets/logo.png" alt="Logo" style="width: 200px; height: 200px; margin-bottom: 20px; border-radius: 10px;" />
+              <span style="font-size: 20px; font-weight: bold; color: #ffffff;">Pedido realizado com sucesso!</span>
+            </div>
+          `,
+        duration: 3000,
+        close: true,
+        gravity: "center",
+        position: "center",
+        backgroundColor: "rgba(0,0,0,0.8)",
+        stopOnFocus: true,
+        escapeMarkup: false,
+        style: {
+            borderRadius: "15px",
+            padding: "30px 20px",
+            boxShadow: "0 4px 15px rgba(0,0,0,0.5)",
+            backdropFilter: "blur(5px)",
+            width: "320px",
+        }
+    }).showToast();
 }
 
 const scrollContainer = document.getElementById('scroll-container');
@@ -1178,22 +1227,22 @@ const scrollIndicator = document.getElementById('scroll-indicator');
 
 // Ao clicar no indicador, rola para a direita
 scrollIndicator.addEventListener('click', () => {
-  scrollContainer.scrollBy({
-    left: 300,
-    behavior: 'smooth'
-  });
+    scrollContainer.scrollBy({
+        left: 300,
+        behavior: 'smooth'
+    });
 });
 
 // Verifica se chegou ao fim do scroll horizontal
 function checkScrollEnd() {
-  const scrollLeft = scrollContainer.scrollLeft;
-  const scrollWidth = scrollContainer.scrollWidth;
-  const clientWidth = scrollContainer.clientWidth;
+    const scrollLeft = scrollContainer.scrollLeft;
+    const scrollWidth = scrollContainer.scrollWidth;
+    const clientWidth = scrollContainer.clientWidth;
 
-  const chegouNoFim = scrollLeft + clientWidth >= scrollWidth - 10;
+    const chegouNoFim = scrollLeft + clientWidth >= scrollWidth - 10;
 
-  scrollIndicator.style.opacity = chegouNoFim ? '0' : '1';
-  scrollIndicator.style.pointerEvents = chegouNoFim ? 'none' : 'auto';
+    scrollIndicator.style.opacity = chegouNoFim ? '0' : '1';
+    scrollIndicator.style.pointerEvents = chegouNoFim ? 'none' : 'auto';
 }
 
 // Atualiza o indicador ao fazer scroll e redimensionar a tela
@@ -1205,49 +1254,49 @@ window.addEventListener('load', checkScrollEnd);
 document.addEventListener('DOMContentLoaded', checkScrollEnd);
 
 document.addEventListener("DOMContentLoaded", () => {
-  const camposOrdem = [
-    "nome-cliente",
-    "telefone",
-    "rua",
-    "bairro",
-    "numero",
-    "referencia",
-    "troco"
-  ];
+    const camposOrdem = [
+        "nome-cliente",
+        "telefone",
+        "rua",
+        "bairro",
+        "numero",
+        "referencia",
+        "troco"
+    ];
 
-  camposOrdem.forEach((campoId, index) => {
-    const campo = document.getElementById(campoId);
+    camposOrdem.forEach((campoId, index) => {
+        const campo = document.getElementById(campoId);
 
-    if (campo) {
-      campo.addEventListener("blur", () => {
-        validarCampo(campo, index, camposOrdem);
-      });
+        if (campo) {
+            campo.addEventListener("blur", () => {
+                validarCampo(campo, index, camposOrdem);
+            });
+        }
+    });
+
+    function validarCampo(campo, index, lista) {
+        const valor = campo.value.trim();
+
+        // Limpa as classes antes
+        campo.classList.remove("input-ok", "input-error");
+
+        if (valor === "") {
+            campo.classList.add("input-error");
+        } else {
+            campo.classList.add("input-ok");
+
+            // Pula para o próximo campo automaticamente
+            const proximoId = lista[index + 1];
+            const proximoCampo = document.getElementById(proximoId);
+            if (proximoCampo) {
+                proximoCampo.focus();
+            }
+        }
     }
-  });
-
-  function validarCampo(campo, index, lista) {
-    const valor = campo.value.trim();
-
-    // Limpa as classes antes
-    campo.classList.remove("input-ok", "input-error");
-
-    if (valor === "") {
-      campo.classList.add("input-error");
-    } else {
-      campo.classList.add("input-ok");
-
-      // Pula para o próximo campo automaticamente
-      const proximoId = lista[index + 1];
-      const proximoCampo = document.getElementById(proximoId);
-      if (proximoCampo) {
-        proximoCampo.focus();
-      }
-    }
-  }
 });
 
 function gerarIdAleatorio() {
-  return 'cliente-' + Math.random().toString(36).substring(2, 12);
+    return 'cliente-' + Math.random().toString(36).substring(2, 12);
 }
 
 const scrollbar = document.getElementById('scrollbar')
@@ -1257,18 +1306,18 @@ const scrollbar = document.getElementById('scrollbar')
 // sidebar
 
 menuButton.addEventListener('click', () => {
-  sidebar.classList.remove('-translate-x-full');
-  overlay.classList.remove('hidden');
+    sidebar.classList.remove('-translate-x-full');
+    overlay.classList.remove('hidden');
 });
 
 overlay.addEventListener('click', () => {
-  sidebar.classList.add('-translate-x-full');
-  overlay.classList.add('hidden');
+    sidebar.classList.add('-translate-x-full');
+    overlay.classList.add('hidden');
 });
 
 document.getElementById('close-sidebar-button').addEventListener('click', () => {
-  sidebar.classList.add('-translate-x-full');
-  overlay.classList.add('hidden');
+    sidebar.classList.add('-translate-x-full');
+    overlay.classList.add('hidden');
 });
 
 
@@ -1276,9 +1325,9 @@ document.getElementById('close-sidebar-button').addEventListener('click', () => 
 
 // cupom maiúsculo
 if (cupomInput) {
-  cupomInput.addEventListener('input', function() {
-    this.value = this.value.toUpperCase();
-  });
+    cupomInput.addEventListener('input', function() {
+        this.value = this.value.toUpperCase();
+    });
 }
 
 applycupom.addEventListener('click', () => {
@@ -1554,4 +1603,135 @@ function preencherCamposComCEP(data) {
 
     // Move o foco para o campo "Número"
     numero.focus();
+}
+
+
+// --- NOVA FUNÇÃO: deduzirEstoqueDoItem ---
+/**
+ * Deduz os ingredientes do estoque para um único item do carrinho.
+ * @param {object} item - O objeto do item do carrinho (deve incluir originalProductId, productCategory, pizzaSize, quantity).
+ */
+async function deduzirEstoqueDoItem(item) {
+    console.log('----------------------------------------------------');
+    console.log('Iniciando dedução de estoque para item:', item);
+
+    if (!item.originalProductId || !item.productCategory) {
+        console.warn(`Item "${item.name}" não tem ID ou categoria para dedução de estoque. Pulando.`);
+        return;
+    }
+
+    let receitaParaDeduzir = {};
+
+    try {
+        if (item.productCategory === 'pizzas' && item.pizzaSize) {
+            if (item.halfProductId && item.halfProductId !== item.originalProductId) {
+                // É uma pizza meia a meia!
+                console.log('Detectada pizza meia a meia. Combinando receitas...');
+                receitaParaDeduzir = await combinarReceitasMeiaMeia(
+                    item.originalProductId,
+                    item.productCategory,
+                    item.pizzaSize,
+                    item.halfProductId,
+                    item.halfProductCategory
+                );
+            } else {
+                // É uma pizza de um sabor só
+                console.log('Detectada pizza de sabor único.');
+                const produtoSnapshot = await produtosRef.child(item.productCategory).child(item.originalProductId).once('value');
+                const produtoData = produtoSnapshot.val();
+                if (produtoData && produtoData.receita && produtoData.receita[item.pizzaSize]) {
+                    receitaParaDeduzir = produtoData.receita[item.pizzaSize];
+                } else {
+                    console.warn(`Receita para pizza única "${item.name}" (${item.pizzaSize}) não encontrada.`);
+                }
+            }
+        } else {
+            // Não é pizza (bebida, esfirra, etc.)
+            console.log('Detectado item não-pizza.');
+            const produtoSnapshot = await produtosRef.child(item.productCategory).child(item.originalProductId).once('value');
+            const produtoData = produtoSnapshot.val();
+            if (produtoData && produtoData.receita) {
+                receitaParaDeduzir = produtoData.receita;
+            } else {
+                console.warn(`Receita para produto "${item.name}" não-pizza não encontrada.`);
+            }
+        }
+
+        if (!receitaParaDeduzir || Object.keys(receitaParaDeduzir).length === 0) {
+            console.warn(`Receita final para o produto "${item.name}" está vazia. Nenhuma dedução será feita.`);
+            return;
+        }
+
+        const now = firebase.database.ServerValue.TIMESTAMP;
+
+        for (const ingredienteId in receitaParaDeduzir) {
+            const quantidadeReceitaPorUnidade = receitaParaDeduzir[ingredienteId];
+            const quantidadeTotalDedução = quantidadeReceitaPorUnidade * item.quantity; // Multiplica pela quantidade do item no carrinho
+            const ingredienteAtualRef = ingredientesRef.child(ingredienteId);
+
+            await ingredienteAtualRef.transaction(currentData => {
+                if (currentData) {
+                    const oldQuantity = currentData.quantidadeAtual || 0;
+                    const oldCostUnitarioMedio = currentData.custoUnitarioMedio || 0;
+                    const oldQtdUsadaDiaria = currentData.quantidadeUsadaDiaria || 0;
+                    const oldCustoUsadaDiaria = currentData.custoUsadaDiaria || 0;
+                    const oldQtdUsadaMensal = currentData.quantidadeUsadaMensal || 0;
+                    const oldCustoUsadoMensal = currentData.custoUsadoMensal || 0;
+
+                    const custoDesteUso = quantidadeTotalDedução * oldCostUnitarioMedio;
+
+                    currentData.quantidadeAtual = Math.max(0, oldQuantity - quantidadeTotalDedução);
+                    currentData.quantidadeUsadaDiaria = oldQtdUsadaDiaria + quantidadeTotalDedução;
+                    currentData.custoUsadaDiaria = oldCustoUsadaDiaria + custoDesteUso;
+                    currentData.quantidadeUsadaMensal = oldQtdUsadaMensal + quantidadeTotalDedução;
+                    currentData.custoUsadoMensal = oldCustoUsadoMensal + custoDesteUso;
+                    currentData.ultimaAtualizacaoConsumo = now;
+
+                    return currentData;
+                }
+                return currentData;
+            });
+        }
+        console.log(`Estoque deduzido para item do pedido: "${item.name}"`);
+
+    } catch (error) {
+        console.error(`Erro ao deduzir estoque para o item "${item.name}":`, error);
+    }
+    console.log('----------------------------------------------------');
+}
+
+async function combinarReceitasMeiaMeia(productId1, category1, size, productId2, category2) {
+    let receitaCombinada = {};
+
+    // Pega a receita do primeiro sabor
+    const produto1Snapshot = await produtosRef.child(category1).child(productId1).once('value');
+    const produto1Data = produto1Snapshot.val();
+    let receita1 = {};
+    if (produto1Data && produto1Data.receita && produto1Data.receita[size]) {
+        receita1 = produto1Data.receita[size];
+    } else {
+        console.warn(`Receita para o lado 1 (${productId1}, ${size}) não encontrada.`);
+    }
+
+    // Pega a receita do segundo sabor
+    const produto2Snapshot = await produtosRef.child(category2).child(productId2).once('value');
+    const produto2Data = produto2Snapshot.val();
+    let receita2 = {};
+    if (produto2Data && produto2Data.receita && produto2Data.receita[size]) {
+        receita2 = produto2Data.receita[size];
+    } else {
+        console.warn(`Receita para o lado 2 (${productId2}, ${size}) não encontrada.`);
+    }
+
+    // Combina as receitas (somando e dividindo por 2)
+    const allIngredientIds = new Set([...Object.keys(receita1), ...Object.keys(receita2)]);
+
+    allIngredientIds.forEach(ingredienteId => {
+        const qtd1 = receita1[ingredienteId] || 0;
+        const qtd2 = receita2[ingredienteId] || 0;
+        // Metade da receita de cada lado
+        receitaCombinada[ingredienteId] = (qtd1 + qtd2) / 2;
+    });
+
+    return receitaCombinada;
 }
