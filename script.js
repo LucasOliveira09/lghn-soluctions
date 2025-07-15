@@ -362,6 +362,18 @@ function addToCart(name, price, productId, productCategory) { // ATUALIZA A ASSI
         });
     }
     updateCartModal();
+    
+    Toastify({
+    text: "Item adicionado ao carrinho!",
+    duration: 3000,
+    close: true,
+    gravity: "top",
+    position: "right",
+    stopOnFocus: true,
+    style: {
+      background: "#22c55e",
+    },
+  }).showToast();
 }
 
 
