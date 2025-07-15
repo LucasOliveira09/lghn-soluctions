@@ -15,11 +15,16 @@ firebase.initializeApp(firebaseConfig);
 // --- VERIFICA SE TÁ LOGADO ---
 const auth = firebase.auth();
 
+
+
+
+
 auth.onAuthStateChanged(user => {
     if (user) {
         // Usuário está logado, permite que o painel seja carregado.
         console.log("Usuário autenticado:", user.email);
         document.body.style.display = 'flex'; // Mostra o corpo da página
+        console.log(user)
     } else {
         // Usuário não está logado, redireciona para a página de login.
         // Usar .replace() para que o usuário não possa voltar para o painel com o botão "voltar" do navegador.
