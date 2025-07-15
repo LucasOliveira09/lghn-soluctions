@@ -1095,12 +1095,11 @@ async function enviarPedidoParaPainel(pedido) {
         await pedidosRef.child(novoId).set(pedido);
         console.log('Pedido enviado com sucesso!', novoId);
 
-        // --- NOVO CÓDIGO AQUI: DEDUÇÃO DE ESTOQUE ---
-        // Itera sobre os itens do carrinho para deduzir os ingredientes do estoque
-        for (const item of pedido.cart) { // 'pedido.cart' contém os itens do carrinho
+        // --- DEDUÇÃO DE ESTOQUE ---
+        for (const item of pedido.cart) {
             await deduzirEstoqueDoItem(item);
         }
-        // --- FIM DO NOVO CÓDIGO ---
+        // --- FIM DA DEDUÇÃO DE ESTOQUE ---
 
         const phoneNumber = telefoneInput.value;
         localStorage.setItem('clienteId', phoneNumber);
@@ -1109,6 +1108,10 @@ async function enviarPedidoParaPainel(pedido) {
         if (cupomAplicado) {
             const cupomCode = cupomAplicado.codigo;
             const cupomAdminUsageRef = database.ref(`cupons/${cupomCode}`);
+
+            // --- START MODIFICATION FOR COUPON USAGE TRACKING ---
+
+            // 1. Increment global coupon usage count (for admin view)
             await cupomAdminUsageRef.transaction((currentUsage) => {
                 if (currentUsage === null) {
                     return { usos: 1, lastUsed: Date.now() };
@@ -1119,10 +1122,22 @@ async function enviarPedidoParaPainel(pedido) {
                 }
             });
             console.log(`Contagem de uso do cupom ${cupomCode} atualizada para o admin.`);
+
+            // 2. Mark this coupon as used by this specific customer
+            // Use the cleaned phone number as the customer ID for tracking coupon usage
+            const clienteIdLimpo = phoneNumber.replace(/\D/g, '');
+            const cupomClienteUsageRef = database.ref(`cupons_usados/${clienteIdLimpo}/${cupomCode}`);
+            await cupomClienteUsageRef.set({
+                // Store minimal info, just to mark it as used
+                usedAt: firebase.database.ServerValue.TIMESTAMP,
+                orderId: novoId
+            });
+            console.log(`Cupom ${cupomCode} marcado como usado pelo cliente ${clienteIdLimpo}.`);
+
+            // --- END MODIFICATION FOR COUPON USAGE TRACKING ---
         }
 
         mostrarPedidoSucessoComLogo();
-        // Redirect to status page with the new order ID
         window.location.href = `status.html?pedidoId=${novoId}`;
 
     } catch (error) {
@@ -1139,6 +1154,7 @@ async function enviarPedidoParaPainel(pedido) {
         }).showToast();
     }
 }
+
 
 
 function montarPedido() {
