@@ -361,8 +361,7 @@ function addToCart(name, price, productId, productCategory) { // ATUALIZA A ASSI
             productCategory: productCategory
         });
     }
-
-    updateCartModal()
+    updateCartModal();
 }
 
 
