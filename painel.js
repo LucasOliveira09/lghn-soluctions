@@ -57,6 +57,8 @@ let currentMesaPaymentsHistory = [];
 let pedidoEmEdicao = null;
 let pedidoOriginal = null;
 
+let menuLink = '';
+
 
 // --- LISTENERS GLOBAIS DO FIREBASE lghn--
 
@@ -354,6 +356,16 @@ document.addEventListener('DOMContentLoaded', () => {
         emptyPaymentsMessage: document.getElementById('empty-payments-message'),
         btnCancelarPedidoMesa: document.getElementById('btn-cancelar-pedido-mesa'),
         btnFinalizarContaMesa: document.getElementById('btn-finalizar-conta-mesa'),
+
+        diasInatividadeInput: document.getElementById('dias-inatividade'),
+        btnVerificarInativos: document.getElementById('btn-verificar-inativos'),
+        clientesInativosContainer: document.getElementById('clientes-inativos-container'),
+
+        // New DOM elements for Menu Link Modal
+        modalMenuLink: document.getElementById('modal-menu-link'),
+        btnAbrirModalMenuLink: document.getElementById('btn-abrir-modal-menu-link'),
+        menuLinkInput: document.getElementById('menu-link-input'),
+        btnSalvarMenuLink: document.getElementById('btn-salvar-menu-link'),
     });
 
     // --- Event Listeners para a Sidebar ---
@@ -618,6 +630,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (DOM.btnSalvarNovoItem) {
         DOM.btnSalvarNovoItem.addEventListener("click", handleSalvarNovoItem);
     }
+
+    DOM.btnVerificarInativos.addEventListener('click', verificarClientesInativos);
+    DOM.btnAbrirModalMenuLink.addEventListener('click', abrirModalMenuLink);
+    DOM.modalMenuLink.querySelector('.close-modal').addEventListener('click', fecharModalMenuLink);
+    DOM.btnSalvarMenuLink.addEventListener('click', salvarMenuLink);
+
 
     document.addEventListener('input', (event) => {
         if (event.target.classList.contains('uppercase-input')) {
@@ -3688,4 +3706,283 @@ function carregarGarcom(snapshot) {
             }
         });
     });
+}
+
+
+// SEÇÂO CLIENTES INATIVOS lghn ------------------------------------------------------------------------------------------------
+
+database.ref('config/menuLink').on('value', (snapshot) => {
+    menuLink = snapshot.val() || '';
+    if (DOM.menuLinkInput) {
+        DOM.menuLinkInput.value = menuLink;
+    }
+    console.log("Link do cardápio atualizado:", menuLink);
+});
+
+async function verificarClientesInativos() {
+    DOM.clientesInativosContainer.innerHTML = '<p class="text-gray-600">Buscando pedidos...</p>';
+    const diasInatividade = parseInt(DOM.diasInatividadeInput.value, 10);
+
+    if (isNaN(diasInatividade) || diasInatividade <= 0) {
+        alert('Por favor, insira um número válido de dias para inatividade (maior que zero).');
+        DOM.clientesInativosContainer.innerHTML = '<p class="text-red-600">Erro: Número de dias inválido.</p>';
+        return;
+    }
+
+    try {
+        const snapshot = await pedidosRef.orderByChild('timestamp').once('value');
+        const pedidos = snapshot.val();
+
+        if (!pedidos) {
+            DOM.clientesInativosContainer.innerHTML = '<p class="text-gray-600">Nenhum pedido encontrado no sistema.</p>';
+            return;
+        }
+
+        const clientesLastOrder = {}; // { telefone: lastOrderTimestamp, ... }
+        const clientesInfo = {}; // { telefone: { nome: '...', email: '...' }, ... }
+
+        Object.values(pedidos).forEach(pedido => {
+            if (pedido.status === 'Finalizado' && pedido.telefone) {
+                const telefoneLimpo = pedido.telefone.replace(/\D/g, ''); // Clean phone number
+                const timestamp = pedido.timestamp;
+
+                if (!clientesLastOrder[telefoneLimpo] || timestamp > clientesLastOrder[telefoneLimpo]) {
+                    clientesLastOrder[telefoneLimpo] = timestamp;
+                    clientesInfo[telefoneLimpo] = {
+                        nome: pedido.nomeCliente || 'Cliente Desconhecido',
+                        telefone: pedido.telefone // Keep original format for display/messaging
+                    };
+                }
+            }
+        });
+
+        const now = Date.now();
+        const cutoffTimestamp = now - (diasInatividade * 24 * 60 * 60 * 1000); // 15 days ago in milliseconds
+
+        const inactiveCustomers = Object.entries(clientesLastOrder)
+            .filter(([telefone, lastOrderTimestamp]) => lastOrderTimestamp < cutoffTimestamp)
+            .map(([telefone, lastOrderTimestamp]) => ({
+                telefone: clientesInfo[telefone].telefone, // Use the original formatted phone
+                nome: clientesInfo[telefone].nome,
+                lastOrder: new Date(lastOrderTimestamp).toLocaleDateString('pt-BR')
+            }))
+            .sort((a, b) => new Date(a.lastOrder).getTime() - new Date(b.lastOrder).getTime()); // Sort by oldest last order first
+
+        renderInactiveCustomers(inactiveCustomers);
+
+    } catch (error) {
+        console.error("Erro ao verificar clientes inativos:", error);
+        DOM.clientesInativosContainer.innerHTML = `<p class="text-red-600">Erro ao carregar dados dos clientes: ${error.message}</p>`;
+    }
+}
+
+function renderInactiveCustomers(customers) {
+    DOM.clientesInativosContainer.innerHTML = '';
+
+    if (customers.length === 0) {
+        DOM.clientesInativosContainer.innerHTML = '<p class="text-gray-600">Nenhum cliente inativo encontrado com os critérios atuais.</p>';
+        return;
+    }
+
+    const title = document.createElement('h4');
+    title.className = 'text-md font-semibold mb-3';
+    title.textContent = `Clientes inativos (${customers.length} encontrados):`;
+    DOM.clientesInativosContainer.appendChild(title);
+
+    const list = document.createElement('ul');
+    list.className = 'space-y-3';
+
+    customers.forEach(customer => {
+        const listItem = document.createElement('li');
+        listItem.className = 'flex items-center justify-between bg-gray-50 p-3 rounded-md border border-gray-200';
+        listItem.innerHTML = `
+            <div>
+                <p class="font-medium text-gray-800">${customer.nome}</p>
+                <p class="text-sm text-gray-600">Telefone: ${customer.telefone}</p>
+                <p class="text-sm text-gray-600">Último pedido: ${customer.lastOrder}</p>
+            </div>
+            <button class="btn-send-inactive-message bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 transition duration-200 text-sm" data-phone="${customer.telefone}" data-name="${customer.nome}">
+                Enviar Mensagem
+            </button>
+        `;
+        list.appendChild(listItem);
+    });
+    DOM.clientesInativosContainer.appendChild(list);
+
+    DOM.clientesInativosContainer.querySelectorAll('.btn-send-inactive-message').forEach(button => {
+        button.addEventListener('click', sendInactiveCustomerMessage);
+    });
+}
+
+function sendInactiveCustomerMessage(event) {
+    const phone = event.target.dataset.phone;
+    const name = event.target.dataset.name;
+
+    const cleanedPhone = phone.replace(/\D/g, ''); // Remove non-digits for WhatsApp URL
+
+    const defaultMessage = `Olá ${name}! 👋 Notamos que você não faz um pedido conosco há um tempo. Sentimos sua falta! Que tal dar uma olhada no nosso cardápio atualizado e matar a saudade dos seus sabores favoritos? Estamos esperando você! 😊 [Seu link do cardápio aqui]`;
+
+    const message = prompt("Edite a mensagem antes de enviar:", defaultMessage);
+
+    if (message) {
+        window.open(`https://api.whatsapp.com/send?phone=${cleanedPhone}&text=${encodeURIComponent(message)}`, '_blank');
+    }
+}
+
+// --- SEÇÃO: CONFIGURAÇÕES GERAIS - GERENCIAMENTO DE CLIENTES INATIVOS ---
+async function verificarClientesInativos() {
+    DOM.clientesInativosContainer.innerHTML = '<p class="text-gray-600">Buscando pedidos...</p>';
+    const diasInatividade = parseInt(DOM.diasInatividadeInput.value, 10);
+
+    // Get the current date and time in Brazil timezone
+    const nowInBrazil = new Date(); // This will be in the local timezone of the server/browser
+    const offset = nowInBrazil.getTimezoneOffset() + (3 * 60); // Difference to BRT (UTC-3) in minutes
+    const nowAdjusted = new Date(nowInBrazil.getTime() - (offset * 60 * 1000));
+
+    // Set cutoff timestamp to the beginning of the day 'diasInatividade' days ago
+    const cutoffDate = new Date(nowAdjusted);
+    cutoffDate.setDate(nowAdjusted.getDate() - diasInatividade);
+    cutoffDate.setHours(0, 0, 0, 0); // Start of the day
+    const cutoffTimestamp = cutoffDate.getTime();
+
+
+    if (isNaN(diasInatividade) || diasInatividade <= 0) {
+        alert('Por favor, insira um número válido de dias para inatividade (maior que zero).');
+        DOM.clientesInativosContainer.innerHTML = '<p class="text-red-600">Erro: Número de dias inválido.</p>';
+        return;
+    }
+
+    try {
+        const snapshot = await pedidosRef.orderByChild('timestamp').once('value');
+        const pedidos = snapshot.val();
+
+        if (!pedidos) {
+            DOM.clientesInativosContainer.innerHTML = '<p class="text-gray-600">Nenhum pedido encontrado no sistema.</p>';
+            return;
+        }
+
+        const clientesLastOrder = {}; // { telefone: lastOrderTimestamp, ... }
+        const clientesInfo = {}; // { telefone: { nome: '...', originalPhone: '...' }, ... }
+
+        Object.values(pedidos).forEach(pedido => {
+            if (pedido.status === 'Finalizado' && pedido.telefone) {
+                const telefoneLimpo = pedido.telefone.replace(/\D/g, ''); // Clean phone number
+                const timestamp = pedido.timestamp;
+
+                if (!clientesLastOrder[telefoneLimpo] || timestamp > clientesLastOrder[telefoneLimpo]) {
+                    clientesLastOrder[telefoneLimpo] = timestamp;
+                    clientesInfo[telefoneLimpo] = {
+                        nome: pedido.nomeCliente || 'Cliente Desconhecido',
+                        originalPhone: pedido.telefone // Keep original format for display/messaging
+                    };
+                }
+            }
+        });
+
+        const inactiveCustomers = Object.entries(clientesLastOrder)
+            .filter(([telefone, lastOrderTimestamp]) => lastOrderTimestamp < cutoffTimestamp)
+            .map(([telefone, lastOrderTimestamp]) => ({
+                telefone: clientesInfo[telefone].originalPhone, // Use the original formatted phone
+                nome: clientesInfo[telefone].nome,
+                lastOrder: new Date(lastOrderTimestamp).toLocaleDateString('pt-BR')
+            }))
+            .sort((a, b) => new Date(a.lastOrder).getTime() - new Date(b.lastOrder).getTime()); // Sort by oldest last order first
+
+        renderInactiveCustomers(inactiveCustomers);
+
+    } catch (error) {
+        console.error("Erro ao verificar clientes inativos:", error);
+        DOM.clientesInativosContainer.innerHTML = `<p class="text-red-600">Erro ao carregar dados dos clientes: ${error.message}</p>`;
+    }
+}
+
+function renderInactiveCustomers(customers) {
+    DOM.clientesInativosContainer.innerHTML = '';
+
+    if (customers.length === 0) {
+        DOM.clientesInativosContainer.innerHTML = '<p class="text-gray-600">Nenhum cliente inativo encontrado com os critérios atuais.</p>';
+        return;
+    }
+
+    const title = document.createElement('h4');
+    title.className = 'text-md font-semibold mb-3';
+    title.textContent = `Clientes inativos (${customers.length} encontrados):`;
+    DOM.clientesInativosContainer.appendChild(title);
+
+    const list = document.createElement('ul');
+    list.className = 'space-y-3';
+
+    customers.forEach(customer => {
+        const listItem = document.createElement('li');
+        listItem.className = 'flex items-center justify-between bg-gray-50 p-3 rounded-md border border-gray-200';
+        listItem.innerHTML = `
+            <div>
+                <p class="font-medium text-gray-800">${customer.nome}</p>
+                <p class="text-sm text-gray-600">Telefone: ${customer.telefone}</p>
+                <p class="text-sm text-gray-600">Último pedido: ${customer.lastOrder}</p>
+            </div>
+            <button class="btn-send-inactive-message bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 transition duration-200 text-sm" data-phone="${customer.telefone}" data-name="${customer.nome}">
+                Enviar Mensagem
+            </button>
+        `;
+        list.appendChild(listItem);
+    });
+    DOM.clientesInativosContainer.appendChild(list);
+
+    DOM.clientesInativosContainer.querySelectorAll('.btn-send-inactive-message').forEach(button => {
+        const newButton = button.cloneNode(true); // Clone to remove existing listeners
+        button.parentNode.replaceChild(newButton, button);
+        newButton.addEventListener('click', sendInactiveCustomerMessage);
+    });
+}
+
+function sendInactiveCustomerMessage(event) {
+    const phone = event.target.dataset.phone;
+    const name = event.target.dataset.name;
+
+    const cleanedPhone = phone.replace(/\D/g, ''); // Remove non-digits for WhatsApp URL
+
+    const dynamicMenuLink = menuLink ? `\n\nConfira nosso cardápio: ${menuLink}` : '';
+    const defaultMessage = `Olá ${name}! 👋 Notamos que você não faz um pedido conosco há um tempo. Sentimos sua falta! Que tal dar uma olhada no nosso cardápio atualizado e matar a saudade dos seus pratos favoritos? Estamos esperando você! 😊${dynamicMenuLink}`;
+
+    const message = prompt("Edite a mensagem antes de enviar:", defaultMessage);
+
+    if (message) {
+        window.open(`https://api.whatsapp.com/send?phone=${cleanedPhone}&text=${encodeURIComponent(message)}`, '_blank');
+    }
+}
+
+// --- New Functions for Menu Link Modal ---
+function abrirModalMenuLink() {
+    DOM.menuLinkInput.value = menuLink; // Populate input with current saved link
+    DOM.modalMenuLink.classList.remove('hidden');
+    DOM.modalMenuLink.classList.add('flex');
+}
+
+function fecharModalMenuLink() {
+    DOM.modalMenuLink.classList.add('hidden');
+    DOM.modalMenuLink.classList.remove('flex');
+}
+
+async function salvarMenuLink() {
+    const newMenuLink = DOM.menuLinkInput.value.trim();
+
+    if (!newMenuLink) {
+        alert('Por favor, insira um link para o cardápio.');
+        return;
+    }
+    if (!newMenuLink.startsWith('http://') && !newMenuLink.startsWith('https://')) {
+        alert('O link deve começar com "http://" ou "https://".');
+        return;
+    }
+
+    try {
+        await database.ref('config/menuLink').set(newMenuLink);
+        menuLink = newMenuLink; // Update global variable
+        alert('Link do cardápio salvo com sucesso!');
+        fecharModalMenuLink();
+    } catch (error) {
+        console.error('Erro ao salvar link do cardápio:', error);
+        alert('Erro ao salvar link do cardápio: ' + error.message);
+    }
 }
