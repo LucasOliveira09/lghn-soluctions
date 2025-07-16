@@ -175,23 +175,6 @@ document.addEventListener("DOMContentLoaded", () => {
             phoneError.classList.remove('hidden'); // Mostra mensagem de erro
         }
     });
-
-    // Event listener para o botão de FILTRAR
-    filterBtn.addEventListener('click', () => {
-        // Apenas chama a função que criamos
-        aplicarFiltroHistorico(); 
-    });
-
-    // Event listener para o botão de LIMPAR FILTRO
-    clearFilterBtn.addEventListener('click', () => {
-        // Limpa os campos de data
-        startDateInput.value = '';
-        endDateInput.value = '';
-        
-        // Renderiza novamente a lista completa e original de pedidos
-        renderizarHistorico(userOrderHistory); 
-        console.log("[Filtro] Filtro limpo. Exibindo histórico completo.");
-    });
 });
 
 // Carrega e monitora o status do pedido atual em tempo real
@@ -288,59 +271,6 @@ function renderizarHistorico(pedidos) {
         `;
         historyContainer.appendChild(pedidoElement); // Adiciona o elemento ao container
     });
-}
-
-function aplicarFiltroHistorico() {
-    const dataInicioStr = startDateInput.value;
-    const dataFimStr = endDateInput.value;
-
-    if (!dataInicioStr && !dataFimStr) {
-        alert("Por favor, selecione pelo menos uma data para iniciar o filtro.");
-        return;
-    }
-
-    let dataInicioTimestamp = null;
-    let dataFimTimestamp = null;
-
-    // Converte a data de início para timestamp, considerando o início do dia no seu fuso horário local
-    if (dataInicioStr) {
-        const parts = dataInicioStr.split('-');
-        const date = new Date(parts[0], parts[1] - 1, parts[2]); 
-        date.setHours(0, 0, 0, 0); // Define a hora para 00:00:00 do dia selecionado
-        dataInicioTimestamp = date.getTime();
-    }
-
-    // Faz o mesmo para a data de fim, considerando o final do dia
-    if (dataFimStr) {
-        const parts = dataFimStr.split('-');
-        const date = new Date(parts[0], parts[1] - 1, parts[2]);
-        date.setHours(23, 59, 59, 999); // Define a hora para 23:59:59 do dia selecionado
-        dataFimTimestamp = date.getTime();
-    }
-
-    console.log(`[Filtro] Filtrando com Timestamps: Início=${dataInicioTimestamp}, Fim=${dataFimTimestamp}`);
-
-    const pedidosFiltrados = userOrderHistory.filter(pedido => {
-        const ts = pedido.timestamp;
-        if (!ts) return false;
-
-        // Se a data de início foi definida, o pedido deve ser DEPOIS dela. Senão, passa direto.
-        const depoisDaDataDeInicio = dataInicioTimestamp ? ts >= dataInicioTimestamp : true;
-
-        // Se a data de fim foi definida, o pedido deve ser ANTES dela. Senão, passa direto.
-        const antesDaDataDeFim = dataFimTimestamp ? ts <= dataFimTimestamp : true;
-
-        // O pedido só é incluído se atender às duas condições (ou a uma, se a outra não foi definida)
-        return depoisDaDataDeInicio && antesDaDataDeFim;
-    });
-
-    console.log("[Filtro] Pedidos encontrados no período:", pedidosFiltrados);
-
-    if (pedidosFiltrados.length === 0) {
-        historyContainer.innerHTML = '<p class="text-gray-400">Nenhum pedido encontrado no período selecionado.</p>';
-    } else {
-        renderizarHistorico(pedidosFiltrados);
-    }
 }
 
 // --- FUNÇÕES AUXILIARES DE VISUALIZAÇÃO ---
