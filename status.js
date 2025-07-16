@@ -75,6 +75,12 @@ const phoneInput = document.getElementById('phone-input');
 const submitPhoneBtn = document.getElementById('submit-phone');
 const phoneError = document.getElementById('phone-error');
 const entregaStatusText = document.getElementById('entrega-status-text'); // Novo elemento para texto dinâmico
+// Filtro
+const filterBtn = document.getElementById('filter-history-btn');
+const clearFilterBtn = document.getElementById('clear-filter-btn');
+const startDateInput = document.getElementById('history-start-date');
+const endDateInput = document.getElementById('history-end-date');
+let userOrderHistory = [];
 
 // Elementos da Sidebar
 const menuButton = document.getElementById('menu-button');
@@ -169,6 +175,23 @@ document.addEventListener("DOMContentLoaded", () => {
             phoneError.classList.remove('hidden'); // Mostra mensagem de erro
         }
     });
+
+    // Event listener para o botão de FILTRAR
+    filterBtn.addEventListener('click', () => {
+        // Apenas chama a função que criamos
+        aplicarFiltroHistorico(); 
+    });
+
+    // Event listener para o botão de LIMPAR FILTRO
+    clearFilterBtn.addEventListener('click', () => {
+        // Limpa os campos de data
+        startDateInput.value = '';
+        endDateInput.value = '';
+        
+        // Renderiza novamente a lista completa e original de pedidos
+        renderizarHistorico(userOrderHistory); 
+        console.log("[Filtro] Filtro limpo. Exibindo histórico completo.");
+    });
 });
 
 // Carrega e monitora o status do pedido atual em tempo real
@@ -197,14 +220,12 @@ function carregarStatusPedido(pedidoId) {
 // Carrega todos os pedidos do banco de dados e filtra localmente
 function carregarHistorico(clienteId, currentPedidoId) {
     console.log(`[Histórico] Carregando TODOS os pedidos do banco para filtrar histórico para cliente ID: ${clienteId}`);
-    // Busca TODOS os pedidos do nó 'pedidos'
     const pedidosRef = database.ref('pedidos');
 
     pedidosRef.once('value', (snapshot) => {
-        historyLoading.style.display = 'none'; // Esconde a mensagem de carregamento
+        historyLoading.style.display = 'none'; 
 
         if (!snapshot.exists()) {
-            console.log("[Histórico] Nenhum pedido encontrado no banco de dados.");
             historyContainer.innerHTML = '<p class="text-gray-400">Você ainda não tem pedidos anteriores.</p>';
             return;
         }
@@ -212,26 +233,24 @@ function carregarHistorico(clienteId, currentPedidoId) {
         const todosPedidos = [];
         snapshot.forEach(childSnapshot => {
             const pedido = childSnapshot.val();
-            // Verifica se o pedido tem um 'telefone' e se ele corresponde ao clienteId atual
-            // A propriedade 'telefone' no seu objeto de pedido é usada como 'clienteId'
             if (pedido.telefone === clienteId) { 
-                // Não adiciona o pedido atual à lista de histórico para evitar duplicidade
                 if(childSnapshot.key !== currentPedidoId) {
                     todosPedidos.push({ id: childSnapshot.key, ...pedido });
                 }
             }
         });
-        console.log("[Histórico] Pedidos históricos filtrados localmente:", todosPedidos);
+        
+        // Armazena os pedidos na variável global
+        userOrderHistory = todosPedidos.sort((a, b) => b.timestamp - a.timestamp);
+        console.log("[Histórico] Pedidos históricos armazenados:", userOrderHistory);
 
-        // Ordena para mostrar os mais recentes primeiro (do maior timestamp para o menor)
-        todosPedidos.sort((a, b) => b.timestamp - a.timestamp);
-
-        if (todosPedidos.length === 0) {
+        if (userOrderHistory.length === 0) {
             historyContainer.innerHTML = '<p class="text-gray-400">Nenhum outro pedido encontrado no histórico.</p>';
             return;
         }
         
-        renderizarHistorico(todosPedidos); // Renderiza os pedidos no histórico
+        // Renderiza o histórico completo inicialmente
+        renderizarHistorico(userOrderHistory); 
     }, (error) => {
         console.error("[Histórico] Erro ao carregar todos os pedidos para histórico:", error);
         historyLoading.textContent = 'Erro ao carregar seu histórico de pedidos.';
@@ -269,6 +288,46 @@ function renderizarHistorico(pedidos) {
         `;
         historyContainer.appendChild(pedidoElement); // Adiciona o elemento ao container
     });
+}
+
+function aplicarFiltroHistorico() {
+    // Pega as datas dos inputs
+    const dataInicioStr = startDateInput.value;
+    const dataFimStr = endDateInput.value;
+
+    if (!dataInicioStr || !dataFimStr) {
+        alert("Por favor, selecione a data de início e a data de fim para filtrar.");
+        return;
+    }
+
+    // Converte as strings de data para Timestamps, ajustando a hora para o dia completo
+    // Igual ao painel.js, para garantir que o dia inteiro seja incluído
+    const dataInicioTimestamp = new Date(dataInicioStr).setHours(0, 0, 0, 0);
+    const dataFimTimestamp = new Date(dataFimStr).setHours(23, 59, 59, 999);
+
+    if (dataInicioTimestamp > dataFimTimestamp) {
+        alert("A data de início não pode ser depois da data de fim.");
+        return;
+    }
+
+    console.log(`[Filtro] Filtrando de ${new Date(dataInicioTimestamp)} até ${new Date(dataFimTimestamp)}`);
+
+    // Usa a lista global 'userOrderHistory' para filtrar
+    const pedidosFiltrados = userOrderHistory.filter(pedido => {
+        if (!pedido.timestamp) return false;
+        
+        const ts = pedido.timestamp;
+        return ts >= dataInicioTimestamp && ts <= dataFimTimestamp;
+    });
+
+    console.log("[Filtro] Pedidos encontrados no período:", pedidosFiltrados);
+
+    if (pedidosFiltrados.length === 0) {
+        historyContainer.innerHTML = '<p class="text-gray-400">Nenhum pedido encontrado no período selecionado.</p>';
+    } else {
+        // Re-renderiza o histórico apenas com os pedidos filtrados
+        renderizarHistorico(pedidosFiltrados);
+    }
 }
 
 // --- FUNÇÕES AUXILIARES DE VISUALIZAÇÃO ---
@@ -413,3 +472,4 @@ function getStatusColor(status) {
         default: return 'bg-gray-500 text-white';
     }
 }
+
