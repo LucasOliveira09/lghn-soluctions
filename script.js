@@ -1002,6 +1002,19 @@ document.getElementById('confirm-pizza').addEventListener('click', () => {
 
     cart.push(item);
     updateCartModal(); // Atualiza o modal do carrinho
+
+    Toastify({
+        text: "Item adicionado ao carrinho!",
+        duration: 3000,
+        close: true,
+        gravity: "top",
+        position: "right",
+        stopOnFocus: true,
+        style: {
+            background: "#22c55e",
+        },
+    }).showToast();
+
     document.getElementById('pizza-modal').style.display = 'none';
 });
 
