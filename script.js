@@ -594,6 +594,7 @@ function atualizarPagamento() {
     const pagCartao = document.getElementById("pagCartao");
     const pagDinheiro = document.getElementById("pagDinheiro");
     const trocoSection = document.getElementById("trocoSection");
+    const pixSection = document.getElementById("PixSection");
 
     // Agrupa os pagamentos
     const pagamentos = [pagPix, pagCartao, pagDinheiro];
@@ -611,8 +612,48 @@ function atualizarPagamento() {
         trocoSection?.classList.add("hidden");
     }
 
+    // Exibe a seção Pix
+    if (pagPix.checked) {
+        pixSection?.classList.remove("hidden");
+    } else {
+        pixSection?.classList.add("hidden");
+    }
+
     atualizarConfirmacao?.();
 }
+
+// --- LÓGICA PARA A SEÇÃO PIX ---
+document.addEventListener('DOMContentLoaded', () => {
+    const copyPixBtn = document.getElementById('copy-pix-btn');
+    const pixKeySpan = document.getElementById('pix-key');
+    const whatsappBtn = document.getElementById('whatsapp-receipt-btn');
+
+    // Botão de copiar
+    if (copyPixBtn && pixKeySpan) {
+        copyPixBtn.addEventListener('click', function() {
+            const pixKey = pixKeySpan.innerText;
+            navigator.clipboard.writeText(pixKey).then(() => {
+                Toastify({
+                    text: "Chave Pix copiada!",
+                    duration: 3000,
+                    gravity: "top", position: "right", style: { background: "#22c55e" }
+                }).showToast();
+            }).catch(err => {
+                console.error('Erro ao copiar a chave Pix: ', err);
+            });
+        });
+    }
+
+    // Botão de enviar comprovante
+    if (whatsappBtn) {
+        whatsappBtn.addEventListener('click', function() {
+            const phoneNumber = "5514997580837"; // << Depois trocar o numero
+            const message = "Olá! Segue o comprovante de pagamento do meu pedido.";
+            const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+            window.open(whatsappUrl, '_blank');
+        });
+    }
+});
 
 // Event listeners for delivery and payment methods
 document.getElementById('retirada').addEventListener('change', atualizarEntrega);
