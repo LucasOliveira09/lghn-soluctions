@@ -549,78 +549,86 @@
 </div>
 
             <div id="aba-relatorios" class="hidden">
-                <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">
-                    Relatórios de Vendas</h2>
+    <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">
+        Relatórios de Vendas
+    </h2>
 
-                <div class="bg-white p-6 rounded-lg shadow-md mb-6">
-                    <h3 class="text-lg font-semibold mb-4 text-gray-700">Filtro de Período</h3>
-                    <div class="flex flex-wrap items-end gap-4 mb-4">
-                        <div class="flex-1 min-w-[150px]">
-                            <label for="relatorio-data-inicio" class="block text-sm font-medium text-gray-700">Data
-                                Início:</label>
-                            <input type="date" id="relatorio-data-inicio"
-                                class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                        </div>
-                        <div class="flex-1 min-w-[150px]">
-                            <label for="relatorio-data-fim" class="block text-sm font-medium text-gray-700">Data
-                                Fim:</label>
-                            <input type="date" id="relatorio-data-fim"
-                                class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                        </div>
-                        <button id="btn-gerar-relatorios"
-                            class="mt-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                            Gerar Relatórios
-                        </button>
-                    </div>
-
-                    <div class="flex flex-wrap gap-2 mt-4">
-                        <button id="btn-hoje"
-                            class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Hoje</button>
-                        <button id="btn-ultimos-7-dias"
-                            class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Últimos 7
-                            Dias</button>
-                        <button id="btn-ultimo-mes"
-                            class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Último Mês</button>
-                        <button id="btn-ultimos-3-meses"
-                            class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Últimos 3
-                            Meses</button>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-lg font-semibold mb-4 text-gray-700">Top Produtos Vendidos</h3>
-                        <div id="top-produtos-summary" class="mb-4 text-gray-800"></div>
-                        <div class="relative h-80">
-                            <canvas id="top-produtos-chart"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-lg font-semibold mb-4 text-gray-700">Vendas por Dia da Semana</h3>
-                        <div id="vendas-por-dia-summary" class="mb-4 text-gray-800"></div>
-                        <div class="relative h-80">
-                            <canvas id="vendas-por-dia-chart"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-lg font-semibold mb-4 text-gray-700">Horários de Pico</h3>
-                        <div id="horarios-pico-summary" class="mb-4 text-gray-800"></div>
-                        <div class="relative h-80">
-                            <canvas id="horarios-pico-chart"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-lg font-semibold mb-4 text-gray-700">Métodos de Pagamento</h3>
-                        <div id="metodos-pagamento-summary" class="mb-4 text-gray-800"></div>
-                        <div class="relative h-80">
-                            <canvas id="metodos-pagamento-chart"></canvas>
-                        </div>
-                    </div>
-                </div>
+    <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+        <h3 class="text-lg font-semibold mb-4 text-gray-700">Filtro de Período</h3>
+        <div class="flex flex-wrap items-end gap-4 mb-4">
+            <div class="flex-1 min-w-[150px]">
+                <label for="relatorio-data-inicio" class="block text-sm font-medium text-gray-700">Data
+                    Início:</label>
+                <input type="date" id="relatorio-data-inicio"
+                    class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
             </div>
+            <div class="flex-1 min-w-[150px]">
+                <label for="relatorio-data-fim" class="block text-sm font-medium text-gray-700">Data
+                    Fim:</label>
+                <input type="date" id="relatorio-data-fim"
+                    class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <button id="btn-gerar-relatorios"
+                class="mt-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                Gerar Relatórios
+            </button>
+        </div>
+
+        <div class="flex flex-wrap gap-2 mt-4">
+            <button id="btn-hoje"
+                class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Hoje</button>
+            <button id="btn-ultimos-7-dias"
+                class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Últimos 7
+                Dias</button>
+            <button id="btn-ultimo-mes"
+                class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Último Mês</button>
+            <button id="btn-ultimos-3-meses"
+                class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Últimos 3
+                Meses</button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h3 class="text-lg font-semibold mb-4 text-gray-700">Top Produtos Vendidos</h3>
+            <div id="top-produtos-summary" class="mb-4 text-gray-800"></div>
+            <div class="relative h-80">
+                <canvas id="top-produtos-chart"></canvas>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h3 class="text-lg font-semibold mb-4 text-gray-700">Vendas por Dia da Semana</h3>
+            <div id="vendas-por-dia-summary" class="mb-4 text-gray-800"></div>
+            <div class="relative h-80">
+                <canvas id="vendas-por-dia-chart"></canvas>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h3 class="text-lg font-semibold mb-4 text-gray-700">Pessoas que Mais Compraram</h3>
+            <div id="top-clientes-summary" class="mb-4 text-gray-800"></div>
+            <div class="relative h-80">
+                <canvas id="top-clientes-chart"></canvas>
+            </div>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h3 class="text-lg font-semibold mb-4 text-gray-700">Horários de Pico</h3>
+            <div id="horarios-pico-summary" class="mb-4 text-gray-800"></div>
+            <div class="relative h-80">
+                <canvas id="horarios-pico-chart"></canvas>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h3 class="text-lg font-semibold mb-4 text-gray-700">Métodos de Pagamento</h3>
+            <div id="metodos-pagamento-summary" class="mb-4 text-gray-800"></div>
+            <div class="relative h-80">
+                <canvas id="metodos-pagamento-chart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
 
             <!--Cupons-->
             <div id="aba-gerenciar-cupom" class="hidden">

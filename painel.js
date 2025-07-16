@@ -15,16 +15,12 @@ firebase.initializeApp(firebaseConfig);
 // --- VERIFICA SE TÁ LOGADO ---
 const auth = firebase.auth();
 
-
-
-
-
 auth.onAuthStateChanged(user => {
     if (user) {
         // Usuário está logado, permite que o painel seja carregado.
         console.log("Usuário autenticado:", user.email);
         document.body.style.display = 'flex'; // Mostra o corpo da página
-        console.log(user)
+        console.log(user);
     } else {
         // Usuário não está logado, redireciona para a página de login.
         // Usar .replace() para que o usuário não possa voltar para o painel com o botão "voltar" do navegador.
@@ -42,7 +38,7 @@ const ingredientesRef = database.ref('ingredientes');
 const comprasRef = database.ref('compras');
 const garconsInfoRef = database.ref('garcons_info');
 
-const DOM = {};
+const DOM = {}; // Objeto DOM será preenchido em DOMContentLoaded
 
 let allIngredients = {};
 let currentRecipeProduct = null;
@@ -52,6 +48,7 @@ let topProdutosChartInstance = null;
 let vendasPorDiaChartInstance = null;
 let horariosPicoChartInstance = null;
 let metodosPagamentoChartInstance = null;
+let topClientesChartInstance = null; 
 
 let currentMesaIdForCheckout = null;
 let currentMesaItemsToPay = [];
@@ -65,7 +62,7 @@ let pedidoOriginal = null;
 let menuLink = '';
 
 
-// --- LISTENERS GLOBAIS DO FIREBASE lghn--
+// --- LISTENERS GLOBAIS DO FIREBASE ---
 
 
 ingredientesRef.on('value', (snapshot) => {
@@ -210,10 +207,11 @@ function estilizaBotaoAtivo(botaoAtivo, ...inativos) {
     });
 }
 
-// --- INICIALIZAÇÃO DO DOM E EVENT LISTENERS lghn---
+// --- INICIALIZAÇÃO DO DOM E EVENT LISTENERS ---
 
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Preenchendo o objeto DOM com as referências dos elementos HTML
     Object.assign(DOM, {
         pedidosAtivosContainer: document.getElementById('pedidos-ativos-container'),
         pedidosFinalizadosContainer: document.getElementById('pedidos-finalizados-container'),
@@ -321,6 +319,10 @@ document.addEventListener('DOMContentLoaded', () => {
         btnUltimoMes: document.getElementById('btn-ultimo-mes'),
         btnUltimos3Meses: document.getElementById('btn-ultimos-3-meses'),
         btnHoje: document.getElementById('btn-hoje'),
+        // **NOVO**: Adicionando os elementos DOM para o relatório de Top Clientes
+        topClientesSummary: document.getElementById('top-clientes-summary'),
+        topClientesChartCanvas: document.getElementById('top-clientes-chart'),
+
 
         btnSalvarCupom: document.getElementById('btn-salvar-cupom'),
         cupomCodigoInput: document.getElementById('cupom-codigo'),
@@ -389,7 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
         DOM.overlay.classList.add('hidden');
     });
 
-    // --- Event Listeners para os botões do menu principal --- lghn
+    // --- Event Listeners para os botões do menu principal ---
     DOM.btnAtivos.addEventListener('click', () => {
         ativaAba(DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
         estilizaBotaoAtivo(DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
@@ -452,7 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
         estilizaBotaoAtivo(DOM.btnRelatorios, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
         DOM.sidebar.classList.add('-translate-x-full');
         DOM.overlay.classList.add('hidden');
-        setRelatorioDateRange(6, 0);
+        setRelatorioDateRange(6, 0); // Define o filtro inicial para os últimos 7 dias ao abrir a aba
     });
 
     DOM.btnGerenciarCupom.addEventListener('click', () => {
@@ -468,6 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
         DOM.sidebar.classList.add('-translate-x-full');
         DOM.overlay.classList.add('hidden');
 
+        // Limpar campos e estado ao entrar na aba de estoque
         DOM.ingredienteNomeDetalheInput.value = '';
         DOM.ingredienteUnidadeDetalheInput.value = '';
         DOM.ingredienteEstoqueMinimoDetalheInput.value = '';
@@ -475,7 +478,7 @@ document.addEventListener('DOMContentLoaded', () => {
         DOM.compraDataDetalheInput.valueAsDate = new Date();
         DOM.compraFornecedorDetalheInput.value = '';
         currentPurchaseItems = [];
-        renderItensCompraDetalhe();
+        renderItensCompraDetalhe(); // Função que renderiza os itens da compra atual
 
         DOM.receitaProdutoSelectCategoriaDetalhe.value = '';
         DOM.receitaProdutoSelectDetalhe.innerHTML = '<option value="">Selecione uma categoria primeiro</option>';
@@ -599,6 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
     DOM.btnCancelarPedidoMesa.addEventListener('click', cancelarPedidoMesa);
     DOM.btnFinalizarContaMesa.addEventListener('click', finalizarContaMesa);
 
+    // Garante que a primeira aba visível é a de 'Ativos' ao carregar a página
     DOM.btnAtivos.click();
 
     if (DOM.categoriaSelect) {
@@ -2261,9 +2265,12 @@ function setRelatorioDateRange(daysAgoStart = 0, daysAgoEnd = 0, monthsAgo = 0) 
     if (monthsAgo > 0) {
         if (monthsAgo === 1) {
             startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-            endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+            endDate = new Date(today.getFullYear(), today.getMonth(), 0); // Último dia do mês anterior
         } else if (monthsAgo === 3) {
             startDate = new Date(today.getFullYear(), today.getMonth() - 3, 1);
+            // endDate aqui deveria ser o último dia do mês atual para incluir 3 meses completos até o presente.
+            // A sua função original estava: new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            // Que resulta no último dia do mês atual. Mantendo para consistência com o que você já tem.
             endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         }
     } else {
@@ -2289,6 +2296,7 @@ function setRelatorioDateRange(daysAgoStart = 0, daysAgoEnd = 0, monthsAgo = 0) 
     gerarRelatorios();
 }
 
+// --- FUNÇÃO PRINCIPAL PARA GERAR TODOS OS RELATÓRIOS ---
 function gerarRelatorios() {
     const inicio = DOM.relatorioDataInicio.value;
     const fim = DOM.relatorioDataFim.value;
@@ -2306,61 +2314,82 @@ function gerarRelatorios() {
         return;
     }
 
+    // Destruir instâncias de gráficos existentes para evitar sobreposição
     if (topProdutosChartInstance) topProdutosChartInstance.destroy();
     if (vendasPorDiaChartInstance) vendasPorDiaChartInstance.destroy();
     if (horariosPicoChartInstance) horariosPicoChartInstance.destroy();
     if (metodosPagamentoChartInstance) metodosPagamentoChartInstance.destroy();
+    if (topClientesChartInstance) topClientesChartInstance.destroy(); // NOVO: Destruir a instância do gráfico de top clientes
 
-    DOM.topProdutosSummary.innerHTML = '<p class="text-gray-600">Carregando...</p>';
-    DOM.vendasPorDiaSummary.innerHTML = '<p class="text-gray-600">Carregando...</p>';
-    DOM.horariosPicoSummary.innerHTML = '<p class="text-gray-600">Carregando...</p>';
-    DOM.metodosPagamentoSummary.innerHTML = '<p class="text-gray-600">Carregando...</p>';
+    // Limpar resumos e esconder os canvas antes de carregar novos dados
+    const loadingMessage = '<p class="text-gray-600">Carregando...</p>';
+    DOM.topProdutosSummary.innerHTML = loadingMessage;
+    DOM.vendasPorDiaSummary.innerHTML = loadingMessage;
+    DOM.horariosPicoSummary.innerHTML = loadingMessage;
+    DOM.metodosPagamentoSummary.innerHTML = loadingMessage;
+    DOM.topClientesSummary.innerHTML = loadingMessage; // NOVO: Limpar o sumário de top clientes
 
     DOM.topProdutosChartCanvas.style.display = 'none';
     DOM.vendasPorDiaChartCanvas.style.display = 'none';
     DOM.horariosPicoChartCanvas.style.display = 'none';
     DOM.metodosPagamentoChartCanvas.style.display = 'none';
+    DOM.topClientesChartCanvas.style.display = 'none'; // NOVO: Esconder o canvas de top clientes
 
-    database.ref('pedidos').orderByChild('timestamp').once('value', (snapshot) => {
+
+    // Carregar dados de pedidos e filtrar pelo período e status
+    // Utilize 'pedidosRef' que já está conectado ao seu Firebase database.ref('pedidos')
+    pedidosRef.orderByChild('timestamp').once('value', (snapshot) => {
         const pedidosNoPeriodo = [];
         snapshot.forEach(childSnapshot => {
             const pedido = childSnapshot.val();
+            // Apenas pedidos com status 'Finalizado' são considerados para a maioria dos relatórios de vendas.
             if (pedido.status === 'Finalizado' && pedido.timestamp >= dataInicioTimestamp && pedido.timestamp <= dataFimTimestamp) {
                 pedidosNoPeriodo.push(pedido);
             }
         });
 
         if (pedidosNoPeriodo.length === 0) {
-            DOM.topProdutosSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
-            DOM.vendasPorDiaSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
-            DOM.horariosPicoSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
-            DOM.metodosPagamentoSummary.innerHTML = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
+            const noDataMessage = '<p class="text-gray-600">Nenhum pedido finalizado no período selecionado.</p>';
+            DOM.topProdutosSummary.innerHTML = noDataMessage;
+            DOM.vendasPorDiaSummary.innerHTML = noDataMessage;
+            DOM.horariosPicoSummary.innerHTML = noDataMessage;
+            DOM.metodosPagamentoSummary.innerHTML = noDataMessage;
+            DOM.topClientesSummary.innerHTML = noDataMessage; // NOVO: Exibir mensagem para o novo relatório de top clientes
 
             DOM.topProdutosChartCanvas.style.display = 'none';
             DOM.vendasPorDiaChartCanvas.style.display = 'none';
             DOM.horariosPicoChartCanvas.style.display = 'none';
             DOM.metodosPagamentoChartCanvas.style.display = 'none';
+            DOM.topClientesChartCanvas.style.display = 'none'; // NOVO: Esconder canvas
             return;
         }
 
+        // Chamar as funções de análise para cada relatório
         analisarProdutosMaisVendidos(pedidosNoPeriodo);
         analisarVendasPorDiaDaSemana(pedidosNoPeriodo);
         analisarHorariosDePico(pedidosNoPeriodo);
         analisarMetodosDePagamento(pedidosNoPeriodo);
+        analisarPessoasQueMaisCompraram(pedidosNoPeriodo); // NOVO: Chamar a nova função de análise
     }, (error) => {
         console.error("Erro ao carregar pedidos para relatórios:", error);
-        DOM.topProdutosSummary.innerHTML = '<p class="text-red-600">Erro ao carregar dados.</p>';
-        DOM.vendasPorDiaSummary.innerHTML = '<p class="text-red-600">Erro ao carregar dados.</p>';
-        DOM.horariosPicoSummary.innerHTML = '<p class="text-red-600">Erro ao carregar dados.</p>';
-        DOM.metodosPagamentoSummary.innerHTML = '<p class="text-red-600">Erro ao carregar dados.</p>';
+        const errorMessage = '<p class="text-red-600">Erro ao carregar dados.</p>';
+        DOM.topProdutosSummary.innerHTML = errorMessage;
+        DOM.vendasPorDiaSummary.innerHTML = errorMessage;
+        DOM.horariosPicoSummary.innerHTML = errorMessage;
+        DOM.metodosPagamentoSummary.innerHTML = errorMessage;
+        DOM.topClientesSummary.innerHTML = errorMessage; // NOVO: Exibir mensagem de erro para o novo relatório
 
         DOM.topProdutosChartCanvas.style.display = 'none';
         DOM.vendasPorDiaChartCanvas.style.display = 'none';
         DOM.horariosPicoChartCanvas.style.display = 'none';
         DOM.metodosPagamentoChartCanvas.style.display = 'none';
+        DOM.topClientesChartCanvas.style.display = 'none'; // NOVO: Esconder canvas
     });
 }
 
+// --- FUNÇÕES DE ANÁLISE DE RELATÓRIOS ---
+
+// 1. Análise de Produtos Mais Vendidos
 function analisarProdutosMaisVendidos(pedidos) {
     const contagemProdutos = {};
 
@@ -2369,14 +2398,14 @@ function analisarProdutosMaisVendidos(pedidos) {
             pedido.cart.forEach(item => {
                 const nomeProduto = item.name;
                 const quantidade = item.quantity;
-                contagemProdutos[nomeProduto] = (contagemProdutos[nomeProduto] || 0) + quantidade;
+                contagemProdutos[nomeProduto] = (contagemProdutos[nomeProduto] || 0) + item.quantity;;
             });
         }
     });
 
     const produtosOrdenados = Object.entries(contagemProdutos)
         .sort(([, qtdA], [, qtdB]) => qtdB - qtdA)
-        .slice(0, 5);
+        .slice(0, 5); // Top 5 produtos
 
     DOM.topProdutosSummary.innerHTML = '';
     if (produtosOrdenados.length > 0) {
@@ -2455,21 +2484,22 @@ function analisarProdutosMaisVendidos(pedidos) {
     }
 }
 
+// 2. Análise de Vendas por Dia da Semana
 function analisarVendasPorDiaDaSemana(pedidos) {
     const vendasPorDia = {
-        0: 0,
-        1: 0,
-        2: 0,
-        3: 0,
-        4: 0,
-        5: 0,
-        6: 0
+        0: 0, // Domingo
+        1: 0, // Segunda
+        2: 0, // Terça
+        3: 0, // Quarta
+        4: 0, // Quinta
+        5: 0, // Sexta
+        6: 0  // Sábado
     };
     const nomesDias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
     pedidos.forEach(pedido => {
         const data = new Date(pedido.timestamp);
-        const diaSemana = data.getDay();
+        const diaSemana = data.getDay(); // 0 para Domingo, 1 para Segunda, etc.
         vendasPorDia[diaSemana] = (vendasPorDia[diaSemana] || 0) + 1;
     });
 
@@ -2554,10 +2584,11 @@ function analisarVendasPorDiaDaSemana(pedidos) {
     }
 }
 
+// 3. Análise de Horários de Pico
 function analisarHorariosDePico(pedidos) {
     const pedidosPorHora = {};
     for (let i = 0; i < 24; i++) {
-        pedidosPorHora[i] = 0;
+        pedidosPorHora[i] = 0; // Inicializa todas as horas com 0 pedidos
     }
 
     pedidos.forEach(pedido => {
@@ -2566,10 +2597,12 @@ function analisarHorariosDePico(pedidos) {
         pedidosPorHora[hora] = (pedidosPorHora[hora] || 0) + 1;
     });
 
+    // Garante que os horários são ordenados numericamente
     const horariosOrdenados = Object.entries(pedidosPorHora)
         .sort(([horaA, ], [horaB, ]) => parseInt(horaA) - parseInt(horaB));
 
     DOM.horariosPicoSummary.innerHTML = '';
+    // Verifica se há algum dado para exibir (se o contador for maior que zero para alguma hora)
     if (horariosOrdenados.some(h => h[1] > 0)) {
         DOM.horariosPicoChartCanvas.style.display = 'block';
         const labels = horariosOrdenados.map(item => `${item[0]}h`);
@@ -2585,9 +2618,9 @@ function analisarHorariosDePico(pedidos) {
                     backgroundColor: 'rgba(255, 159, 64, 0.8)',
                     borderColor: 'rgba(255, 159, 64, 1)',
                     borderWidth: 2,
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 3,
+                    fill: true, // Preenche a área abaixo da linha
+                    tension: 0.3, // Curvatura da linha
+                    pointRadius: 3, // Tamanho dos pontos na linha
                     pointBackgroundColor: 'rgba(255, 159, 64, 1)'
                 }]
             },
@@ -2601,7 +2634,7 @@ function analisarHorariosDePico(pedidos) {
                             display: false
                         },
                         ticks: {
-                            precision: 0
+                            precision: 0 // Apenas números inteiros para pedidos
                         },
                         title: {
                             display: false
@@ -2615,8 +2648,8 @@ function analisarHorariosDePico(pedidos) {
                             display: false
                         },
                         ticks: {
-                            autoSkip: true,
-                            maxTicksLimit: 12
+                            autoSkip: true, // Pula rótulos para evitar sobreposição
+                            maxTicksLimit: 12 // Limita o número de rótulos exibidos no eixo X
                         }
                     }
                 },
@@ -2635,6 +2668,7 @@ function analisarHorariosDePico(pedidos) {
             }
         });
 
+        // Encontrar o horário de pico para o resumo
         const topHorario = horariosOrdenados.reduce((prev, current) => (prev[1] > current[1] ? prev : current), ["0", 0]);
         if (topHorario[1] > 0) {
             DOM.horariosPicoSummary.innerHTML = `<p>O horário de pico foi entre **${topHorario[0]}h e ${parseInt(topHorario[0]) + 1}h** com **${topHorario[1]} pedidos**.</p>`;
@@ -2648,14 +2682,16 @@ function analisarHorariosDePico(pedidos) {
     }
 }
 
+// 4. Análise de Métodos de Pagamento
 function analisarMetodosDePagamento(pedidos) {
     const contagemMetodos = {};
 
     pedidos.forEach(pedido => {
-        const metodo = pedido.pagamento || 'Desconhecido';
+        const metodo = pedido.pagamento || 'Desconhecido'; // Usa 'Desconhecido' se o método não estiver definido
         contagemMetodos[metodo] = (contagemMetodos[metodo] || 0) + 1;
     });
 
+    // Ordena os métodos do mais usado para o menos usado
     const metodosOrdenados = Object.entries(contagemMetodos)
         .sort(([, qtdA], [, qtdB]) => qtdB - qtdA);
 
@@ -2666,19 +2702,19 @@ function analisarMetodosDePagamento(pedidos) {
         const data = metodosOrdenados.map(item => item[1]);
 
         metodosPagamentoChartInstance = new Chart(DOM.metodosPagamentoChartCanvas, {
-            type: 'pie',
+            type: 'pie', // Gráfico de pizza é ideal para proporções
             data: {
                 labels: labels,
                 datasets: [{
                     data: data,
                     backgroundColor: [
-                        'rgba(255, 99, 132, 0.8)',
-                        'rgba(54, 162, 235, 0.8)',
-                        'rgba(255, 206, 86, 0.8)',
-                        'rgba(75, 192, 192, 0.8)',
-                        'rgba(153, 102, 255, 0.8)'
+                        'rgba(255, 99, 132, 0.8)', // Vermelho
+                        'rgba(54, 162, 235, 0.8)', // Azul
+                        'rgba(255, 206, 86, 0.8)', // Amarelo
+                        'rgba(75, 192, 192, 0.8)', // Verde Água
+                        'rgba(153, 102, 255, 0.8)' // Roxo
                     ],
-                    borderColor: '#ffffff',
+                    borderColor: '#ffffff', // Borda branca entre as fatias
                     borderWidth: 2
                 }]
             },
@@ -2687,7 +2723,7 @@ function analisarMetodosDePagamento(pedidos) {
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        position: 'right',
+                        position: 'right', // Posição da legenda
                         labels: {
                             boxWidth: 20,
                             padding: 15
@@ -2720,6 +2756,111 @@ function analisarMetodosDePagamento(pedidos) {
     }
 }
 
+// 5. Análise de Pessoas que Mais Compraram (NOVO RELATÓRIO)
+function analisarPessoasQueMaisCompraram(pedidos) {
+    const gastosPorCliente = {};
+
+    pedidos.forEach(pedido => {
+        // Usa 'nomeCliente' (para pedidos online) ou 'cliente' (para pedidos de mesa/presenciais)
+        const nomeCliente = pedido.nomeCliente || pedido.cliente;
+        const totalPedido = parseFloat(pedido.totalPedido);
+
+        // Verifica se o nome do cliente existe e se o total do pedido é um número válido
+        if (nomeCliente && !isNaN(totalPedido)) {
+            // Soma o total do pedido ao gasto do cliente
+            gastosPorCliente[nomeCliente] = (gastosPorCliente[nomeCliente] || 0) + totalPedido;
+        }
+    });
+
+    // Converte o objeto para um array de pares [cliente, gastoTotal] e ordena
+    const clientesOrdenados = Object.entries(gastosPorCliente)
+        .sort(([, gastoA], [, gastoB]) => gastoB - gastoA) // Ordena do maior gasto para o menor
+        .slice(0, 5); // Pega os 5 clientes que mais gastaram
+
+    DOM.topClientesSummary.innerHTML = ''; // Limpa o conteúdo anterior do sumário
+
+    if (clientesOrdenados.length > 0) {
+        DOM.topClientesChartCanvas.style.display = 'block'; // Mostra o canvas do gráfico
+
+        const labels = clientesOrdenados.map(item => item[0]); // Nomes dos clientes
+        // Formata os valores de gasto para duas casas decimais
+        const data = clientesOrdenados.map(item => parseFloat(item[1].toFixed(2)));
+
+        topClientesChartInstance = new Chart(DOM.topClientesChartCanvas, {
+            type: 'bar', // Gráfico de barras é adequado para comparar valores
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Total Gasto (R$)',
+                    data: data,
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.8)', // Cor 1
+                        'rgba(54, 162, 235, 0.8)', // Cor 2
+                        'rgba(255, 206, 86, 0.8)', // Cor 3
+                        'rgba(75, 192, 192, 0.8)', // Cor 4
+                        'rgba(153, 102, 255, 0.8)'  // Cor 5
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(153, 102, 255, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            // Formata os rótulos do eixo Y como moeda (R$)
+                            callback: function(value) {
+                                return 'R$ ' + value.toFixed(2);
+                            }
+                        },
+                        title: {
+                            display: false
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        title: {
+                            display: false
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false // Não exibir a legenda do dataset
+                    },
+                    tooltip: {
+                        callbacks: {
+                            // Formata o tooltip para exibir o valor em R$
+                            label: function(context) {
+                                return context.label + ': R$ ' + context.raw.toFixed(2);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Atualiza o sumário com o total gasto pelos top clientes
+        DOM.topClientesSummary.innerHTML = `<p>Os 5 clientes que mais compraram totalizaram **R$ ${data.reduce((a, b) => a + b, 0).toFixed(2)}**.</p>`;
+    } else {
+        DOM.topClientesSummary.innerHTML = '<p class="text-gray-600">Nenhum dado de clientes com compras finalizadas no período.</p>';
+        DOM.topClientesChartCanvas.style.display = 'none'; // Esconde o canvas se não houver dados
+    }
+}
 
 
 // --- SEÇÃO: GERENCIAMENTO DE CUPONS lghn-------------------------------------------------------------------------------------------------------------------------------------------------
