@@ -1,15 +1,15 @@
 // Configuração do Firebase
 // Certifique-se de que esta configuração está correta para o seu projeto Firebase
 const firebaseConfig = {
-    apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
-    authDomain: "cardapioweb-99e7b.firebaseapp.com",
-    databaseURL: "https://cardapioweb-99e7b-default-rtdb.firebaseio.com",
-    projectId: "cardapioweb-99e7b",
-    storageBucket: "cardapioweb-99e7b.firebasestorage.app",
-    messagingSenderId: "110849299422",
-    appId: "1:110849299422:web:60285eb408825c3ff9434f",
-    measurementId: "G-QP7K16G4NM"
-};
+  apiKey: "AIzaSyCxpZd8Bu1IKzFHMUMzX1AAU1id8AcjCYw",
+  authDomain: "bonanzapizzaria-b2513.firebaseapp.com",
+  databaseURL: "https://bonanzapizzaria-b2513-default-rtdb.firebaseio.com",
+  projectId: "bonanzapizzaria-b2513",
+  storageBucket: "bonanzapizzaria-b2513.firebasestorage.app",
+  messagingSenderId: "7433511053",
+  appId: "1:7433511053:web:44414e66d7e601e23b82c4",
+  measurementId: "G-TZ9RC0E7WN"
+  };
 
 // Inicializa o Firebase com a configuração fornecida
 firebase.initializeApp(firebaseConfig);
@@ -291,7 +291,7 @@ function exibirDetalhesPedido(pedido) {
     let freteHtml = '';
     // Adiciona detalhes de frete se o tipo de entrega for 'Entrega'
     if (pedido.tipoEntrega === 'Entrega') {
-        const FRETE_VALOR = 5.00; // Valor fixo do frete (ajuste conforme necessário)
+        const FRETE_VALOR = 4.00; // Valor fixo do frete (ajuste conforme necessário)
         const subtotal = pedido.totalPedido - FRETE_VALOR; 
         freteHtml = `
             <div class="flex justify-between text-gray-400 mt-4 pt-2 border-t border-gray-700">

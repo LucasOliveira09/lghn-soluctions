@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Substitua pelo seu ícone real -->
-    <link rel="icon" type="image/png" sizes="16x16" href="https://placehold.co/16x16/1f1f1f/ffffff?text=ICON">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/icon.jpg">
     <title>Status Bonanza</title>
 
     <!-- Tailwind CSS CDN -->
@@ -123,9 +123,22 @@
         .overlay.active {
             display: block;
         }
+        body.bg-main::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 100%;
+            z-index: -1;
+            background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url(assets/bgNovo.png);
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-position: center;
+        }
     </style>
 </head>
-<body class="bg-[#0E0C0A] text-white font-sans">
+<body class="bg-main text-white font-sans">
 
     <header class="w-full p-4 flex justify-between items-center">
         <!--Adicionando um voltar e o button na mesma posição do index-->
@@ -180,7 +193,7 @@
         <div class="bg-[#1f1f1f] p-6 rounded-2xl shadow-lg mb-8">
             <div class="text-center mb-6">
                 <!-- Substitua pelo seu logo real. Use um placeholder para visualização. -->
-                <img src="https://placehold.co/128x128/1f1f1f/ffffff?text=LOGO" alt="Logo da Pizzaria" class="w-32 h-32 mx-auto mb-4 rounded-full">
+                <img src="assets/bonanza.png" alt="Logo da Pizzaria" class="w-32 h-32 mx-auto mb-4 rounded-full">
                 <h1 class="text-3xl font-bold font-[Cinzel]">Acompanhe seu Pedido</h1>
                 <p class="text-gray-400">Pedido #<span id="order-id">--</span></p>
             </div>

@@ -97,7 +97,7 @@
             </button>
 
             <button id="btn-gerenciar-mesas"
-                class="py-3 px-4 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-600 transition w-full text-left">
+                class="py-3 px-4 rounded-lg bg-blue-700 text-white font-semibold hidden hover:bg-blue-600 transition w-full text-left">
                 <i class="fas fa-chair mr-2"></i> Gerenciar Mesas
             </button>
 
@@ -124,7 +124,7 @@
 
             <!--Add Garçom-->
             <button id="btn-gerenciar-garcom"
-                class="py-3 px-4 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-600 transition w-full text-left">
+                class="py-3 px-4 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-600 transition w-full text-left hidden">
                 <i class="fa-solid fa-address-card"></i> Gerenciar Garçom
             </button>
 
@@ -145,14 +145,18 @@
                     <i class="fas fa-bars"></i>
                 </button>
                 <h1 class="text-3xl sm:text-4xl font-bold text-blue-700 text-center sm:text-left flex-1">
-                    Painel de Pedidos
+                    LGHN SYSTEM
                 </h1>
                 <audio id="notificacao-som" src="assets/notificacao.mp3" preload="auto"></audio>
             </div>
 
             <div id="aba-ativos">
-                <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">Pedidos
-                    Ativos</h2>
+                <div class="flex justify-between items-center mb-4 border-b pb-2 border-gray-300">
+                    <h2 class="text-xl sm:text-2xl font-semibold text-gray-700">Pedidos Ativos</h2>
+                    <button id="btn-adicionar-pedido-manual" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2">
+                        <i class="fas fa-plus"></i> Adicionar Pedido
+                    </button>
+                </div>
                 <div id="pedidos-ativos-container" class="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"></div>
             </div>
 
@@ -180,31 +184,176 @@
                     <div class="flex justify-end gap-2 mt-6">
                         <button type="button" onclick="fecharModalEditarPedido()"
                             class="bg-gray-400 text-white px-4 py-2 rounded">Cancelar</button>
-                        <button id="btn-salvar-pedido" class="bg-green-600 text-white px-4 py-2 rounded">Salvar
+                        <button id="btn-salvar-pedido" class="bg-green-600 text-white px-4 py-2 rounded" onclick="salvarPedidoEditado()">Salvar
                             Alterações</button>
                     </div>
                 </div>
             </div>
 
+           <div id="modal-pedido-manual" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[99]">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-5xl p-6 overflow-y-auto max-h-[95vh] animate-fade-in">
+        <div class="flex justify-between items-center mb-4 border-b pb-2">
+            <h2 class="text-2xl font-bold text-gray-800">Criar Novo Pedido</h2>
+            <button id="manual-btn-fechar" class="text-gray-500 hover:text-red-600 text-3xl">&times;</button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="flex flex-col gap-4">
+                <h3 class="text-lg font-semibold text-gray-800 border-t pt-4">Adicionar Itens ao Pedido</h3>
+
+                <div class="flex flex-wrap items-end gap-3">
+                    <div class="flex-grow" style="min-width: 200px;">
+                        <label for="manual-select-categoria" class="block text-sm font-medium text-gray-700">Categoria:</label>
+                        <select id="manual-select-categoria" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        </select>
+                    </div>
+                    <div>
+                        <label for="manual-qtd-produto" class="block text-sm font-medium text-gray-700">Qtd:</label>
+                        <input type="number" id="manual-qtd-produto" value="1" min="1" class="mt-1 block w-20 p-2 border border-gray-300 rounded-md text-center">
+                    </div>
+                </div>
+
+                <div id="container-montagem-pizza" class="w-full bg-blue-50 p-4 rounded-lg border border-blue-200 hidden">
+                    <h4 class="font-bold text-blue-800 mb-3">Montar Pizza</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="pizza-tamanho" class="block text-sm font-medium text-gray-700">Tamanho:</label>
+                            <select id="pizza-tamanho" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                                <option value="Grande">Grande</option>
+                                <option value="Broto">Broto</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="pizza-borda" class="block text-sm font-medium text-gray-700">Borda:</label>
+                            <select id="pizza-borda" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                            </select>
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label for="pizza-sabor1" class="block text-sm font-medium text-gray-700">1º Sabor:</label>
+                            <select id="pizza-sabor1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                            </select>
+                        </div>
+                        <div class="sm:col-span-2 flex items-center gap-2">
+                            <input type="checkbox" id="pizza-meio-a-meio-check" class="form-checkbox h-4 w-4 text-blue-600 rounded">
+                            <label for="pizza-meio-a-meio-check" class="text-sm font-medium text-gray-700">Adicionar 2º sabor (Meio a Meio)</label>
+                        </div>
+                        <div id="container-sabor2" class="sm:col-span-2 hidden">
+                            <label for="pizza-sabor2" class="block text-sm font-medium text-gray-700">2º Sabor:</label>
+                            <select id="pizza-sabor2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="container-outros-itens" class="w-full hidden">
+                    <label for="manual-select-produto" class="block text-sm font-medium text-gray-700">Produto:</label>
+                    <select id="manual-select-produto" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
+                </div>
+
+                <button id="manual-btn-add-item" class="w-full mt-4 px-4 py-2 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700">Adicionar Item ao Pedido</button>
+            </div>
+
+            <div class="flex flex-col gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="manual-nome-cliente" class="block text-sm font-medium text-gray-700">Nome do Cliente:</label>
+                        <input type="text" id="manual-nome-cliente" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Nome do Cliente">
+                    </div>
+                    <div>
+                        <label for="manual-telefone" class="block text-sm font-medium text-gray-700">Telefone:</label>
+                        <input type="tel" id="manual-telefone" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="(99) 99999-9999">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="21" class="block text-sm font-medium text-gray-700">Tipo de Entrega:</label>
+                        <select id="manual-tipo-entrega" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                            <option value="Retirada">Retirada no Local</option>
+                            <option value="Entrega">Entrega</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="manual-pagamento" class="block text-sm font-medium text-gray-700">Forma de Pagamento:</label>
+                        <select id="manual-pagamento" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                            <option value="Dinheiro">Dinheiro</option>
+                            <option value="Cartão">Cartão</option>
+                            <option value="Pix">Pix</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="container-endereco" class=" grid-cols-1 sm:grid-cols-2 gap-4 hidden bg-gray-50 p-4 rounded-lg border border-gray-200">
+    <h4 class="sm:col-span-2 font-bold text-gray-800 mb-2">Detalhes da Entrega</h4>
+    <div>
+        <label for="manual-input-rua" class="block text-sm font-medium text-gray-700">Rua:</label>
+        <input type="text" id="manual-input-rua" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Rua do Cliente">
+    </div>
+    <div>
+        <label for="manual-input-numero" class="block text-sm font-medium text-gray-700">Número:</label>
+        <input type="text" id="manual-input-numero" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Número">
+    </div>
+    <div class="sm:col-span-2">
+        <label for="manual-input-bairro" class="block text-sm font-medium text-gray-700">Bairro:</label>
+        <input type="text" id="manual-input-bairro" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Bairro">
+    </div>
+</div>
+
+                <div>
+                    <h3 class="text-lg font-semibold mb-2">Itens no Pedido:</h3>
+                    <div id="manual-itens-lista" class="space-y-2 max-h-48 overflow-y-auto border p-3 rounded bg-gray-50">
+                        <p class="text-gray-500">Nenhum item adicionado.</p>
+                    </div>
+                    <p class="text-right text-2xl font-bold mt-4 text-green-600">Total: <span id="manual-total-pedido">R$ 0.00</span></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-4 mt-6 border-t pt-4">
+            <button id="manual-btn-cancelar" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded">Cancelar</button>
+            <button id="manual-btn-salvar" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Salvar Pedido</button>
+        </div>
+        
+    </div>
+
+    
+</div>
+
+
+
+
             <div id="aba-finalizados" class="hidden">
                 <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 border-b pb-2 border-gray-300">
                     Relatório de Pedidos Finalizados</h2>
 
-                <div class="flex flex-col sm:flex-row gap-4 mb-6">
-                    <div class="flex flex-col flex-1">
-                        <span class="font-medium text-sm mb-1">De:</span>
-                        <input type="date" id="data-inicio"
-                            class="border rounded px-4 py-2 focus:ring-2 ring-blue-400 w-full" />
+                <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                    <div class="flex flex-col sm:flex-row gap-4 mb-6">
+                        <div class="flex flex-col flex-1">
+                            <span class="font-medium text-sm mb-1">De:</span>
+                            <input type="date" id="data-inicio"
+                                class="border rounded px-4 py-2 focus:ring-2 ring-blue-400 w-full" />
+                        </div>
+                        <div class="flex flex-col flex-1">
+                            <span class="font-medium text-sm mb-1">Até:</span>
+                            <input type="date" id="data-fim"
+                                class="border rounded px-4 py-2 focus:ring-2 ring-blue-400 w-full" />
+                        </div>
+                        <button id="btn-filtrar"
+                            class="bg-blue-600 text-white px-6 py-2 mt-2 sm:mt-0 rounded-lg font-semibold hover:bg-blue-700 w-full sm:w-auto">Filtrar</button>
                     </div>
-                    <div class="flex flex-col flex-1">
-                        <span class="font-medium text-sm mb-1">Até:</span>
-                        <input type="date" id="data-fim"
-                            class="border rounded px-4 py-2 focus:ring-2 ring-blue-400 w-full" />
+                    <div class="flex flex-wrap gap-2">
+                        <button id="btn-ontem-finalizados"
+                            class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Ontem</button>
+                        <button id="btn-ultimos-7-dias-finalizados"
+                            class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Últimos 7
+                            Dias</button>
+                        <button id="btn-ultimo-mes-finalizados"
+                            class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Último Mês</button>
+                        <button id="btn-ultimos-3-meses-finalizados"
+                            class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Últimos 3
+                            Meses</button>
                     </div>
-                    <button id="btn-filtrar"
-                        class="bg-blue-600 text-white px-6 py-2 mt-2 sm:mt-0 rounded-lg font-semibold hover:bg-blue-700 w-full sm:w-auto">Filtrar</button>
                 </div>
-
+                
                 <div
                     class="bg-white p-4 rounded-lg shadow-md flex flex-col sm:flex-row justify-between text-lg font-medium mb-6">
                     <p><strong>Total de pedidos:</strong> <span id="total-pedidos">0</span></p>
@@ -321,6 +470,20 @@
                         <h2 class="text-xl font-bold text-gray-800 mb-4">Adicionar Novo Item</h2>
 
                         <div class="space-y-4">
+                            <div>
+                                <label for="novo-categoria-select" class="block font-medium text-sm text-gray-700 mb-1">
+                                    Categoria Principal
+                                </label>
+                                <select id="novo-categoria-select" class="w-full border rounded p-2 focus:ring-2 ring-blue-500">
+                                    <option value="pizzas">Pizzas</option>
+                                    <option value="esfirras">Esfirras</option>
+                                    <option value="calzone">Calzones</option>
+                                    <option value="bebidas">Bebidas</option>
+                                    <option value="promocoes">🔥 Promoções</option>
+                                    <option value="novidades">✨ Novidades</option>
+                                </select>
+                            </div>
+                            
                             <div>
                                 <label for="novo-nome"
                                     class="block font-medium text-sm text-gray-700 mb-1">Nome</label>
@@ -576,7 +739,7 @@
 
         <div class="flex flex-wrap gap-2 mt-4">
             <button id="btn-hoje"
-                class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Hoje</button>
+                class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Ontem</button>
             <button id="btn-ultimos-7-dias"
                 class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Últimos 7
                 Dias</button>
@@ -627,6 +790,13 @@
                 <canvas id="metodos-pagamento-chart"></canvas>
             </div>
         </div>
+         <div class="bg-white p-6 rounded-lg shadow-md">
+            <h3 class="text-lg font-semibold mb-4 text-gray-700">Pedidos por Tipo de Entrega</h3>
+            <div id="tipos-entrega-summary" class="mb-4 text-gray-800"></div>
+            <div class="relative h-80">
+                <canvas id="tipos-entrega-chart"></canvas>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -641,14 +811,14 @@
                             <input type="text" id="cupom-codigo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 uppercase-input" placeholder="EX: DESCONTO">
                         </div>
                         <div>
-                            <label for="cupom-valor" class="block text-sm font-medium text-gray-700">Valor do Desconto (% ou R$):</label>
-                            <input type="number" id="cupom-valor" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="10.00">
+                            <label for="cupom-valor" class="block text-sm font-medium text-gray-700">Valor do Desconto (%<!-- ou  R$ -->):</label>
+                            <input type="number" id="cupom-valor" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="10%">
                         </div>
                         <div>
                             <label for="cupom-tipo" class="block text-sm font-medium text-gray-700">Tipo de Desconto:</label>
                             <select id="cupom-tipo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                                 <option value="porcentagem">Porcentagem (%)</option>
-                                <option value="valor">Valor Fixo (R$)</option>
+                                <!-- <option value="valor">Valor Fixo (R$)</option> -->
                             </select>
                         </div>
                         <div>
@@ -825,12 +995,17 @@
                     <input type="number" id="compra-quantidade-detalhe" min="0.001" step="0.001" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500" placeholder="0.000">
                 </div>
                 <div class="flex-1 min-w-[80px]">
-                    <label for="compra-preco-unitario-detalhe" class="block text-sm font-medium text-gray-700">Preço Unitário (R$):</label>
-                    <input type="number" id="compra-preco-unitario-detalhe" min="0.01" step="0.01" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500" placeholder="0.00">
+                    <label for="compra-preco-total-detalhe" class="block text-sm font-medium text-gray-700">Custo Total do Item (R$):</label>
+                    <input type="number" id="compra-preco-total-detalhe" min="0.01" step="0.01" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500" placeholder="Ex: 50.00">
                 </div>
-                <button id="btn-add-item-compra-detalhe" class="mt-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                    Adicionar Item à Lista
-                </button>
+                <div class="flex flex-col justify-end">
+                    <button id="btn-add-item-compra-detalhe" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                    Adicionar Item
+                    </button>
+                </div>
+                <div class="flex-1 min-w-[150px] flex items-end pb-2">
+                    <span id="custo-calculado-display" class="text-sm text-gray-600 font-medium ml-2"></span>
+                </div>
             </div>
             <div class="flex justify-end">
                 <button id="btn-registrar-compra-detalhe" class="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 disabled:opacity-50" disabled>

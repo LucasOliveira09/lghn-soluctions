@@ -1,14 +1,14 @@
 // Configuração do Firebase (SUBSTITUA PELAS SUAS CREDENCIAIS REAIS)
 const firebaseConfig = {
-    apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
-    authDomain: "cardapioweb-99e7b.firebaseapp.com",
-    databaseURL: "https://cardapioweb-99e7b-default-rtdb.firebaseio.com",
-    projectId: "cardapioweb-99e7b",
-    storageBucket: "cardapioweb-99e7b.firebasestorage.app",
-    messagingSenderId: "110849299422",
-    appId: "1:110849299422:web:60285eb408825c3ff9434f",
-    measurementId: "G-QP7K16G4NM"
-};
+  apiKey: "AIzaSyCxpZd8Bu1IKzFHMUMzX1AAU1id8AcjCYw",
+  authDomain: "bonanzapizzaria-b2513.firebaseapp.com",
+  databaseURL: "https://bonanzapizzaria-b2513-default-rtdb.firebaseio.com",
+  projectId: "bonanzapizzaria-b2513",
+  storageBucket: "bonanzapizzaria-b2513.firebasestorage.app",
+  messagingSenderId: "7433511053",
+  appId: "1:7433511053:web:44414e66d7e601e23b82c4",
+  measurementId: "G-TZ9RC0E7WN"
+  };
 
 firebase.initializeApp(firebaseConfig);
 
@@ -48,7 +48,8 @@ let topProdutosChartInstance = null;
 let vendasPorDiaChartInstance = null;
 let horariosPicoChartInstance = null;
 let metodosPagamentoChartInstance = null;
-let topClientesChartInstance = null; 
+let topClientesChartInstance = null;
+let tiposEntregaChartInstance;
 
 let currentMesaIdForCheckout = null;
 let currentMesaItemsToPay = [];
@@ -60,6 +61,48 @@ let pedidoEmEdicao = null;
 let pedidoOriginal = null;
 
 let menuLink = '';
+
+let allProducts = {};
+let manualOrderCart = [];
+
+//Tentei mudar não funcinou vai ter q ficar aqui
+const allBordas = {
+    'creamcheese': { 
+        nome: 'Cream Cheese', 
+        precos: {
+            broto: 10.00,
+            grande: 12.00
+        } 
+    },
+    'mussarela': { 
+        nome: 'Mussarela', 
+        precos: {
+            broto: 10.00,
+            grande: 12.00
+        } 
+    },
+    'chocolate': { 
+        nome: 'Chocolate', 
+        precos: {
+            broto: 10.00,
+            grande: 12.00
+        } 
+    },
+    'cheddar': { 
+        nome: 'Cheddar', 
+        precos: {
+            broto: 10.00,
+            grande: 12.00
+        } 
+    },
+    'catupiry': { 
+        nome: 'Catupiry', 
+        precos: {
+            broto: 10.00,
+            grande: 12.00
+        } 
+    }
+};
 
 
 // --- LISTENERS GLOBAIS DO FIREBASE ---
@@ -181,6 +224,10 @@ garconsInfoRef.on('value', (snapshot) => {
     carregarGarcom(snapshot);
 });
 
+produtosRef.on('value', snapshot => {
+    allProducts = snapshot.val() || {};
+});
+
 // --- FUNÇÕES GERAIS DO PAINEL ---
 function tocarNotificacao() {
     const som = document.getElementById('notificacao-som');
@@ -213,6 +260,11 @@ function estilizaBotaoAtivo(botaoAtivo, ...inativos) {
 document.addEventListener('DOMContentLoaded', () => {
     // Preenchendo o objeto DOM com as referências dos elementos HTML
     Object.assign(DOM, {
+        
+
+        tiposEntregaSummary: document.getElementById('tipos-entrega-summary'),
+        tiposEntregaChartCanvas: document.getElementById('tipos-entrega-chart'),
+
         pedidosAtivosContainer: document.getElementById('pedidos-ativos-container'),
         pedidosFinalizadosContainer: document.getElementById('pedidos-finalizados-container'),
         inputDataInicio: document.getElementById('data-inicio'),
@@ -270,7 +322,8 @@ document.addEventListener('DOMContentLoaded', () => {
         itensCompraDetalheListContainer: document.getElementById('itens-compra-detalhe-list'),
         compraIngredienteSelectDetalhe: document.getElementById('compra-ingrediente-select-detalhe'),
         compraQuantidadeDetalheInput: document.getElementById('compra-quantidade-detalhe'),
-        compraPrecoUnitarioDetalheInput: document.getElementById('compra-preco-unitario-detalhe'),
+        compraPrecoTotalDetalheInput: document.getElementById('compra-preco-total-detalhe'), // ID alterado
+        custoCalculadoDisplay: document.getElementById('custo-calculado-display'), // Novo elemento
         btnAddItemCompraDetalhe: document.getElementById('btn-add-item-compra-detalhe'),
         btnRegistrarCompraDetalhe: document.getElementById('btn-registrar-compra-detalhe'),
 
@@ -298,6 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
         novoAtivoCheckbox: document.getElementById('novo-ativo'),
         novoTipoSelect: document.getElementById('novo-tipo'),
         itensCardapioContainer: document.getElementById('itens-cardapio-container'),
+        novoCategoriaSelect: document.getElementById('novo-categoria-select'),
 
         menuButton: document.getElementById('menu-button'),
         sidebar: document.getElementById('sidebar'),
@@ -373,6 +427,8 @@ document.addEventListener('DOMContentLoaded', () => {
         btnAbrirModalMenuLink: document.getElementById('btn-abrir-modal-menu-link'),
         menuLinkInput: document.getElementById('menu-link-input'),
         btnSalvarMenuLink: document.getElementById('btn-salvar-menu-link'),
+
+        manualTipoEntregaSelect: document.getElementById('manual-tipo-entrega'),
     });
 
     // --- Event Listeners para a Sidebar ---
@@ -505,9 +561,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Listener para o botão de filtrar na aba de finalizados ---
     DOM.btnFiltrar.addEventListener('click', aplicarFiltroDatas);
 
+    const btnOntemFinalizados = document.getElementById('btn-ontem-finalizados');
+    const btn7DiasFinalizados = document.getElementById('btn-ultimos-7-dias-finalizados');
+    const btnMesFinalizados = document.getElementById('btn-ultimo-mes-finalizados');
+    const btn3MesesFinalizados = document.getElementById('btn-ultimos-3-meses-finalizados');
+
+    if (btnOntemFinalizados) {
+        btnOntemFinalizados.addEventListener('click', () => setFiltroDatas('ontem'));
+    }
+    if (btn7DiasFinalizados) {
+        btn7DiasFinalizados.addEventListener('click', () => setFiltroDatas('ultimos7dias'));
+    }
+    if (btnMesFinalizados) {
+        btnMesFinalizados.addEventListener('click', () => setFiltroDatas('ultimoMes'));
+    }
+    if (btn3MesesFinalizados) {
+        btn3MesesFinalizados.addEventListener('click', () => setFiltroDatas('ultimos3meses'));
+    }
+
     // --- Event Listeners para Relatórios de Pedidos ---
     DOM.btnGerarRelatorios.addEventListener('click', gerarRelatorios);
-    DOM.btnHoje.addEventListener('click', () => setRelatorioDateRange(0, 0));
+    DOM.btnHoje.addEventListener('click', () => setRelatorioDateRange(1, 1));
     DOM.btnUltimos7Dias.addEventListener('click', () => setRelatorioDateRange(6, 0));
     DOM.btnUltimoMes.addEventListener('click', () => setRelatorioDateRange(0, 0, 1));
     DOM.btnUltimos3Meses.addEventListener('click', () => setRelatorioDateRange(0, 0, 3));
@@ -610,6 +684,11 @@ document.addEventListener('DOMContentLoaded', () => {
             carregarItensCardapio(e.target.value, DOM.searchInput.value);
         });
     }
+     if (DOM.manualTipoEntregaSelect) {
+        DOM.manualTipoEntregaSelect.addEventListener("change", (e) => {
+            handleDeliveryTypeChange()
+        });
+    }
     if (DOM.searchInput) {
         DOM.searchInput.addEventListener("input", () => {
             carregarItensCardapio(DOM.categoriaSelect.value, DOM.searchInput.value);
@@ -660,7 +739,46 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnAdicionarItemCardapio) {
         btnAdicionarItemCardapio.addEventListener('click', mostrarNovoitem);
     }
+
+    const btnAdicionarPedidoManual = document.getElementById('btn-adicionar-pedido-manual');
+    const modalPedidoManual = document.getElementById('modal-pedido-manual');
+
+    if (btnAdicionarPedidoManual) {
+        btnAdicionarPedidoManual.addEventListener('click', openManualOrderModal);
+    }
+    if (document.getElementById('manual-btn-fechar')) {
+        document.getElementById('manual-btn-fechar').addEventListener('click', () => modalPedidoManual.classList.add('hidden'));
+    }
+    if (document.getElementById('manual-btn-cancelar')) {
+        document.getElementById('manual-btn-cancelar').addEventListener('click', () => modalPedidoManual.classList.add('hidden'));
+    }
+    if (document.getElementById('manual-select-categoria')) {
+        document.getElementById('manual-select-categoria').addEventListener('change', (e) => updateItemSelectionUI(e.target.value));
+    }
+    if (document.getElementById('pizza-meio-a-meio-check')) {
+        document.getElementById('pizza-meio-a-meio-check').addEventListener('change', (e) => {
+            document.getElementById('container-sabor2').classList.toggle('hidden', !e.target.checked);
+        });
+    }
+    if (document.getElementById('manual-btn-add-item')) {
+        document.getElementById('manual-btn-add-item').addEventListener('click', addItemToManualCart);
+    }
+    if (document.getElementById('manual-btn-salvar')) {
+        document.getElementById('manual-btn-salvar').addEventListener('click', saveManualOrder);
+    }
 });
+
+//Função pra corrigir os horarios LGHN---------------------------------------------------------------------------------------------------------------------------------------
+function parseDateAsLocal(dateString) {
+    // Evita o problema de timezone lendo a data como UTC.
+    // Isso força a data a ser interpretada no fuso horário local.
+    const parts = dateString.split('-');
+    // O mês no construtor do Date é 0-indexado (0 = Janeiro, 1 = Fevereiro, etc.)
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    return new Date(year, month, day);
+}
 
 
 // --- SEÇÃO: PEDIDOS lghn-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -684,8 +802,8 @@ function aplicarFiltroDatas() {
     if (!DOM.pedidosFinalizadosContainer) return;
     DOM.pedidosFinalizadosContainer.innerHTML = '';
 
-    let dataInicioTimestamp = DOM.inputDataInicio.value ? new Date(DOM.inputDataInicio.value).setHours(0, 0, 0, 0) : null;
-    let dataFimTimestamp = DOM.inputDataFim.value ? new Date(DOM.inputDataFim.value).setHours(23, 59, 59, 999) : null;
+    let dataInicioTimestamp = DOM.inputDataInicio.value ? parseDateAsLocal(DOM.inputDataInicio.value).setHours(0, 0, 0, 0) : null;
+    let dataFimTimestamp = DOM.inputDataFim.value ? parseDateAsLocal(DOM.inputDataFim.value).setHours(23, 59, 59, 999) : null;
 
     let pedidosFiltrados = Object.entries(DOM.pedidosOnline).filter(([id, pedido]) => {
         if (pedido.status !== 'Finalizado' || !pedido.timestamp) return false;
@@ -715,6 +833,44 @@ function aplicarFiltroDatas() {
         pedidoDiv.innerHTML = gerarHtmlPedido(pedido, pedidoId);
         DOM.pedidosFinalizadosContainer.appendChild(pedidoDiv);
     });
+}
+
+//Nova função para os finalizados
+function setFiltroDatas(tipo) {
+    const hoje = new Date();
+    let dataInicio = new Date();
+    let dataFim = new Date(hoje);
+
+    // Zera as horas para evitar problemas com fuso horário
+    hoje.setHours(0, 0, 0, 0);
+    dataInicio.setHours(0, 0, 0, 0);
+    dataFim.setHours(0, 0, 0, 0);
+
+    switch (tipo) {
+        case 'ontem':
+            dataInicio.setDate(hoje.getDate() - 1);
+            dataFim.setDate(hoje.getDate() - 1);
+            break;
+        case 'ultimos7dias':
+            dataInicio.setDate(hoje.getDate() - 6);
+            break;
+        case 'ultimoMes':
+            // Pega o primeiro e o último dia do mês anterior
+            dataInicio = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+            dataFim = new Date(hoje.getFullYear(), hoje.getMonth(), 0);
+            break;
+        case 'ultimos3meses':
+            // Pega de 3 meses atrás (mesma data) até hoje
+            dataInicio.setMonth(hoje.getMonth() - 3);
+            break;
+    }
+
+    // Formata e atribui os valores aos inputs da aba "Finalizados"
+    DOM.inputDataInicio.value = dataInicio.toISOString().split('T')[0];
+    DOM.inputDataFim.value = dataFim.toISOString().split('T')[0];
+
+    // Chama a função que aplica o filtro
+    aplicarFiltroDatas();
 }
 
 function aceitarPedido(pedidoId) {
@@ -752,7 +908,7 @@ Aguarde que logo estará a caminho! 🍽️`;
             console.error('Erro ao aceitar pedido:', err);
             alert('Erro ao aceitar pedido. Verifique o console para mais detalhes.');
         });
-}
+} //asdasdqdw
 
 function saiuParaEntrega(pedidoId) {
     database.ref('pedidos/' + pedidoId).once('value').then(snapshot => {
@@ -879,6 +1035,20 @@ function gerarHtmlPedido(pedido, pedidoId) {
         }
     }
 
+    let pagamentoTexto = pedido.pagamento; // Define o valor padrão (ex: "Cartão", "Pix")
+
+    if (pedido.pagamento === 'Dinheiro' && pedido.dinheiroTotal && pedido.dinheiroTotal > 0) {
+        const valorPago = parseFloat(pedido.dinheiroTotal);
+        const valorPedido = parseFloat(pedido.totalPedido);
+        const troco = valorPago - valorPedido;
+
+        if (troco >= 0.01) { // Usa uma pequena margem para evitar erros de ponto flutuante
+            pagamentoTexto = `Dinheiro: R$ ${valorPago.toFixed(2)} (Troco: R$ ${troco.toFixed(2)})`;
+        } else {
+            pagamentoTexto = `Dinheiro: R$ ${valorPago.toFixed(2)} (Sem troco)`;
+        }
+    }
+
     return `
     <div class="flex flex-col justify-between h-full">
         <div>
@@ -886,7 +1056,7 @@ function gerarHtmlPedido(pedido, pedidoId) {
             ${clienteInfo}
             ${tipoAtendimentoInfo}
             ${enderecoTexto}
-            <p class="text-sm"><strong>Pagamento:</strong> ${pedido.pagamento} ${pedido.dinheiroTotal ? '(Troco p/ R$ ' + parseFloat(pedido.dinheiroTotal).toFixed(2) + ')' : ''}</p>
+            <p class="text-sm"><strong>Pagamento:</strong> ${pagamentoTexto}</p>
             <p class="text-sm"><strong>Obs:</strong> ${pedido.observacao || '-'}</p>
             <p class="text-sm"><strong>Entrega:</strong> ${pedido.tipoEntrega || 'N/A'}</p>
             <ul class="my-2 space-y-1">${produtos}</ul>
@@ -955,127 +1125,247 @@ function getStatusColor(status) {
 function imprimirPedido(pedidoId) {
     database.ref('pedidos/' + pedidoId).once('value').then(snapshot => {
         const pedido = snapshot.val();
-        gerarNota(pedido);
+        if (pedido) {
+            gerarNota(pedido, pedidoId); // Pass pedidoId to gerarNota for completeness, though not strictly used in current note format
+        } else {
+            console.error('Pedido não encontrado para impressão:', pedidoId);
+            alert('Erro: Pedido não encontrado para impressão.');
+        }
+    }).catch(error => {
+        console.error('Erro ao carregar pedido para impressão:', error);
+        alert('Erro ao carregar pedido para impressão.');
     });
 }
 
-function gerarNota(pedido) {
-    let html = `
+/**
+ * Gera um HTML para impressão de uma nota de pedido mais profissional.
+ * @param {object} pedido - O objeto do pedido a ser impresso.
+ * @param {string} pedidoId - O ID do pedido.
+ */
+function gerarNota(pedido, pedidoId) { // Added pedidoId parameter
+    if (!pedido || !pedido.cart || !Array.isArray(pedido.cart)) {
+        console.error("Dados do pedido inválidos para gerar a nota.");
+        alert("Não foi possível gerar a nota: dados do pedido incompletos.");
+        return;
+    }
+
+    const dataPedido = pedido.timestamp ? new Date(pedido.timestamp).toLocaleDateString('pt-BR') : 'N/A';
+    const horaPedido = pedido.timestamp ? new Date(pedido.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'N/A';
+
+    let itensHtml = '';
+    pedido.cart.forEach(item => {
+        let sizeInfo = item.pizzaSize || item.size ? ` (${item.pizzaSize || item.size})` : '';
+        itensHtml += `
+            <div class="item">
+                <span class="item-qty">${item.quantity}x</span>
+                <span class="item-name">${item.name}</span>
+                <span class="item-total">R$ ${(item.price * item.quantity).toFixed(2).replace('.', ',')}</span>
+            </div>
+        `;
+        if (item.observacaoItem && item.observacaoItem.trim() !== '') {
+            itensHtml += `<div class="item-obs">Obs: ${item.observacaoItem.trim()}</div>`;
+        }
+    });
+
+    let enderecoInfo = '';
+    if (pedido.tipoEntrega === 'Entrega' && pedido.endereco) {
+        enderecoInfo = `
+            <p><strong>Endereço:</strong> ${pedido.endereco.rua}, ${pedido.endereco.numero}</p>
+            <p><strong>Bairro:</strong> ${pedido.endereco.bairro}</p>
+            ${pedido.endereco.complemento ? `<p><strong>Complemento:</strong> ${pedido.endereco.complemento}</p>` : ''}
+            ${pedido.referencia ? `<p><strong>Referência:</strong> ${pedido.referencia}</p>` : ''}
+        `;
+    } else {
+        enderecoInfo = `<p><strong>Tipo de Entrega:</strong> Retirada no local</p>`;
+    }
+
+    let pagamentoInfo = `<p><strong>Método de Pagamento:</strong> ${pedido.pagamento || 'N/A'}</p>`;
+    if (pedido.pagamento === 'Dinheiro') {
+        const valorPago = parseFloat(pedido.dinheiroTotal || 0);
+        const totalPedido = parseFloat(pedido.totalPedido || 0);
+        const troco = valorPago - totalPedido;
+        pagamentoInfo += `<p><strong>Valor Recebido:</strong> R$ ${valorPago.toFixed(2).replace('.', ',')}</p>`;
+        if (troco > 0.01) { // Check for a meaningful troco amount
+            pagamentoInfo += `<p><strong>Troco:</strong> R$ ${troco.toFixed(2).replace('.', ',')}</p>`;
+        } else {
+            pagamentoInfo += `<p><strong>Troco:</strong> Sem troco</p>`;
+        }
+    } else if (pedido.pagamento === 'Pix' && pedido.chavePix) {
+         pagamentoInfo += `<p><strong>Chave Pix:</strong> ${pedido.chavePix}</p>`;
+    }
+
+    let observacaoGeral = pedido.observacao ? `<p><strong>Observações do Pedido:</strong> ${pedido.observacao}</p>` : '';
+
+    let htmlContent = `
     <html>
     <head>
-        <title>Nota do Pedido</title>
+        <title>Pedido Bonanza #${pedidoId}</title>
         <style>
             @page {
-                size: A4;
-                margin: 10mm;
-            }
-            html, body {
-                width: 100%;
-                height: 100%;
-                padding: 0;
+                size: 80mm auto; /* Standard thermal printer width, auto height */
                 margin: 0;
-                font-family: Arial, sans-serif;
             }
             body {
+                font-family: 'Consolas', 'Courier New', monospace; /* Monospace for alignment */
+                font-size: 10pt;
+                margin: 0;
+                padding: 10mm 5mm; /* Top/Bottom padding, left/right for margins */
                 box-sizing: border-box;
-                padding: 10mm;
-                font-size: 14pt;
+                line-height: 1.4;
+                color: #000;
             }
-            h1 {
+            .header, .footer {
                 text-align: center;
-                font-size: 24pt;
                 margin-bottom: 10mm;
             }
-            hr {
-                border: none;
-                border-top: 2pt solid #000;
-                margin: 5mm 0;
+            .header img {
+                max-width: 50mm; /* Adjust logo size */
+                height: auto;
+                margin-bottom: 5mm;
             }
-            .info {
+            .header h1 {
                 font-size: 14pt;
+                margin: 0;
+                text-transform: uppercase;
+                font-weight: bold;
+            }
+            .header p {
+                font-size: 9pt;
                 margin: 2mm 0;
             }
-            table {
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 10mm;
-                font-size: 14pt;
-            }
-            th, td {
-                padding: 2mm 4mm;
-                border: 1pt solid #000;
-            }
-            th {
-                background: #eee;
-            }
-            .total {
-                font-size: 18pt;
-                font-weight: bold;
-                text-align: right;
-                margin-top: 10mm;
-            }
-            .obs {
-                font-size: 12pt;
+            .section {
+                border-top: 1px dashed #000;
+                padding-top: 5mm;
                 margin-top: 5mm;
             }
-            .footer {
-                text-align: center;
-                margin-top: auto;
-                padding-top: 10mm;
+            .section h2 {
+                font-size: 11pt;
+                margin: 0 0 3mm 0;
+                font-weight: bold;
+            }
+            .section p {
+                margin: 1mm 0;
+            }
+            .items-list {
+                border-top: 1px dashed #000;
+                border-bottom: 1px dashed #000;
+                padding: 5mm 0;
+                margin: 5mm 0;
+            }
+            .item {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 2mm;
+            }
+            .item-qty {
+                flex: 0 0 20mm; /* Fixed width for quantity */
+                text-align: left;
+            }
+            .item-name {
+                flex-grow: 1;
+                text-align: left;
+                padding-right: 5mm;
+            }
+            .item-total {
+                flex: 0 0 25mm; /* Fixed width for item total */
+                text-align: right;
+                font-weight: bold;
+            }
+            .item-obs {
+                font-size: 8pt;
+                margin-left: 20mm; /* Align with item name */
+                margin-top: -1mm;
+                margin-bottom: 2mm;
+                color: #555;
+            }
+            .summary {
+                text-align: right;
+                font-size: 11pt;
+                margin-top: 5mm;
+            }
+            .summary .total-line {
+                display: flex;
+                justify-content: space-between;
+                font-weight: bold;
+                margin-top: 3mm;
                 font-size: 12pt;
+            }
+            .final-total {
+                font-size: 14pt;
+                color: green;
+            }
+            .dashed-line {
+                border-top: 1px dashed #000;
+                margin: 5mm 0;
             }
         </style>
     </head>
     <body>
-        <h1>Nota do Pedido</h1>
-        <hr/>
-        <div class="info"><strong>Cliente:</strong> ${pedido.nomeCliente || '-'}</div>
-        <div class="info"><strong>Telefone:</strong> ${pedido.telefone || '-'}</div>
-        <div class="info"><strong>Entrega:</strong> ${pedido.tipoEntrega}</div>
-        ${
-            pedido.tipoEntrega === 'Entrega' ? `
-            <div class="info"><strong>Endereço:</strong> ${pedido.endereco?.rua}, ${pedido.endereco?.numero} - ${pedido.endereco?.bairro}</div>
-            <div class="info"><strong>Referência:</strong> ${pedido.referencia || '-'}</div>
-            ` : '<div class="info"><strong>Retirada no local</strong></div>'
-        }
-        <hr/>
-        <table>
-            <thead>
-                <tr>
-                    <th>Qtd</th>
-                    <th>Produto</th>
-                    <th>Unitário</th>
-                    <th>Total</th>
-                </tr>
-            </thead>
-            <tbody>`;
+        <div class="header">
+            <img src="assets/iconnota.png" alt="Logo Bonanza"> <h1>Bonanza Pizzaria</h1>
+            <p>Seu Melhor Sabor!</p>
+            <p>Rua Benjamin Constant, nº 621</p>
+            <p>Telefone: (14) 99816-5756</p>
+        </div>
 
-    pedido.cart.forEach(item => {
-        let sizeInfo = item.size ? ` (${item.size})` : '';
-        html += `
-            <tr>
-                <td>${item.quantity}</td>
-                <td>${item.name}${sizeInfo}</td>
-                <td>R$ ${(item.price).toFixed(2)}</td>
-                <td>R$ ${(item.price * item.quantity).toFixed(2)}</td>
-            </tr>`;
-    });
+        <div class="section">
+            <h2>Detalhes do Pedido #${pedidoId}</h2>
+            <p><strong>Data:</strong> ${dataPedido}</p>
+            <p><strong>Hora:</strong> ${horaPedido}</p>
+            <p><strong>Cliente:</strong> ${pedido.nomeCliente || 'N/A'}</p>
+            <p><strong>Telefone:</strong> ${pedido.telefone || 'N/A'}</p>
+            ${pedido.garcom ? `<p><strong>Garçom:</strong> ${pedido.garcom}</p>` : ''}
+            ${pedido.mesaNumero ? `<p><strong>Mesa:</strong> ${pedido.mesaNumero}</p>` : ''}
+        </div>
 
-    html += `
-            </tbody>
-        </table>
-        <div class="info"><strong>Pagamento:</strong> ${pedido.pagamento} ${pedido.dinheiroTotal ? `(Troco p/ R$ ${parseFloat(pedido.dinheiroTotal).toFixed(2)})` : ''}</div>
-        <div class="obs"><strong>Observação:</strong> ${pedido.observacao || '-'}</div>
-        <div class="total">Total do pedido: R$ ${pedido.totalPedido.toFixed(2)}</div>
-        <div class="footer">Obrigado por comprar conosco! 🍽️</div>
+        <div class="section">
+            <h2>Informações de Entrega/Retirada</h2>
+            ${enderecoInfo}
+        </div>
+
+        <div class="items-list">
+            <h2>Itens do Pedido</h2>
+            ${itensHtml}
+        </div>
+
+        <div class="section summary">
+            <p>Subtotal: R$ ${pedido.totalPedido.toFixed(2).replace('.', ',')}</p>
+            ${pedido.desconto && pedido.desconto > 0 ? `<p>Desconto: - R$ ${pedido.desconto.toFixed(2).replace('.', ',')}</p>` : ''}
+            <div class="total-line final-total">
+                <span>TOTAL A PAGAR:</span>
+                <span>R$ ${pedido.totalPedido.toFixed(2).replace('.', ',')}</span>
+            </div>
+            ${pedido.totalPago && pedido.totalPago > 0 && pedido.totalPago !== pedido.totalPedido ? `<p>Total Pago: R$ ${pedido.totalPago.toFixed(2).replace('.', ',')}</p>` : ''}
+            ${pedido.totalPago && pedido.totalPago > pedido.totalPedido ? `<p>Troco: R$ ${(pedido.totalPago - pedido.totalPedido).toFixed(2).replace('.', ',')}</p>` : ''}
+        </div>
+
+        <div class="section">
+            <h2>Detalhes de Pagamento</h2>
+            ${pagamentoInfo}
+        </div>
+
+        ${observacaoGeral ? `<div class="section"><p>${observacaoGeral}</p></div>` : ''}
+
+        <div class="footer section">
+            <p>Agradecemos a sua preferência!</p>
+            <p>Volte Sempre!</p>
+            <p>Desenvolvido por LGHN System</p>
+        </div>
     </body>
-    </html>`;
+    </html>
+    `;
 
-    const printWindow = window.open('', '', 'width=1024,height=768');
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
+    const printWindow = window.open('', '', 'width=800,height=600'); // Reduced default size for thermal print preview
+    if (printWindow) {
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+        // Optionally close after printing, but often left open for user to review
+        // printWindow.onafterprint = () => printWindow.close();
+    } else {
+        alert("Não foi possível abrir a janela de impressão. Por favor, verifique se pop-ups estão bloqueados.");
+    }
 }
 
 
@@ -1103,37 +1393,38 @@ function renderizarItensModal(itens) {
         itemDiv.className = 'flex justify-between items-center gap-2 border p-2 rounded';
         itemDiv.innerHTML = `
             <input type="number" min="0" value="${item.quantity}"
-                class="w-16 border p-1 rounded text-center"
+                class="w-16 border p-1 rounded text-center item-quantity-input"
                 data-index="${index}"
                 data-name="${item.name}"
                 data-price="${item.price}"
                 data-size="${item.size || ''}"
             />
             <span class="flex-1 ml-2">${item.name}${sizeInfo}</span>
-            <span>R$ ${(item.price * item.quantity).toFixed(2)}</span>
+            <span class="item-total-price">R$ ${(item.price * item.quantity).toFixed(2)}</span> 
         `;
         container.appendChild(itemDiv);
     });
 
-    container.querySelectorAll('input[type="number"]').forEach(input => {
+    container.querySelectorAll('.item-quantity-input').forEach(input => { // Usando a nova classe
         input.addEventListener('input', (event) => {
             const idx = parseInt(event.target.dataset.index);
-            const newQuantity = parseInt(event.target.value, 10);
-            if (!isNaN(newQuantity) && newQuantity >= 0) {
-                if (pedidoOriginal.cart[idx]) {
-                    pedidoOriginal.cart[idx].quantity = newQuantity;
-                    const itemPriceElement = event.target.closest('div').querySelector('span:last-child');
-                    if (itemPriceElement) {
-                        itemPriceElement.textContent = `R$ ${(pedidoOriginal.cart[idx].price * newQuantity).toFixed(2)}`;
-                    }
+            let newQuantity = parseInt(event.target.value, 10);
+
+            // Validação de entrada: Garante que a quantidade seja um número e não seja negativa
+            if (isNaN(newQuantity) || newQuantity < 0) {
+                newQuantity = 0; // Define como 0 se for inválido ou negativo
+            }
+
+            // Atualiza o objeto pedidoOriginal.cart
+            if (pedidoOriginal.cart[idx]) {
+                pedidoOriginal.cart[idx].quantity = newQuantity;
+                const itemPriceElement = event.target.closest('div').querySelector('.item-total-price'); // Usando a nova classe
+                if (itemPriceElement) {
+                    itemPriceElement.textContent = `R$ ${(pedidoOriginal.cart[idx].price * newQuantity).toFixed(2)}`;
                 }
-            } else {
-                event.target.value = pedidoOriginal.cart[idx].quantity;
             }
         });
     });
-
-    document.getElementById('btn-salvar-pedido').onclick = salvarPedidoEditado;
 }
 
 const btnAdicionarItemModal = document.getElementById('btn-adicionar-item');
@@ -1149,11 +1440,14 @@ if (btnAdicionarItemModal) {
         }
 
         pedidoOriginal.cart = pedidoOriginal.cart || [];
-        const existingItemIndex = pedidoOriginal.cart.findIndex(item => item.name === nome);
+        // Encontra um item existente com o mesmo nome e tamanho
+        const existingItemIndex = pedidoOriginal.cart.findIndex(item => item.name === nome && item.size === ''); // Considerando que itens adicionados via modal não têm tamanho inicialmente
+        
         if (existingItemIndex > -1) {
             pedidoOriginal.cart[existingItemIndex].quantity += qtd;
         } else {
-            pedidoOriginal.cart.push({ name: nome, price: preco, quantity: qtd, size: '' });
+            // Se não for uma pizza ou um item com tamanho específico, o size é vazio
+            pedidoOriginal.cart.push({ name: nome, price: preco, quantity: qtd, size: '' }); 
         }
 
         document.getElementById('novo-item-nome').value = '';
@@ -1165,19 +1459,10 @@ if (btnAdicionarItemModal) {
 }
 
 function salvarPedidoEditado() {
-    const inputs = document.querySelectorAll('#modal-itens input[type="number"]');
-
-    const novosItens = [];
-    inputs.forEach(input => {
-        const nome = input.dataset.name;
-        const preco = parseFloat(input.dataset.price);
-        const qtd = parseInt(input.value, 10);
-        const size = input.dataset.size || undefined;
-
-        if (qtd > 0) {
-            novosItens.push({ name: nome, price: preco, quantity: qtd, size: size });
-        }
-    });
+    // **A GRANDE MUDANÇA AQUI:**
+    // Não leia os valores dos inputs novamente.
+    // Use diretamente o `pedidoOriginal.cart` que já foi atualizado pelo evento 'input'.
+    const novosItens = pedidoOriginal.cart.filter(item => item.quantity > 0);
 
     const novoTotalPedido = novosItens.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
@@ -1214,10 +1499,13 @@ function handleSalvarNovoItem() {
     const preco = parseFloat(DOM.novoPrecoInput.value);
     const imagem = DOM.novoImagemInput.value.trim();
     const ativo = DOM.novoAtivoCheckbox.checked;
-    const categoria = DOM.novoTipoSelect.value; 
+    // Pega a categoria principal da tela (pizzas, bebidas, etc.)
+    const categoriaPrincipal = DOM.novoCategoriaSelect.value;
+    // Pega o tipo (Salgado/Doce) do formulário
+    const tipoDoItem = DOM.novoTipoSelect.value; 
 
-    if (!categoria) {
-        alert("Selecione uma categoria para salvar o item.");
+    if (!categoriaPrincipal) {
+        alert("Um erro ocorreu. A categoria principal (Pizzas, Bebidas, etc.) não foi encontrada.");
         return;
     }
 
@@ -1230,16 +1518,19 @@ function handleSalvarNovoItem() {
         return;
     }
 
-    const novoItem = { nome, descricao, preco, imagem, ativo, tipo: DOM.novoTipoSelect.value, receita: {} };
+    // Monta o objeto do item, usando a variável correta para o tipo
+    const novoItem = { nome, descricao, preco, imagem, ativo, tipo: tipoDoItem, receita: {} };
 
-    database.ref(`produtos/${categoria}`).push(novoItem, (error) => {
+    // Salva na CATEGORIA PRINCIPAL correta
+    database.ref(`produtos/${categoriaPrincipal}`).push(novoItem, (error) => {
         if (error) {
             alert("Erro ao adicionar item!");
             console.error("Erro ao adicionar item:", error);
         } else {
             alert("Item adicionado com sucesso!");
             DOM.modalNovoItem.classList.add("hidden");
-            carregarItensCardapio(categoria, DOM.searchInput.value);
+            // Atualiza a visualização da CATEGORIA PRINCIPAL correta
+            carregarItensCardapio(categoriaPrincipal, DOM.searchInput.value);
             limparFormularioNovoItem();
         }
     });
@@ -1253,6 +1544,7 @@ function limparFormularioNovoItem() {
     if (DOM.previewNovaImagem) DOM.previewNovaImagem.classList.add("hidden");
     DOM.novoAtivoCheckbox.checked = true;
     DOM.novoTipoSelect.value = "salgado";
+    if (DOM.novoCategoriaSelect) DOM.novoCategoriaSelect.value = "pizzas";
 }
 
 function carregarItensCardapio(categoria, searchQuery = '') {
@@ -2306,8 +2598,8 @@ function gerarRelatorios() {
         return;
     }
 
-    const dataInicioTimestamp = new Date(inicio).setHours(0, 0, 0, 0);
-    const dataFimTimestamp = new Date(fim).setHours(23, 59, 59, 999);
+    const dataInicioTimestamp = parseDateAsLocal(inicio).setHours(0, 0, 0, 0);
+    const dataFimTimestamp = parseDateAsLocal(fim).setHours(23, 59, 59, 999);
 
     if (dataInicioTimestamp > dataFimTimestamp) {
         alert("A data de início não pode ser posterior à data de fim.");
@@ -2319,7 +2611,8 @@ function gerarRelatorios() {
     if (vendasPorDiaChartInstance) vendasPorDiaChartInstance.destroy();
     if (horariosPicoChartInstance) horariosPicoChartInstance.destroy();
     if (metodosPagamentoChartInstance) metodosPagamentoChartInstance.destroy();
-    if (topClientesChartInstance) topClientesChartInstance.destroy(); // NOVO: Destruir a instância do gráfico de top clientes
+    if (topClientesChartInstance) topClientesChartInstance.destroy();
+    if (tiposEntregaChartInstance) tiposEntregaChartInstance.destroy(); // NOVO: Destruir a instância do gráfico de tipos de entrega
 
     // Limpar resumos e esconder os canvas antes de carregar novos dados
     const loadingMessage = '<p class="text-gray-600">Carregando...</p>';
@@ -2327,13 +2620,15 @@ function gerarRelatorios() {
     DOM.vendasPorDiaSummary.innerHTML = loadingMessage;
     DOM.horariosPicoSummary.innerHTML = loadingMessage;
     DOM.metodosPagamentoSummary.innerHTML = loadingMessage;
-    DOM.topClientesSummary.innerHTML = loadingMessage; // NOVO: Limpar o sumário de top clientes
+    DOM.topClientesSummary.innerHTML = loadingMessage;
+    DOM.tiposEntregaSummary.innerHTML = loadingMessage; // NOVO: Limpar o sumário de tipos de entrega
 
     DOM.topProdutosChartCanvas.style.display = 'none';
     DOM.vendasPorDiaChartCanvas.style.display = 'none';
     DOM.horariosPicoChartCanvas.style.display = 'none';
     DOM.metodosPagamentoChartCanvas.style.display = 'none';
-    DOM.topClientesChartCanvas.style.display = 'none'; // NOVO: Esconder o canvas de top clientes
+    DOM.topClientesChartCanvas.style.display = 'none';
+    DOM.tiposEntregaChartCanvas.style.display = 'none'; // NOVO: Esconder o canvas de tipos de entrega
 
 
     // Carregar dados de pedidos e filtrar pelo período e status
@@ -2354,13 +2649,15 @@ function gerarRelatorios() {
             DOM.vendasPorDiaSummary.innerHTML = noDataMessage;
             DOM.horariosPicoSummary.innerHTML = noDataMessage;
             DOM.metodosPagamentoSummary.innerHTML = noDataMessage;
-            DOM.topClientesSummary.innerHTML = noDataMessage; // NOVO: Exibir mensagem para o novo relatório de top clientes
+            DOM.topClientesSummary.innerHTML = noDataMessage;
+            DOM.tiposEntregaSummary.innerHTML = noDataMessage; // NOVO: Exibir mensagem para o novo relatório
 
             DOM.topProdutosChartCanvas.style.display = 'none';
             DOM.vendasPorDiaChartCanvas.style.display = 'none';
             DOM.horariosPicoChartCanvas.style.display = 'none';
             DOM.metodosPagamentoChartCanvas.style.display = 'none';
-            DOM.topClientesChartCanvas.style.display = 'none'; // NOVO: Esconder canvas
+            DOM.topClientesChartCanvas.style.display = 'none';
+            DOM.tiposEntregaChartCanvas.style.display = 'none'; // NOVO: Esconder canvas
             return;
         }
 
@@ -2369,7 +2666,8 @@ function gerarRelatorios() {
         analisarVendasPorDiaDaSemana(pedidosNoPeriodo);
         analisarHorariosDePico(pedidosNoPeriodo);
         analisarMetodosDePagamento(pedidosNoPeriodo);
-        analisarPessoasQueMaisCompraram(pedidosNoPeriodo); // NOVO: Chamar a nova função de análise
+        analisarPessoasQueMaisCompraram(pedidosNoPeriodo);
+        analisarTiposDeEntrega(pedidosNoPeriodo); // NOVO: Chamar a nova função de análise
     }, (error) => {
         console.error("Erro ao carregar pedidos para relatórios:", error);
         const errorMessage = '<p class="text-red-600">Erro ao carregar dados.</p>';
@@ -2377,13 +2675,15 @@ function gerarRelatorios() {
         DOM.vendasPorDiaSummary.innerHTML = errorMessage;
         DOM.horariosPicoSummary.innerHTML = errorMessage;
         DOM.metodosPagamentoSummary.innerHTML = errorMessage;
-        DOM.topClientesSummary.innerHTML = errorMessage; // NOVO: Exibir mensagem de erro para o novo relatório
+        DOM.topClientesSummary.innerHTML = errorMessage;
+        DOM.tiposEntregaSummary.innerHTML = errorMessage; // NOVO: Exibir mensagem de erro para o novo relatório
 
         DOM.topProdutosChartCanvas.style.display = 'none';
         DOM.vendasPorDiaChartCanvas.style.display = 'none';
         DOM.horariosPicoChartCanvas.style.display = 'none';
         DOM.metodosPagamentoChartCanvas.style.display = 'none';
-        DOM.topClientesChartCanvas.style.display = 'none'; // NOVO: Esconder canvas
+        DOM.topClientesChartCanvas.style.display = 'none';
+        DOM.tiposEntregaChartCanvas.style.display = 'none'; // NOVO: Esconder canvas
     });
 }
 
@@ -2682,6 +2982,90 @@ function analisarHorariosDePico(pedidos) {
     }
 }
 
+function analisarTiposDeEntrega(pedidos) {
+    const contagemTipos = {};
+
+    pedidos.forEach(pedido => {
+        const tipo = pedido.tipoEntrega || 'Desconhecido';
+        contagemTipos[tipo] = (contagemTipos[tipo] || 0) + 1;
+    });
+
+    const tiposOrdenados = Object.entries(contagemTipos)
+        .sort(([, qtdA], [, qtdB]) => qtdB - qtdA);
+
+    DOM.tiposEntregaSummary.innerHTML = '';
+    if (tiposOrdenados.length > 0) {
+        DOM.tiposEntregaChartCanvas.style.display = 'block';
+        const labels = tiposOrdenados.map(item => item[0]);
+        const data = tiposOrdenados.map(item => item[1]);
+
+        tiposEntregaChartInstance = new Chart(DOM.tiposEntregaChartCanvas, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Número de Pedidos',
+                    data: data,
+                    backgroundColor: [
+                        'rgba(255, 165, 0, 0.8)', // Laranja
+                        'rgba(0, 128, 0, 0.8)',   // Verde
+                        'rgba(128, 0, 128, 0.8)'  // Roxo
+                    ],
+                    borderColor: [
+                        'rgba(255, 165, 0, 1)',
+                        'rgba(0, 128, 0, 1)',
+                        'rgba(128, 0, 128, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            precision: 0
+                        },
+                        title: {
+                            display: false
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        title: {
+                            display: false
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ': ' + context.raw + ' pedidos';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        DOM.tiposEntregaSummary.innerHTML = `<p>A maioria dos pedidos foi de **${labels[0]}** (${data[0]} pedidos).</p>`;
+    } else {
+        DOM.tiposEntregaSummary.innerHTML = '<p class="text-gray-600">Nenhum dado de tipo de entrega.</p>';
+        DOM.tiposEntregaChartCanvas.style.display = 'none';
+    }
+}
+
 // 4. Análise de Métodos de Pagamento
 function analisarMetodosDePagamento(pedidos) {
     const contagemMetodos = {};
@@ -2888,8 +3272,7 @@ function salvarCupom(){
             return;
         }
 
-        const partesData = validadeStr.split('-');
-        const validadeDate = new Date(Date.UTC(partesData[0], partesData[1] - 1, partesData[2])); // Corrected date parsing for YYYY-MM-DD
+        const validadeDate = parseDateAsLocal(validadeStr);
         validadeDate.setHours(23, 59, 59, 999);
         const validadeTimestamp = validadeDate.getTime();
 
@@ -3144,10 +3527,11 @@ function popularIngredientesParaReceitaSelects() {
 function handleAddItemCompraDetalhe() {
     const ingredienteId = DOM.compraIngredienteSelectDetalhe.value;
     const quantidade = parseFloat(DOM.compraQuantidadeDetalheInput.value);
-    const precoUnitario = parseFloat(DOM.compraPrecoUnitarioDetalheInput.value);
+    const precoTotal = parseFloat(DOM.compraPrecoTotalDetalheInput.value); // Pega o PREÇO TOTAL agora
 
-    if (!ingredienteId || isNaN(quantidade) || quantidade <= 0 || isNaN(precoUnitario) || precoUnitario <= 0) {
-        alert('Por favor, selecione um ingrediente e insira quantidades e preços válidos e positivos.');
+    // Validação inicial
+    if (!ingredienteId || isNaN(quantidade) || quantidade <= 0 || isNaN(precoTotal) || precoTotal <= 0) {
+        alert('Por favor, selecione um ingrediente e insira uma quantidade e um custo total válidos e positivos.');
         return;
     }
     if (!allIngredients[ingredienteId]) {
@@ -3155,25 +3539,32 @@ function handleAddItemCompraDetalhe() {
         return;
     }
 
+    // A MÁGICA ACONTECE AQUI: CÁLCULO DO PREÇO UNITÁRIO
+    const precoUnitarioCalculado = precoTotal / quantidade;
+
     const itemExistenteIndex = currentPurchaseItems.findIndex(item => item.ingredienteId === ingredienteId);
 
     if (itemExistenteIndex > -1) {
-        alert('Este ingrediente já foi adicionado à lista de compra. Remova-o e adicione novamente com a quantidade/preco corretos.');
+        alert('Este ingrediente já foi adicionado à lista de compra. Remova-o e adicione novamente com os valores corretos.');
         return;
     }
 
+    // Adiciona o item à lista com o preço unitário JÁ CALCULADO
     currentPurchaseItems.push({
         ingredienteId: ingredienteId,
         nome: allIngredients[ingredienteId].nome,
         unidadeMedida: allIngredients[ingredienteId].unidadeMedida,
         quantidade: quantidade,
-        precoUnitario: precoUnitario
+        precoUnitario: precoUnitarioCalculado // Usa o valor calculado
     });
 
     renderItensCompraDetalhe();
+
+    // Limpa os campos após adicionar
     DOM.compraIngredienteSelectDetalhe.value = '';
     DOM.compraQuantidadeDetalheInput.value = '';
-    DOM.compraPrecoUnitarioDetalheInput.value = '';
+    DOM.compraPrecoTotalDetalheInput.value = '';
+    DOM.custoCalculadoDisplay.textContent = ''; // Limpa o display do custo
     DOM.btnRegistrarCompraDetalhe.disabled = currentPurchaseItems.length === 0;
 }
 
@@ -3273,17 +3664,23 @@ async function recalcularCustoUnitarioMedio(ingredienteId, quantidadeComprada, p
 }
 
 // Configuração de Receitas
-function popularIngredientesParaCompraSelects() {
-    DOM.receitaIngredienteSelectDetalhe.innerHTML = '<option value="">Selecione um ingrediente</option>';
+function popularIngredientesParaCompraSelects() { // Ou popularIngredientesParaCompraSelect, se preferir o nome mais curto
+    // Adicione esta verificação para garantir que o elemento exista antes de usá-lo
+    if (!DOM.compraIngredienteSelectDetalhe) {
+        console.warn("DOM.compraIngredienteSelectDetalhe não encontrado. Não é possível popular os ingredientes para a compra.");
+        return;
+    }
+    DOM.compraIngredienteSelectDetalhe.innerHTML = '<option value="">Selecione um ingrediente</option>';
     const sortedIngredients = Object.entries(allIngredients).sort(([, a], [, b]) => a.nome.localeCompare(b.nome));
     sortedIngredients.forEach(([id, ingrediente]) => {
         const option = document.createElement('option');
         option.value = id;
         option.textContent = `${ingrediente.nome} (${ingrediente.unidadeMedida})`;
-        DOM.receitaIngredienteSelectDetalhe.appendChild(option);
+        // Mude esta linha para usar o elemento correto do DOM para a compra:
+        DOM.compraIngredienteSelectDetalhe.appendChild(option); // <-- CORRIGIDO AQUI
     });
 }
-
+//asdawdasd
 // 3. handleReceitaProdutoSelectChangeDetalhe: Lida com a seleção do PRODUTO
 async function handleReceitaProdutoSelectChangeDetalhe(event) {
     console.log('handleReceitaProdutoSelectChangeDetalhe foi chamada!'); // For debugging
@@ -3732,7 +4129,29 @@ function renderConsumoMensal() {
     DOM.totalGastoMensalSpan.textContent = `R$ ${totalCustoMes.toFixed(2)}`;
 }
 
+function calcularEExibirCustoUnitario() {
+    const quantidade = parseFloat(DOM.compraQuantidadeDetalheInput.value);
+    const precoTotal = parseFloat(DOM.compraPrecoTotalDetalheInput.value);
+    const ingredienteId = DOM.compraIngredienteSelectDetalhe.value;
 
+    if (quantidade > 0 && precoTotal > 0 && ingredienteId) {
+        const precoUnitario = precoTotal / quantidade;
+        const unidadeMedida = allIngredients[ingredienteId]?.unidadeMedida || 'un.';
+        DOM.custoCalculadoDisplay.textContent = `(Custo: R$ ${precoUnitario.toFixed(2)} por ${unidadeMedida})`;
+    } else {
+        DOM.custoCalculadoDisplay.textContent = '';
+    }
+}
+
+async function fetchAllIngredients() {
+    try {
+        const snapshot = await firebase.database().ref('ingredientes').once('value');
+        allIngredients = snapshot.val() || {};
+        console.log("All ingredients loaded:", allIngredients);
+    } catch (error) {
+        console.error("Error fetching ingredients:", error);
+    }
+}
 
 // --- SEÇÃO: GERENCIAMENTO DE GARÇONS -----------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -4132,3 +4551,547 @@ async function salvarMenuLink() {
         alert('Erro ao salvar link do cardápio: ' + error.message);
     }
 }
+
+// SEÇÃO PEDIDOS: Pedido Manual LGHN------------------------------------------------------------------------------------------------------------------------------
+
+function openManualOrderModal() {
+    const modal = document.getElementById('modal-pedido-manual');
+    if (modal) {
+        resetManualOrderModal(); // Limpa a modal antes de abrir.
+        populateCategorySelect('manual-select-categoria');
+        populateBordasSelect('pizza-borda');
+        handleDeliveryTypeChange();
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+/**
+ * Reseta todos os campos e o carrinho da modal para um estado limpo.
+ */
+function resetManualOrderModal() {
+    manualOrderCart = [];
+    updateManualCartView();
+    ['manual-nome-cliente', 'manual-telefone', 'manual-input-rua', 'manual-input-numero', 'manual-input-bairro'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    document.getElementById('manual-qtd-produto').value = '1';
+    document.getElementById('manual-select-categoria').value = '';
+    document.getElementById('container-montagem-pizza').classList.add('hidden');
+    document.getElementById('container-outros-itens').classList.add('hidden');
+    document.getElementById('pizza-meio-a-meio-check').checked = false;
+    document.getElementById('container-sabor2').classList.add('hidden');
+    document.getElementById('container-endereco').classList.add('hidden'); // Esconde o contêiner do endereço
+    document.getElementById('manual-tipo-entrega').value = 'Retirada'; // Reseta o tipo de entrega para "Retirada"
+}
+
+/**
+ * Popula o <select> de categorias com base nos produtos carregados.
+ */
+function populateCategorySelect(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Selecione a Categoria --</option>';
+    if (allProducts) {
+        Object.keys(allProducts).sort().forEach(catKey => {
+            const option = document.createElement('option');
+            option.value = catKey;
+            option.textContent = catKey.charAt(0).toUpperCase() + catKey.slice(1);
+            select.appendChild(option);
+        });
+    }
+}
+
+/**
+ * Popula o <select> de bordas com base nas bordas carregadas.
+ */
+function populateBordasSelect(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    select.innerHTML = '<option value="">Sem Borda</option>';
+
+    if (allBordas) {
+        // Ordena as bordas pelo nome para exibição consistente
+        Object.entries(allBordas).sort(([, a], [, b]) => a.nome.localeCompare(b.nome)).forEach(([key, borda]) => {
+            const option = document.createElement('option');
+            option.value = key;
+            
+            // Verifica se a borda tem preços por tamanho ou um preço único
+            let bordaText = borda.nome;
+            if (borda.precos && borda.precos.broto !== undefined && borda.precos.grande !== undefined) {
+                bordaText += ` (+ R$${borda.precos.broto.toFixed(2)} Broto / R$${borda.precos.grande.toFixed(2)} Grande)`;
+            } else if (borda.preco !== undefined) { // Fallback para preço único, se necessário
+                bordaText += ` (+ R$${borda.preco.toFixed(2)})`;
+            }
+            
+            option.textContent = bordaText;
+            select.appendChild(option);
+        });
+    }
+}
+/**
+ * Popula um <select> de produtos (ex: sabores de pizza, bebidas).
+ */
+function populateProductSelect(selectId, category) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Selecione --</option>';
+    if (allProducts && allProducts[category]) {
+        Object.entries(allProducts[category]).sort(([, a], [, b]) => a.nome.localeCompare(b.nome)).forEach(([id, product]) => {
+            if (product.ativo !== false) {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = product.nome;
+                select.appendChild(option);
+            }
+        });
+    }
+}
+
+/**
+ * Controla a interface, mostrando as opções de pizza ou de outros itens.
+ */
+function updateItemSelectionUI(category) {
+    const containerPizza = document.getElementById('container-montagem-pizza');
+    const containerOutros = document.getElementById('container-outros-itens');
+
+    containerPizza.classList.add('hidden');
+    containerOutros.classList.add('hidden');
+
+    if (category === 'pizzas') {
+        containerPizza.classList.remove('hidden');
+        populateProductSelect('pizza-sabor1', 'pizzas');
+        populateProductSelect('pizza-sabor2', 'pizzas');
+    } else if (category) {
+        containerOutros.classList.remove('hidden');
+        populateProductSelect('manual-select-produto', category);
+    }
+}
+
+/**
+ * Adiciona o item configurado ao carrinho (`manualOrderCart`).
+ */
+function addItemToManualCart() {
+    const categoria = document.getElementById('manual-select-categoria').value;
+    const quantidade = parseInt(document.getElementById('manual-qtd-produto').value);
+
+    if (!categoria || isNaN(quantidade) || quantidade <= 0) {
+        alert("Selecione uma categoria e uma quantidade válida.");
+        return;
+    }
+
+    let item;
+    if (categoria === 'pizzas') {
+        item = buildPizzaItem();
+    } else {
+        item = buildGenericItem(categoria);
+    }
+
+    if (item) {
+        item.quantity = quantidade;
+        item.totalPrice = item.price * item.quantity;
+
+        // Certifique-se que estas propriedades estão presentes para a dedução de estoque
+        // buildPizzaItem já retorna originalProductId, productCategory, etc.
+        // buildGenericItem precisa ter isso adicionado.
+        if (categoria !== 'pizzas' && item.id) { // Para itens genéricos
+             item.originalProductId = item.id; // O ID já é o Firebase Key
+             item.productCategory = categoria; // A categoria selecionada
+        }
+
+        manualOrderCart.push(item);
+        updateManualCartView();
+    }
+}
+
+/**
+ * Constrói o objeto de uma pizza com todas as suas customizações.
+ */
+function buildPizzaItem() {
+    const tamanho = document.getElementById('pizza-tamanho').value; // Retorna 'Grande' ou 'Broto'
+    const bordaKey = document.getElementById('pizza-borda').value;
+    const sabor1Key = document.getElementById('pizza-sabor1').value;
+    const isMeioAMeio = document.getElementById('pizza-meio-a-meio-check').checked;
+    const sabor2Key = document.getElementById('pizza-sabor2').value;
+
+    if (!sabor1Key || (isMeioAMeio && !sabor2Key)) {
+        alert("Selecione os sabores da pizza corretamente.");
+        return null;
+    }
+
+    const sabor1 = allProducts.pizzas[sabor1Key];
+    let precoBase1 = 0;
+    const tamanhoKey = tamanho.toLowerCase();
+
+    if (sabor1 && sabor1.precos && sabor1.precos[tamanhoKey] !== undefined) {
+        precoBase1 = sabor1.precos[tamanhoKey];
+    } else if (sabor1 && sabor1.preco !== undefined) {
+        precoBase1 = sabor1.preco;
+    } else {
+        alert(`Erro: Preço do 1º sabor (${sabor1?.nome || 'desconhecido'}) para o tamanho ${tamanho} não encontrado.`);
+        return null;
+    }
+
+    let nomeProdutoPizza = `${sabor1.nome}`; // Inicia a formatação do nome
+
+    let precoFinalPizza = precoBase1;
+    let sabor2 = null;
+
+    if (isMeioAMeio && sabor2Key) {
+        sabor2 = allProducts.pizzas[sabor2Key];
+        let precoBase2 = 0;
+
+        if (sabor2 && sabor2.precos && sabor2.precos[tamanhoKey] !== undefined) {
+            precoBase2 = sabor2.precos[tamanhoKey];
+        } else if (sabor2 && sabor2.preco !== undefined) {
+            precoBase2 = sabor2.preco;
+        } else {
+            alert(`Erro: Preço do 2º sabor (${sabor2?.nome || 'desconhecido'}) para o tamanho ${tamanho} não encontrado.`);
+            return null;
+        }
+
+        precoFinalPizza = Math.max(precoBase1, precoBase2);
+        nomeProdutoPizza = `${sabor1.nome} / ${sabor2.nome}`; // Formato para meio a meio
+    }
+
+    if (tamanho === 'Broto') {
+        const sabor1Nome = sabor1.nome || '';
+        const sabor2Nome = sabor2 ? sabor2.nome || '' : '';
+
+        const temSaborEspecial =
+            sabor1Nome.toLowerCase().includes('costela') ||
+            sabor2Nome.toLowerCase().includes('costela') ||
+            sabor1Nome.toLowerCase().includes('morango com chocolate') ||
+            sabor2Nome.toLowerCase().includes('morango com chocolate');
+
+        if (temSaborEspecial) {
+            precoFinalPizza = 35.00; // Preço especial para Broto de Costela ou Morango com Chocolate
+        } else {
+            precoFinalPizza = 30.00;
+        }
+    }
+
+    let precoBorda = 0;
+    if (bordaKey && allBordas[bordaKey]) {
+        if (allBordas[bordaKey].precos && allBordas[bordaKey].precos[tamanhoKey] !== undefined) {
+            precoBorda = allBordas[bordaKey].precos[tamanhoKey];
+            nomeProdutoPizza += ` (Borda ${allBordas[bordaKey].nome})`; // Adiciona a borda ao nome
+        }
+    }
+    
+    // Adiciona o tamanho ao final do nome do produto
+
+    const precoCalculadoDoItem = precoFinalPizza + precoBorda;
+
+    return {
+        id: isMeioAMeio ? `${sabor1Key}|${sabor2Key}|${tamanho}` : `${sabor1Key}|${tamanho}`,
+        name: nomeProdutoPizza, // Usa o nome formatado
+        price: precoCalculadoDoItem,
+        size: tamanho,
+    };
+}
+
+/**
+ * Constrói o objeto de um item genérico (bebida, esfiha, etc.).
+ */
+function buildGenericItem(categoria) {
+    const produtoId = document.getElementById('manual-select-produto').value;
+    if (!produtoId) {
+        alert("Selecione um produto.");
+        return null;
+    }
+    const produto = allProducts[categoria][produtoId];
+    return {
+        id: produtoId,
+        name: produto.nome,
+        price: produto.preco || 0,
+        size: '',
+    };
+}
+
+/**
+ * Atualiza a lista de itens no carrinho da modal e o valor total.
+ */
+function updateManualCartView() {
+    const lista = document.getElementById('manual-itens-lista');
+    const totalEl = document.getElementById('manual-total-pedido');
+    lista.innerHTML = '';
+    let totalPedido = 0;
+
+    if (manualOrderCart.length === 0) {
+        lista.innerHTML = '<p class="text-gray-500">Nenhum item adicionado.</p>';
+    } else {
+        manualOrderCart.forEach((item, index) => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'flex justify-between items-center bg-gray-100 p-2 rounded';
+            itemDiv.innerHTML = `
+                <div><span class="font-semibold">${item.quantity}x</span> ${item.name}</div>
+                <div class="flex items-center gap-3">
+                    <span class="font-bold">R$ ${item.totalPrice.toFixed(2)}</span>
+                    <button class="text-red-500 hover:text-red-700 font-bold text-lg" onclick="removeManualItem(${index})">&times;</button>
+                </div>`;
+            lista.appendChild(itemDiv);
+            totalPedido += item.totalPrice;
+        });
+    }
+    totalEl.textContent = `R$ ${totalPedido.toFixed(2)}`;
+}
+
+/**
+ * Remove um item do carrinho da modal.
+ */
+function removeManualItem(index) {
+    manualOrderCart.splice(index, 1);
+    updateManualCartView();
+}
+
+/**
+ * Lida com a mudança no tipo de entrega para mostrar/esconder campos de endereço.
+ */
+function handleDeliveryTypeChange() {
+    const tipoEntrega = document.getElementById('manual-tipo-entrega').value;
+    const containerEndereco = document.getElementById('container-endereco');
+
+    if (containerEndereco) { // Adicionado verificação para garantir que o container existe
+        if (tipoEntrega === 'Entrega') {
+            containerEndereco.classList.remove('hidden');
+        } else {
+            containerEndereco.classList.add('hidden');
+            // Opcional: Limpar os campos de endereço quando escondidos
+            // Isso evita que dados antigos fiquem "escondidos"
+            const ruaEl = document.getElementById('manual-input-rua');
+            const numeroEl = document.getElementById('manual-input-numero');
+            const bairroEl = document.getElementById('manual-input-bairro');
+            if(ruaEl) ruaEl.value = '';
+            if(numeroEl) numeroEl.value = '';
+            if(bairroEl) bairroEl.value = '';
+        }
+    }
+}
+
+/**
+ * Deducts ingredients from stock based on the order's cart.
+ * Updates quantidadeAtual, quantidadeUsadaDiaria, custoUsadaDiaria,
+ * quantidadeUsadaMensal, and custoUsadoMensal for each ingredient.
+ * @param {Array} cart The array of items in the order's cart.
+ */
+async function deductIngredientsFromStock(cart) {
+    const updates = {};
+    const today = new Date();
+    const currentDay = today.getDate(); // 1-31
+    const currentMonth = today.getMonth(); // 0-11
+    const currentYear = today.getFullYear();
+
+    for (const item of cart) {
+        const productCategory = item.productCategory;
+        const originalProductId = item.originalProductId;
+        const quantityOrdered = item.quantity;
+        let recipe = {};
+
+        // Fetch product details to get the recipe
+        if (productCategory && originalProductId) {
+            const productSnapshot = await firebase.database().ref('produtos').child(productCategory).child(originalProductId).once('value');
+            const productData = productSnapshot.val();
+
+            if (productData && productData.receita) {
+                if (productCategory === 'pizzas' && item.pizzaSize) {
+                    const sizeKey = item.pizzaSize.toLowerCase();
+                    recipe = productData.receita[sizeKey] || {};
+                } else {
+                    recipe = productData.receita || {};
+                }
+            }
+        }
+
+        for (const ingredientId in recipe) {
+            const quantityPerItem = recipe[ingredientId];
+            const totalQuantityUsed = quantityPerItem * quantityOrdered;
+
+            if (allIngredients[ingredientId]) {
+                const currentIngred = allIngredients[ingredientId];
+                const costPerUnit = currentIngred.custoUnitarioMedio || 0;
+                const totalCostUsed = totalQuantityUsed * costPerUnit;
+
+                // Update current stock
+                const newQuantidadeAtual = (currentIngred.quantidadeAtual || 0) - totalQuantityUsed;
+                updates[`ingredientes/${ingredientId}/quantidadeAtual`] = newQuantidadeAtual;
+
+                // Update daily usage
+                const lastUpdateTimestamp = currentIngred.ultimaAtualizacaoConsumo;
+                let lastUpdateDate = null;
+                if (lastUpdateTimestamp) {
+                    lastUpdateDate = new Date(lastUpdateTimestamp);
+                }
+
+                let newQuantidadeUsadaDiaria = currentIngred.quantidadeUsadaDiaria || 0;
+                let newCustoUsadaDiaria = currentIngred.custoUsadaDiaria || 0;
+
+                // Reset daily usage if it's a new day (based on current date)
+                if (!lastUpdateDate || lastUpdateDate.getDate() !== currentDay || lastUpdateDate.getMonth() !== currentMonth || lastUpdateDate.getFullYear() !== currentYear) {
+                    newQuantidadeUsadaDiaria = totalQuantityUsed;
+                    newCustoUsadaDiaria = totalCostUsed;
+                } else {
+                    newQuantidadeUsadaDiaria += totalQuantityUsed;
+                    newCustoUsadaDiaria += totalCostUsed;
+                }
+                updates[`ingredientes/${ingredientId}/quantidadeUsadaDiaria`] = newQuantidadeUsadaDiaria;
+                updates[`ingredientes/${ingredientId}/custoUsadaDiaria`] = newCustoUsadaDiaria;
+                updates[`ingredientes/${ingredientId}/ultimaAtualizacaoConsumo`] = firebase.database.ServerValue.TIMESTAMP;
+
+
+                // Update monthly usage (accumulates for this example)
+                let newQuantidadeUsadaMensal = currentIngred.quantidadeUsadaMensal || 0;
+                let newCustoUsadoMensal = currentIngred.custoUsadoMensal || 0;
+                
+                newQuantidadeUsadaMensal += totalQuantityUsed;
+                newCustoUsadoMensal += totalCostUsed;
+                
+                updates[`ingredientes/${ingredientId}/quantidadeUsadaMensal`] = newQuantidadeUsadaMensal;
+                updates[`ingredientes/${ingredientId}/custoUsadoMensal`] = newCustoUsadoMensal;
+            } else {
+                console.warn(`Ingrediente com ID ${ingredientId} não encontrado em allIngredients. Não é possível deduzir.`);
+            }
+        }
+    }
+
+    if (Object.keys(updates).length > 0) {
+        await firebase.database().ref().update(updates);
+        console.log("Estoque e uso dos ingredientes atualizados com sucesso.");
+    }
+}
+
+/**
+ * Salva o pedido final no Firebase.
+ */
+async function saveManualOrder() {
+    const nomeCliente = document.getElementById('manual-nome-cliente').value.trim();
+    const telefone = document.getElementById('manual-telefone').value.trim();
+    const tipoEntrega = document.getElementById('manual-tipo-entrega').value;
+
+    if (!nomeCliente || !telefone) {
+        alert("Nome e telefone do cliente são obrigatórios.");
+        return;
+    }
+    if (manualOrderCart.length === 0) {
+        alert("Adicione pelo menos um item ao pedido.");
+        return;
+    }
+
+    let endereco = { rua: 'N/A', numero: 'N/A', bairro: 'N/A' };
+    if (tipoEntrega === 'Entrega') {
+        const rua = document.getElementById('manual-input-rua').value.trim();
+        const numero = document.getElementById('manual-input-numero').value.trim();
+        const bairro = document.getElementById('manual-input-bairro').value.trim();
+
+        if (!rua || !numero || !bairro) {
+            alert("Rua, número e bairro são obrigatórios para entrega.");
+            return;
+        }
+        endereco = { rua, numero, bairro };
+    }
+
+    const totalPedido = manualOrderCart.reduce((acc, item) => acc + item.totalPrice, 0);
+
+    try {
+        // 1. Obter ultimoPedidoId
+        const configRef = firebase.database().ref('config/ultimoPedidoId');
+        const snapshot = await configRef.transaction(currentId => {
+            return (currentId || 1000) + 1;
+        });
+
+        const newOrderId = snapshot.snapshot.val();
+
+        const novoPedido = {
+            nomeCliente,
+            telefone,
+            cart: manualOrderCart,
+            pagamento: document.getElementById('manual-pagamento').value,
+            tipoEntrega: tipoEntrega,
+            status: 'Aceito',
+            totalPedido: totalPedido,
+            timestamp: firebase.database.ServerValue.TIMESTAMP,
+            observacao: "Pedido adicionado manualmente pelo painel.",
+            endereco: endereco
+        };
+
+        // Salva o novo pedido com o ID incrementado
+        await firebase.database().ref('pedidos/' + newOrderId).set(novoPedido);
+
+        // Deduce ingredientes após o pedido ser salvo com sucesso
+        await deductIngredientsFromStock(manualOrderCart);
+        
+        alert("Pedido manual salvo com sucesso com ID: " + newOrderId);
+        document.getElementById('modal-pedido-manual').classList.add('hidden');
+        resetManualOrderModal(); // Chame para limpar o formulário e o carrinho após o sucesso
+    } catch (error) {
+        console.error("Erro ao salvar pedido manual:", error);
+        alert("Ocorreu um erro ao salvar o pedido.");
+    }
+}
+
+// Event Listeners (exemplo - ajuste conforme seu código principal) aaa
+document.addEventListener('DOMContentLoaded', () => {
+
+    fetchAllIngredients();
+
+    window.allProducts = {
+        pizzas: {
+            "mussarela": { "nome": "Mussarela", "precos": { "grande": 40, "broto": 25 }, "ativo": true },
+            "calabresa": { "nome": "Calabresa", "precos": { "grande": 42, "broto": 27 }, "ativo": true },
+            "frangoCatupiry": { "nome": "Frango com Catupiry", "precos": { "grande": 48, "broto": 30 }, "ativo": true }
+        },
+        bebidas: {
+            "cocaCola": { "nome": "Coca-Cola 2L", "preco": 10, "ativo": true },
+            "guarana": { "nome": "Guaraná 1L", "preco": 7, "ativo": true }
+        },
+        esfihas: {
+            "carne": { "nome": "Esfiha de Carne", "preco": 5, "ativo": true },
+            "queijo": { "nome": "Esfiha de Queijo", "preco": 6, "ativo": true }
+        }
+    };
+    
+    window.allBordas = {
+        "catupiry": { "nome": "Catupiry", "precos": { "broto": 10.00, "grande": 12.00 } }, 
+        "cheddar": { "nome": "Cheddar", "precos": { "broto": 10.00, "grande": 12.00 } }   
+    };
+    window.manualOrderCart = []; // Inicializa manualOrderCart
+//asdasd
+    const modal = document.getElementById('modal-pedido-manual');
+    const closeBtn = document.getElementById('manual-btn-fechar');
+    const cancelBtn = document.getElementById('manual-btn-cancelar');
+    const categoriaSelect = document.getElementById('manual-select-categoria');
+    const addItemBtn = document.getElementById('manual-btn-add-item');
+    const saveOrderBtn = document.getElementById('manual-btn-salvar');
+    const pizzaMeioAMeioCheck = document.getElementById('pizza-meio-a-meio-check');
+    const containerSabor2 = document.getElementById('container-sabor2');
+     // Pega o select de tipo de entrega
+
+    if (modal) {
+        closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+        cancelBtn.addEventListener('click', () => modal.classList.add('hidden'));
+    }
+
+    if (categoriaSelect) {
+        categoriaSelect.addEventListener('change', (event) => updateItemSelectionUI(event.target.value));
+    }
+
+    if (addItemBtn) {
+        addItemBtn.addEventListener('click', addItemToManualCart);
+    }
+
+    if (saveOrderBtn) {
+        saveOrderBtn.addEventListener('click', saveManualOrder);
+    }
+
+    if (pizzaMeioAMeioCheck) {
+        pizzaMeioAMeioCheck.addEventListener('change', (event) => {
+            if (event.target.checked) {
+                containerSabor2.classList.remove('hidden');
+            } else {
+                containerSabor2.classList.add('hidden');
+                document.getElementById('pizza-sabor2').value = ''; // Limpa o segundo sabor quando desmarcado
+            }
+        });
+    }
+});
