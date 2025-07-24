@@ -51,14 +51,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (savedWaiterName) {
         // Garçom está logado, configura o painel
+        document.body.style.display = 'flex'; // Mostra o conteúdo da página
         currentWaiterName = savedWaiterName;
         waiterNameDisplay.value = savedWaiterName;
         loadAllProducts(); // Carrega os produtos
     } else {
         // Garçom não está logado, redireciona para a página de login
-        // Usamos um pequeno timeout para garantir que a página não pisque antes do redirecionamento
-        alert('Acesso não autorizado. Por favor, faça o login.');
-        window.location.href = 'logingarcom.html';
+        window.location.replace('logingarcom.html');
     }
 });
 

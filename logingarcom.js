@@ -1,4 +1,3 @@
-// Configuração do Firebase (copiada de outros arquivos do projeto)
 const firebaseConfig = {
     apiKey: "AIzaSyCxpZd8Bu1IKzFHMUMzX1AAU1id8AcjCYw",
     authDomain: "bonanzapizzaria-b2513.firebaseapp.com",
@@ -10,7 +9,6 @@ const firebaseConfig = {
     measurementId: "G-TZ9RC0E7WN"
 };
 
-// Inicializa Firebase
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
@@ -38,7 +36,6 @@ loginForm.addEventListener('submit', (e) => {
         return;
     }
 
-    // Mostra o spinner e desabilita o botão
     loginText.textContent = 'Acessando...';
     loginSpinner.classList.remove('hidden');
     accessButton.disabled = true;
