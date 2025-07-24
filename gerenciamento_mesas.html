@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento de Mesas - Bonanza Pizzaria (Admin)</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .table-card {
+            cursor: pointer;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            min-height: 150px; /* Garante altura mínima */
+        }
+        .table-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+        .table-status-free {
+            border-color: #10B981; /* green-500 */
+        }
+        .table-status-occupied {
+            border-color: #EF4444; /* red-500 */
+        }
+        .table-status-awaiting-payment {
+            border-color: #F59E0B; /* amber-500 */
+        }
+        .modal {
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 50;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen bg-gray-100">
+    <header class="bg-white shadow p-4 flex items-center justify-between">
+        <h1 class="text-xl font-semibold text-gray-800">Gerenciamento de Mesas (Admin)</h1>
+        <button id="btn-logout" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition">
+            <i class="fas fa-sign-out-alt mr-2"></i> Sair
+        </button>
+    </header>
+
+    <main class="flex-1 overflow-y-auto p-6">
+        <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+            <h2 class="text-xl font-bold mb-4 text-gray-800">Configuração de Mesas</h2>
+            <div class="flex items-center space-x-4">
+                <label for="num-mesas" class="text-gray-700">Número de Mesas:</label>
+                <input type="number" id="num-mesas" min="1" max="20" value="10"
+                       class="border border-gray-300 rounded-md p-2 w-24 text-center">
+                <button id="btn-configurar-mesas" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
+                    Configurar Mesas
+                </button>
+            </div>
+            <p class="text-sm text-gray-500 mt-2">Defina o número total de mesas no seu restaurante (entre 1 e 20). Isso redefinirá o estado de todas as mesas.</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-bold mb-4 text-gray-800">Status das Mesas</h2>
+            <div id="mesas-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+                <p class="text-gray-600 text-center col-span-full">Carregando mesas...</p>
+            </div>
+        </div>
+    </main>
+
+    <div id="modal-mesa-detalhes" class="modal fixed inset-0 hidden items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full p-6 relative">
+            <button class="close-modal absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-xl font-bold">&times;</button>
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">Detalhes da Mesa <span id="modal-mesa-numero"></span></h2>
+
+            <div id="mesa-detalhes-info" class="mb-4 text-gray-700">
+                <p>Status: <span id="mesa-detalhes-status" class="font-semibold"></span></p>
+                <p>Cliente: <span id="mesa-detalhes-cliente"></span></p>
+                <p>Garçom: <span id="mesa-detalhes-garcom"></span></p>
+                <p>Observações: <span id="mesa-detalhes-obs"></span></p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="text-lg font-semibold mb-3">Itens do Pedido</h3>
+                    <div id="mesa-itens-selecao-container" class="space-y-2 max-h-60 overflow-y-auto border p-3 rounded-md bg-gray-50">
+                        <p id="empty-items-message" class="text-gray-500 text-center">Nenhum item no pedido.</p>
+                        </div>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-semibold mb-3">Pagamento</h3>
+                    <div class="bg-blue-50 p-4 rounded-md mb-4">
+                        <p class="text-md font-bold">Total Original: <span id="mesa-total-original" class="text-blue-800">R$ 0.00</span></p>
+                        <p class="text-md font-bold">Total Pago: <span id="mesa-total-pago" class="text-green-800">R$ 0.00</span></p>
+                        <p class="text-xl font-bold">Restante a Pagar: <span id="mesa-restante-pagar" class="text-red-800">R$ 0.00</span></p>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div>
+                            <label for="valor-a-pagar-input" class="block text-sm font-medium text-gray-700">Valor desta Parcela:</label>
+                            <input type="number" id="valor-a-pagar-input" step="0.01" min="0" value="0.00"
+                                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        </div>
+                        <div>
+                            <label for="pagamento-metodo-atual" class="block text-sm font-medium text-gray-700">Método de Pagamento:</label>
+                            <select id="pagamento-metodo-atual" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                                <option value="">Selecione</option>
+                                <option value="Dinheiro">Dinheiro</option>
+                                <option value="Cartão">Cartão</option>
+                                <option value="Pix">Pix</option>
+                            </select>
+                        </div>
+                        <div id="troco-input-group" class="hidden">
+                            <label for="troco-recebido" class="block text-sm font-medium text-gray-700">Valor Recebido (Dinheiro):</label>
+                            <input type="number" id="troco-recebido" step="0.01" min="0" value="0.00"
+                                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        </div>
+                        <button id="btn-adicionar-pagamento" disabled
+                                class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition">
+                            Adicionar Pagamento
+                        </button>
+                    </div>
+
+                    <div class="mt-4 border-t border-gray-200 pt-4">
+                        <label for="dividir-por-input" class="block text-sm font-medium text-gray-700">Dividir Restante por (pessoas):</label>
+                        <div class="flex space-x-2 mt-1">
+                            <input type="number" id="dividir-por-input" min="1" value="1"
+                                   class="border border-gray-300 rounded-md p-2 w-24 text-center">
+                            <button id="btn-dividir-restante" disabled
+                                    class="flex-1 bg-yellow-500 text-white py-2 px-4 rounded-md hover:bg-yellow-600 transition">
+                                Calcular Divisão
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <h4 class="text-md font-semibold mb-2">Histórico de Pagamentos:</h4>
+                        <div id="historico-pagamentos" class="space-y-1 max-h-40 overflow-y-auto border p-2 rounded-md bg-white">
+                            <p id="empty-payments-message" class="text-gray-500 text-center">Nenhum pagamento registrado.</p>
+                            </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end gap-4">
+                <button id="btn-cancelar-pedido-mesa"
+                        class="bg-red-500 text-white py-2 px-4 rounded-md hover:bg-red-600 transition">
+                    Cancelar Pedido
+                </button>
+                <button id="btn-finalizar-conta-mesa" disabled
+                        class="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition">
+                    Finalizar Conta e Liberar Mesa
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="table_management.js"></script>
+</body>
+</html>

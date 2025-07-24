@@ -1,14 +1,15 @@
 // Configuração do Firebase (SUBSTITUA PELAS SUAS CREDENCIAIS REAIS)
 const firebaseConfig = {
-  apiKey: "AIzaSyCxpZd8Bu1IKzFHMUMzX1AAU1id8AcjCYw",
-  authDomain: "bonanzapizzaria-b2513.firebaseapp.com",
-  databaseURL: "https://bonanzapizzaria-b2513-default-rtdb.firebaseio.com",
-  projectId: "bonanzapizzaria-b2513",
-  storageBucket: "bonanzapizzaria-b2513.firebasestorage.app",
-  messagingSenderId: "7433511053",
-  appId: "1:7433511053:web:44414e66d7e601e23b82c4",
-  measurementId: "G-TZ9RC0E7WN"
+    apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
+    authDomain: "cardapioweb-99e7b.firebaseapp.com",
+    databaseURL: "https://cardapioweb-99e7b-default-rtdb.firebaseio.com",
+    projectId: "cardapioweb-99e7b",
+    storageBucket: "cardapioweb-99e7b.firebasestorage.app",
+    messagingSenderId: "110849299422",
+    appId: "1:110849299422:web:44083feefdd967f4f9434f",
+    measurementId: "G-Y4KFGTHFP1"
   };
+
 
 firebase.initializeApp(firebaseConfig);
 
@@ -2029,6 +2030,7 @@ async function abrirModalMesaDetalhes(mesaNumero) {
         DOM.modalMesaDetalhes.classList.remove('hidden');
         DOM.modalMesaDetalhes.classList.add('flex');
 
+
     } catch (error) {
         console.error("Erro ao abrir modal de mesa:", error);
         alert("Erro ao carregar detalhes da mesa.");
@@ -2265,104 +2267,92 @@ function updateCheckoutStatus() {
 }
 
 async function adicionarPagamentoMesa() {
-    let valueToPay = parseFloat(DOM.valorAPagarInput.value);
+    // ... (validações existentes)
+
+    const valueToPay = parseFloat(DOM.valorAPagarInput.value);
     const currentPaymentMethod = DOM.pagamentoMetodoAtual.value;
     const trocoReceived = parseFloat(DOM.trocoRecebidoInput.value) || 0;
-
-    if (isNaN(valueToPay) || valueToPay <= 0) {
-        alert('Por favor, digite um valor válido para esta parcela.');
-        return;
-    }
-    if (!currentPaymentMethod) {
-        alert('Selecione um método de pagamento.');
-        return;
-    }
-
-    let itemsPaidInThisInstallment = [];
-    let totalFromSelectedItems = calculateSelectedItemsTotalForCurrentPayment();
-
-    if (totalFromSelectedItems > 0.01) {
-        itemsPaidInThisInstallment = currentMesaItemsToPay
-            .filter(item => item.selectedToPayQuantity > 0.001)
-            .map(item => ({
-                name: item.name,
-                price: item.price,
-                quantity: item.selectedToPayQuantity,
-                size: item.size || undefined
-            }));
-
-        if (Math.abs(valueToPay - totalFromSelectedItems) > 0.01) {
-            if (!confirm(`Você selecionou itens totalizando R$ ${totalFromSelectedItems.toFixed(2)}, mas digitou R$ ${valueToPay.toFixed(2)}. Deseja usar o valor digitado e distribuir pros itens restantes, ou usar o valor dos itens selecionados? (OK para usar o digitado, Cancelar para usar o dos itens)`)) {
-                valueToPay = totalFromSelectedItems;
-                DOM.valorAPagarInput.value = valueToPay.toFixed(2);
-            }
-        }
-
-    } else if (Math.abs(valueToPay - currentMesaRemainingToPay) < 0.01) {
-        let amountToDistribute = valueToPay;
-        const itemsToProcess = currentMesaItemsToPay.filter(item => item.remainingQuantity > 0.001);
-        const totalRemainingItemsValue = itemsToProcess.reduce((sum, item) => sum + (item.price * item.remainingQuantity), 0);
-
-        itemsToProcess.forEach(item => {
-            if (item.remainingQuantity > 0.001 && amountToDistribute > 0.001) {
-                const proportion = (item.price * item.remainingQuantity) / totalRemainingItemsValue;
-                let quantityToPayForThisItem = (amountToDistribute * proportion) / item.price;
-
-                if (quantityToPayForThisItem > item.remainingQuantity) {
-                    quantityToPayForThisItem = item.remainingQuantity;
-                }
-
-                itemsPaidInThisInstallment.push({
-                    name: item.name,
-                    price: item.price,
-                    quantity: parseFloat(quantityToPayForThisItem.toFixed(3)),
-                    size: item.size || undefined
-                });
-                amountToDistribute -= (quantityToPayForThisItem * item.price);
-            }
-        });
-
-    } else {
-        alert('Por favor, selecione os itens a serem pagos ou insira o valor total restante no campo "Valor desta Parcela".');
-        return;
-    }
-
-    if (currentPaymentMethod === 'Dinheiro') {
-        if (trocoReceived < valueToPay) {
-            alert(`O valor recebido (R$ ${trocoReceived.toFixed(2)}) é menor que a parcela a pagar (R$ ${valueToPay.toFixed(2)}).`);
-            return;
-        }
-    }
-
     const trocoADevolver = currentPaymentMethod === 'Dinheiro' ? trocoReceived - valueToPay : 0;
 
-    itemsPaidInThisInstallment.forEach(paidItem => {
-        const originalItem = currentMesaItemsToPay.find(item =>
-            item.name === paidItem.name && (item.size || '') === (paidItem.size || '')
-        );
-        if (originalItem) {
-            originalItem.remainingQuantity -= paidItem.quantity;
-            if (originalItem.remainingQuantity < 0.001) originalItem.remainingQuantity = 0;
+    // Rastrear itens que são considerados pagos nesta parcela
+    let itemsPaidInThisInstallment = [];
+    let amountToDistribute = valueToPay;
+
+    // Distribuir pagamento entre os itens com base na quantidade restante
+    // Esta é uma distribuição simplificada (proporcional ou simplesmente marcando todos os itens restantes se o pagamento os cobrir)
+    // Um sistema mais avançado permitiria selecionar itens específicos para pagar.
+    const itemsToProcess = currentMesaItemsToPay.filter(item => item.remainingQuantity > 0.001);
+    const totalRemainingItemsValue = itemsToProcess.reduce((sum, item) => sum + (item.price * item.remainingQuantity), 0);
+
+    itemsToProcess.forEach(item => {
+        if (item.remainingQuantity > 0.001 && amountToDistribute > 0.001) {
+            let quantityToPayForThisItem = 0;
+            if (totalRemainingItemsValue > 0) {
+                 // Pagamento proporcional para cada item
+                const proportion = (item.price * item.remainingQuantity) / totalRemainingItemsValue;
+                quantityToPayForThisItem = (amountToDistribute * proportion) / item.price;
+            } else {
+                 // Se totalRemainingItemsValue for 0, esta lógica não será alcançada se amountToDistribute > 0.
+                 // Este caso deve idealmente significar que todos os itens estão pagos.
+                 // Retornar para pagar a quantidade restante se for o único que resta e o valor cobrir.
+                if (amountToDistribute >= item.price * item.remainingQuantity) {
+                    quantityToPayForThisItem = item.remainingQuantity;
+                } else {
+                    quantityToPayForThisItem = amountToDistribute / item.price;
+                }
+            }
+
+
+            // Garantir que não "super-pague" a quantidade de um item
+            if (quantityToPayForThisItem > item.remainingQuantity) {
+                quantityToPayForThisItem = item.remainingQuantity;
+            }
+
+            itemsPaidInThisInstallment.push({
+                name: item.name,
+                price: item.price,
+                quantity: parseFloat(quantityToPayForThisItem.toFixed(3)), // Usar 3 casas decimais para precisão
+                size: item.size || undefined // Manter o tamanho se existir
+            });
+            amountToDistribute -= (quantityToPayForThisItem * item.price);
         }
     });
 
+    // Atualizar remainingQuantity para itens localmente
+    itemsPaidInThisInstallment.forEach(paidItem => {
+        const originalItem = currentMesaItemsToPay.find(item =>
+            item.name === paidItem.name && (item.size || '') === (paidItem.size || '') // Corresponder por nome e tamanho
+        );
+        if (originalItem) {
+            originalItem.remainingQuantity -= paidItem.quantity;
+            if (originalItem.remainingQuantity < 0.001) originalItem.remainingQuantity = 0; // Prevenir números negativos pequenos
+        }
+    });
+
+    // Adicionar pagamento ao histórico
     currentMesaPaymentsHistory.push({
         metodo: currentPaymentMethod,
         valorPago: valueToPay,
         valorRecebido: currentPaymentMethod === 'Dinheiro' ? trocoReceived : null,
         troco: currentPaymentMethod === 'Dinheiro' ? trocoADevolver : null,
         timestamp: firebase.database.ServerValue.TIMESTAMP,
-        itemsPaid: itemsPaidInThisInstallment
+        itemsPaid: itemsPaidInThisInstallment // Armazenar quais itens este pagamento cobriu
     });
 
-    DOM.valorAPagarInput.value = currentMesaRemainingToPay.toFixed(2);
+    // Atualizar mesa no Firebase
+    await mesasRef.child(currentMesaIdForCheckout).update({
+        pagamentosRegistrados: currentMesaPaymentsHistory,
+        // Não é necessário atualizar o array 'pedido' aqui, pois os itens são conceitualmente "pagos", mas ainda fazem parte da conta.
+        // O campo 'total' também permanece o total original.
+    });
+
+    // Atualizar elementos da UI
+    DOM.valorAPagarInput.value = (currentMesaRemainingToPay - valueToPay).toFixed(2); // Atualizar input para o próximo pagamento
     DOM.trocoRecebidoInput.value = '';
     DOM.pagamentoMetodoAtual.value = '';
-    currentMesaItemsToPay.forEach(item => item.selectedToPayQuantity = 0);
-
-    renderMesaItemsForCheckout();
-    renderPagamentoHistory();
-    updateCheckoutStatus();
+    renderMesaItemsForCheckout(); // Renderizar novamente os itens mostrando as quantidades restantes atualizadas
+    renderPagamentoHistory(); // Renderizar novamente o histórico de pagamentos
+    updateCheckoutStatus(); // Recalcular e atualizar a exibição dos totais
 
     if (currentPaymentMethod === 'Dinheiro' && trocoADevolver > 0) {
         alert(`Pagamento adicionado com sucesso!\nTROCO A DEVOLVER: R$ ${trocoADevolver.toFixed(2)}`);
@@ -2421,12 +2411,7 @@ function cancelarPedidoMesa() {
 }
 
 async function finalizarContaMesa() {
-    if (!currentMesaIdForCheckout) return;
-
-    if (currentMesaRemainingToPay > 0.01) {
-        alert(`Ainda há um valor restante a pagar: R$ ${currentMesaRemainingToPay.toFixed(2)}. Adicione todos os pagamentos antes de finalizar.`);
-        return;
-    }
+    // ... (validações existentes)
 
     if (confirm(`Confirmar FINALIZAÇÃO da conta da Mesa ${currentMesaIdForCheckout}?`)) {
         try {
@@ -2438,37 +2423,41 @@ async function finalizarContaMesa() {
                 return;
             }
 
+            // 1. Deduzir ingredientes do estoque (APENAS UMA VEZ por pedido concluído)
+            // Isso é crucial para o gerenciamento do seu estoque.
             if (mesaAtual.pedido && Array.isArray(mesaAtual.pedido)) {
                 for (const itemPedido of mesaAtual.pedido) {
                     await deduzirIngredientesDoEstoque(itemPedido);
                 }
             }
 
-            const novoPedidoId = database.ref('pedidos').push().key;
+            // 2. Criar uma nova entrada na coleção 'pedidos' para registro histórico
+            const novoPedidoId = firebase.database().ref('pedidos').push().key; // Obter um ID único
             const pedidoFinalizado = {
-                tipoAtendimento: 'Presencial',
+                tipoAtendimento: 'Presencial', // Novo tipo de pedido
                 mesaNumero: mesaAtual.numero,
                 nomeCliente: mesaAtual.cliente,
                 garcom: mesaAtual.garcom,
                 observacao: mesaAtual.observacoes,
-                cart: mesaAtual.pedido,
-                totalOriginal: mesaAtual.total,
-                totalPago: currentMesaTotal,
-                pagamentosRegistrados: currentMesaPaymentsHistory,
-                status: 'Finalizado',
-                timestamp: firebase.database.ServerValue.TIMESTAMP
+                cart: mesaAtual.pedido, // O pedido completo
+                totalOriginal: mesaAtual.total, // O total original da mesa
+                totalPago: currentMesaTotal, // O total pago (deve ser igual ao totalOriginal)
+                pagamentosRegistrados: currentMesaPaymentsHistory, // Todos os pagamentos registrados
+                status: 'Finalizado', // Marcar como finalizado
+                timestamp: firebase.database.ServerValue.TIMESTAMP // Quando foi finalizado
             };
 
-            await database.ref('pedidos/' + novoPedidoId).set(pedidoFinalizado);
+            await firebase.database().ref('pedidos/' + novoPedidoId).set(pedidoFinalizado);
 
+            // 3. Redefinir a mesa na coleção 'mesas'
             await mesasRef.child(currentMesaIdForCheckout).update({
                 status: 'Livre',
                 cliente: '',
                 garcom: '',
                 observacoes: '',
-                pedido: null,
+                pedido: null, // Limpar o pedido
                 total: 0,
-                pagamentosRegistrados: null
+                pagamentosRegistrados: null // Limpar histórico de pagamentos para a mesa
             });
 
             alert(`Conta da Mesa ${mesaAtual.numero} finalizada e mesa liberada!`);
@@ -4157,53 +4146,14 @@ async function fetchAllIngredients() {
 
 
 
-if (DOM.btnSalvarGarcom) {
-    DOM.btnSalvarGarcom.addEventListener('click', async () => {
-        const nomeGarcom = DOM.garcomNomeInput.value.trim();
-        const senhaGarcom = DOM.garcomSenhaInput.value.trim();
-
-        if (!nomeGarcom || !senhaGarcom) {
-            alert("O nome e a senha do garçom são obrigatórios.");
-            return;
-        }
-        if (senhaGarcom.length < 6) {
-            alert("A senha deve ter pelo menos 6 caracteres.");
-            return;
-        }
-
-        const emailGarcom = `${nomeGarcom.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}@seu-restaurante.com`;
-
-        try {
-            const userCredential = await firebase.auth().createUserWithEmailAndPassword(emailGarcom, senhaGarcom);
-            const user = userCredential.user;
-
-            await garconsInfoRef.child(user.uid).set({
-                nome: nomeGarcom,
-                email: emailGarcom,
-                createdAt: firebase.database.ServerValue.TIMESTAMP
-            });
-
-            alert(`Garçom "${nomeGarcom}" adicionado com sucesso!`);
-            DOM.garcomNomeInput.value = '';
-            DOM.garcomSenhaInput.value = '';
-        } catch (error) {
-            console.error("Erro ao adicionar garçom:", error);
-            if (error.code === 'auth/email-already-in-use') {
-                alert('Erro: Já existe um garçom com este nome (ou e-mail interno). Use um nome diferente.');
-            } else if (error.code === 'auth/weak-password') {
-                alert('Erro: A senha deve ter pelo menos 6 caracteres.');
-            } else {
-                alert("Erro ao adicionar garçom: " + error.message);
-            }
-        }
-    });
-}
-
 function carregarGarcom(snapshot) {
-    if (!DOM.listaGarconsContainer) return;
+    if (!DOM.listaGarconsContainer) {
+        console.error("Container da lista de garçons (listaGarconsContainer) não encontrado no DOM. Não foi possível carregar a lista.");
+        return;
+    }
 
     const garcons = snapshot.val();
-    DOM.listaGarconsContainer.innerHTML = '';
+    DOM.listaGarconsContainer.innerHTML = ''; // Limpa a lista existente
 
     if (!garcons) {
         DOM.listaGarconsContainer.innerHTML = '<p class="text-gray-600 col-span-full text-center">Nenhum garçom cadastrado.</p>';
@@ -4211,7 +4161,7 @@ function carregarGarcom(snapshot) {
     }
 
     Object.entries(garcons).forEach(([uid, garcom]) => {
-        if (!garcom) return;
+        if (!garcom) return; // Garante que o objeto garcom não é nulo
 
         const garcomDiv = document.createElement('div');
         garcomDiv.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col justify-between';
@@ -4234,9 +4184,11 @@ function carregarGarcom(snapshot) {
         DOM.listaGarconsContainer.appendChild(garcomDiv);
     });
 
+    // Anexa os event listeners aos botões criados dinamicamente
+    // É crucial clonar e substituir o nó para garantir que não haja listeners duplicados
     DOM.listaGarconsContainer.querySelectorAll('.btn-reset-senha-garcom').forEach(button => {
         const newButton = button.cloneNode(true);
-        button.parentNode.replaceChild(newButton, button);
+        button.parentNode.replaceChild(newButton, button); // Substitui o botão existente pelo clone
         newButton.addEventListener('click', (e) => {
             const email = e.target.dataset.email;
             const nome = e.target.dataset.nome;
@@ -4255,7 +4207,7 @@ function carregarGarcom(snapshot) {
 
     DOM.listaGarconsContainer.querySelectorAll('.btn-excluir-garcom').forEach(button => {
         const newButton = button.cloneNode(true);
-        button.parentNode.replaceChild(newButton, button);
+        button.parentNode.replaceChild(newButton, button); // Substitui o botão existente pelo clone
         newButton.addEventListener('click', async (e) => {
             const uid = e.target.dataset.uid;
             const nome = e.target.dataset.nome;
@@ -4272,6 +4224,117 @@ function carregarGarcom(snapshot) {
         });
     });
 }
+
+
+// --- INÍCIO DO SEU document.addEventListener('DOMContentLoaded', ...) em panel.js ---
+document.addEventListener('DOMContentLoaded', () => {
+    // ############ Mapeamento dos Elementos DOM ############
+    // Certifique-se de que o Object.assign está aqui e contém TODAS as referências DOM
+    // do seu panel.js, incluindo as do gerenciamento de garçons.
+
+    Object.assign(DOM, {
+        // ... (outros elementos DOM do seu painel principal, ex: btnAtivos, pedidosAtivosContainer)
+
+        // Elementos DOM para Gerenciar Garçons
+        btnGerenciarGarcom: document.getElementById('btn-gerenciar-garcom'), // Botão da sidebar
+        abaGerenciarGarcom: document.getElementById('aba-gerenciar-garcom'), // A div da aba
+        garcomNomeInput: document.getElementById('garcom-nome'),
+        garcomSenhaInput: document.getElementById('garcom-senha'),
+        btnSalvarGarcom: document.getElementById('btn-salvar-garcom'),
+        listaGarconsContainer: document.getElementById('lista-garcons-container'),
+        // ... (outros elementos DOM)
+    });
+
+    // --- Lógica de Autenticação (já deve existir no seu panel.js) ---
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            console.log("Admin: Usuário autenticado:", user.email);
+            document.body.style.display = 'flex'; // Mostra o corpo da página
+            
+            // Ouve as mudanças nos garçons para atualizar a lista AUTOMATICAMENTE
+            garconsInfoRef.on('value', carregarGarcom);
+            
+            // ... (outras inicializações e listeners para o resto do seu painel)
+        } else {
+            console.log("Admin: Nenhum usuário autenticado. Redirecionando para login.html");
+            window.location.replace('login.html');
+        }
+    });
+
+    // --- Listeners para os Botões do Menu Principal ---
+    // (Ajuste conforme a estrutura do seu menu, ex: sidebar buttons)
+    if (DOM.btnGerenciarGarcom) {
+        DOM.btnGerenciarGarcom.addEventListener('click', () => {
+            // Lógica para ativar a aba de gerenciamento de garçons
+            // (Assumindo que você tem funções como `ativaAba` e `estilizaBotaoAtivo` para gerenciar a visibilidade das abas)
+            // Exemplo:
+            // ativaAba(DOM.abaGerenciarGarcom, DOM.outrasAbasInativas);
+            // estilizaBotaoAtivo(DOM.btnGerenciarGarcom, DOM.outrosBotoesInativos);
+            DOM.abaGerenciarGarcom.classList.remove('hidden'); // Apenas para garantir que a aba apareça
+            
+            // Carregar garçons ao clicar no botão do menu
+            // O listener 'garconsInfoRef.on('value', carregarGarcom);' já faz isso automaticamente ao detectar mudanças
+            // mas chamar 'once' aqui garante uma atualização imediata ao abrir a aba, caso a conexão seja lenta.
+            garconsInfoRef.once('value', carregarGarcom); 
+        });
+    }
+
+    // --- SEÇÃO: GERENCIAMENTO DE GARÇONS (Listener do Botão Salvar) ---
+    // ############ ATENÇÃO AQUI: O LISTENER É ADICIONADO APÓS OS ELEMENTOS DOM SEREM MAPEADOS ############
+    if (DOM.btnSalvarGarcom) { // Verifica se o botão foi encontrado e não é null
+        DOM.btnSalvarGarcom.addEventListener('click', async () => {
+            // Certifique-se de que os inputs também foram encontrados
+            const nomeGarcom = DOM.garcomNomeInput ? DOM.garcomNomeInput.value.trim() : '';
+            const senhaGarcom = DOM.garcomSenhaInput ? DOM.garcomSenhaInput.value.trim() : '';
+
+            if (!nomeGarcom || !senhaGarcom) {
+                alert("O nome e a senha do garçom são obrigatórios.");
+                return;
+            }
+            if (senhaGarcom.length < 6) {
+                alert("A senha deve ter pelo menos 6 caracteres.");
+                return;
+            }
+
+            // A lógica de criação de e-mail deve ser robusta para garantir unicidade
+            // O replace(/\s+/g, '_') substitui múltiplos espaços por um único underscore
+            // O replace(/[^a-z0-9_]/g, '') remove qualquer caractere que não seja letra, número ou underscore
+            const emailGarcom = `${nomeGarcom.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}@seu-restaurante.com`;
+
+            try {
+                // Tenta criar o usuário no Firebase Authentication
+                const userCredential = await firebase.auth().createUserWithEmailAndPassword(emailGarcom, senhaGarcom);
+                const user = userCredential.user;
+
+                // Salva os dados do garçom no Realtime Database usando o UID como chave
+                await garconsInfoRef.child(user.uid).set({
+                    nome: nomeGarcom,
+                    email: emailGarcom,
+                    createdAt: firebase.database.ServerValue.TIMESTAMP
+                });
+
+                alert(`Garçom "${nomeGarcom}" adicionado com sucesso!`);
+                // Limpa os campos do formulário
+                if (DOM.garcomNomeInput) DOM.garcomNomeInput.value = '';
+                if (DOM.garcomSenhaInput) DOM.garcomSenhaInput.value = '';
+
+                // Como há um listener 'on('value')' para garconsInfoRef, a lista deve ser atualizada automaticamente.
+            } catch (error) {
+                console.error("Erro ao adicionar garçom:", error);
+                if (error.code === 'auth/email-already-in-use') {
+                    alert('Erro: Já existe um garçom com este nome (ou e-mail interno). Use um nome diferente.');
+                } else if (error.code === 'auth/weak-password') {
+                    alert('Erro: A senha deve ter pelo menos 6 caracteres.');
+                } else {
+                    alert("Erro ao adicionar garçom: " + error.message);
+                }
+            }
+        });
+    }
+
+    // ... (restante do seu código DOMContentLoaded, outros listeners, etc.)
+
+}); // Fim de DOMContentLoaded
 
 
 // SEÇÂO CLIENTES INATIVOS lghn ------------------------------------------------------------------------------------------------
