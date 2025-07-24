@@ -18,12 +18,7 @@ const mesasRef = database.ref('mesas');
 const produtosRef = database.ref('produtos');
 
 // Elementos HTML
-const loginScreen = document.getElementById('login-screen');
-const garcomNameInput = document.getElementById('garcom-name-input');
-const accessPanelBtn = document.getElementById('access-panel-btn');
-const mainPanel = document.getElementById('main-panel');
 const waiterNameDisplay = document.getElementById('waiter-name-display');
-
 const mesasGrid = document.getElementById('mesas-grid');
 const selectedTableNumberSpan = document.getElementById('selected-table-number');
 const noTableSelectedMessage = document.getElementById('no-table-selected-message');
@@ -48,32 +43,22 @@ let allProducts = {};           // Todos os produtos ativos carregados do Fireba
 let currentOrderCart = [];      // Carrinho local para o pedido da mesa (array de {nome, preco, quantidade})
 let selectedOrderItemIndex = -1; // Índice do item selecionado no currentOrderCart para ações de quantidade/remover
 
-const WAITER_NAME_STORAGE_KEY = 'garcomName'; // Chave para armazenar o nome do garçom no localStorage
+const WAITER_NAME_STORAGE_KEY = 'garcomName'; // Chave para armazenar o nome do garçom no sessionStorage
 
-// --- Funcionalidade de Login ---
-accessPanelBtn.addEventListener('click', () => {
-    const name = garcomNameInput.value.trim();
-    if (name) {
-        currentWaiterName = name;
-        localStorage.setItem(WAITER_NAME_STORAGE_KEY, name); // Salva o nome no armazenamento local
-        waiterNameDisplay.value = name; // Define o nome do garçom na seção de pedido
-        loginScreen.classList.add('hidden'); // Esconde a tela de login
-        mainPanel.classList.remove('hidden'); // Mostra o painel principal
-        loadAllProducts(); // Carrega os produtos assim que o login é feito
-    } else {
-        alert('Por favor, digite seu nome.');
-    }
-});
-
-// Auto-preenchimento e auto-acesso se o nome estiver salvo
+// --- Verificação de Autenticação ---
 document.addEventListener('DOMContentLoaded', () => {
-    const savedWaiterName = localStorage.getItem(WAITER_NAME_STORAGE_KEY);
+    const savedWaiterName = sessionStorage.getItem(WAITER_NAME_STORAGE_KEY);
+
     if (savedWaiterName) {
-        garcomNameInput.value = savedWaiterName;
-        accessPanelBtn.click(); // Simula o clique para auto-acessar
+        // Garçom está logado, configura o painel
+        currentWaiterName = savedWaiterName;
+        waiterNameDisplay.value = savedWaiterName;
+        loadAllProducts(); // Carrega os produtos
     } else {
-        loginScreen.classList.remove('hidden');
-        mainPanel.classList.add('hidden');
+        // Garçom não está logado, redireciona para a página de login
+        // Usamos um pequeno timeout para garantir que a página não pisque antes do redirecionamento
+        alert('Acesso não autorizado. Por favor, faça o login.');
+        window.location.href = 'logingarcom.html';
     }
 });
 

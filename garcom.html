@@ -81,21 +81,9 @@
 
 <body class="bg-gray-100 min-h-screen flex flex-col lg:flex-row">
 
-    <div id="login-screen" class="fixed inset-0 bg-blue-800 text-white flex flex-col items-center justify-center z-50 p-6">
-        <h1 class="text-4xl font-bold mb-8 text-center">Painel do Garçom</h1>
-        <div class="bg-white p-8 rounded-lg shadow-xl text-gray-800 w-full max-w-sm">
-            <h2 class="text-2xl font-semibold mb-6 text-center">Acessar</h2>
-            <div class="mb-4">
-                <label for="garcom-name-input" class="block text-gray-700 text-sm font-bold mb-2">Seu Nome:</label>
-                <input type="text" id="garcom-name-input" class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="Ex: João da Silva">
-            </div>
-            <button id="access-panel-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded w-full focus:outline-none focus:shadow-outline text-lg">
-                Acessar Painel
-            </button>
-        </div>
-    </div>
-
-    <div id="main-panel" class="hidden flex-1 flex-col lg:flex-row">
+    <!-- O painel principal agora é exibido diretamente. A lógica de autenticação
+         redirecionará para a página de login se o garçom não estiver logado. -->
+    <div id="main-panel" class="flex flex-1 flex-col lg:flex-row">
 
         <div class="w-full lg:w-1/2 p-4 bg-gray-50 border-r border-gray-200 h-1/2 lg:h-screen lg:overflow-y-auto">
             <h2 class="text-2xl font-bold text-blue-700 mb-6">Mesas do Restaurante</h2>
