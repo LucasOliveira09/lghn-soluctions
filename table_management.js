@@ -1,3 +1,4 @@
+// Configuração do Firebase (SUBSTITUA PELAS SUAS CREDENCIAIS REAIS)
 const firebaseConfig = {
     apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
     authDomain: "cardapioweb-99e7b.firebaseapp.com",
@@ -7,128 +8,36 @@ const firebaseConfig = {
     messagingSenderId: "110849299422",
     appId: "1:110849299422:web:44083feefdd967f4f9434f",
     measurementId: "G-Y4KFGTHFP1"
-  };
+};
 
 firebase.initializeApp(firebaseConfig);
 
-const auth = firebase.auth();
+// Removendo 'auth' se não for usar, mas manteremos o logout se o botão existir
 const database = firebase.database();
 const mesasRef = database.ref('mesas');
-const pedidosRef = database.ref('pedidos'); // Para registrar pedidos finalizados
-const ingredientesRef = database.ref('ingredientes'); // Para deduzir estoque
-const produtosRef = database.ref('produtos'); // Para pegar receitas
+const pedidosRef = database.ref('pedidos');
+const ingredientesRef = database.ref('ingredientes');
+const produtosRef = database.ref('produtos');
 
-// Variáveis globais para o estado do modal de checkout
 let currentMesaIdForCheckout = null;
-let currentMesaItemsToPay = []; // Itens do pedido da mesa, com `remainingQuantity` e `selectedToPayQuantity`
-let currentMesaTotal = 0; // Total original da mesa
-let currentMesaRemainingToPay = 0; // Saldo restante a pagar
-let currentMesaPaymentsHistory = []; // Histórico de pagamentos para esta mesa
-let allIngredients = {}; // Carrega todos os ingredientes para dedução de estoque
-let allProducts = {}; // Carrega todos os produtos para pegar as receitas
+let currentMesaFullOrder = [];
+let currentMesaPaymentsHistory = [];
+let currentMesaOriginalTotal = 0;
+let currentMesaRemainingToPay = 0;
+let allIngredients = {};
+let allProducts = {};
+let allBordas = {
+    'creamcheese': { nome: 'Cream Cheese', precos: { broto: 10.00, grande: 12.00 } },
+    'mussarela': { nome: 'Mussarela', precos: { broto: 10.00, grande: 12.00 } },
+    'chocolate': { nome: 'Chocolate', precos: { broto: 10.00, grande: 12.00 } },
+    'cheddar': { nome: 'Cheddar', precos: { broto: 10.00, grande: 12.00 } },
+    'catupiry': { nome: 'Catupiry', precos: { broto: 10.00, grande: 12.00 } }
+};
 
-// Elementos DOM do painel de gerenciamento de mesas (declarado, mas atribuído dentro do DOMContentLoaded)
 const DOM_TABLE_MGMT = {};
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Mapeamento e atribuição dos elementos DOM AGORA dentro de DOMContentLoaded
-    Object.assign(DOM_TABLE_MGMT, {
-        numMesasInput: document.getElementById('num-mesas'),
-        btnConfigurarMesas: document.getElementById('btn-configurar-mesas'),
-        mesasContainer: document.getElementById('mesas-container'),
-        btnLogout: document.getElementById('btn-logout'),
+// --- FUNÇÕES GLOBAIS (Declaradas antes de DOMContentLoaded) ---
 
-        modalMesaDetalhes: document.getElementById('modal-mesa-detalhes'),
-        modalMesaNumero: document.getElementById('modal-mesa-numero'),
-        // Acesso ao close-modal AGORA é seguro, pois modal-mesa-detalhes já existe
-        closeModalButton: document.getElementById('modal-mesa-detalhes') ? document.getElementById('modal-mesa-detalhes').querySelector('.close-modal') : null,
-        mesaDetalhesStatus: document.getElementById('mesa-detalhes-status'),
-        mesaDetalhesCliente: document.getElementById('mesa-detalhes-cliente'),
-        mesaDetalhesGarcom: document.getElementById('mesa-detalhes-garcom'),
-        mesaDetalhesObs: document.getElementById('mesa-detalhes-obs'),
-
-        mesaItensSelecaoContainer: document.getElementById('mesa-itens-selecao-container'),
-        emptyItemsMessage: document.getElementById('empty-items-message'),
-        mesaTotalOriginal: document.getElementById('mesa-total-original'),
-        mesaTotalPago: document.getElementById('mesa-total-pago'),
-        mesaRestantePagar: document.getElementById('mesa-restante-pagar'),
-
-        valorAPagarInput: document.getElementById('valor-a-pagar-input'),
-        pagamentoMetodoAtual: document.getElementById('pagamento-metodo-atual'),
-        trocoInputGroup: document.getElementById('troco-input-group'),
-        trocoRecebidoInput: document.getElementById('troco-recebido'),
-        btnAdicionarPagamento: document.getElementById('btn-adicionar-pagamento'),
-
-        dividirPorInput: document.getElementById('dividir-por-input'),
-        btnDividirRestante: document.getElementById('btn-dividir-restante'),
-
-        historicoPagamentosContainer: document.getElementById('historico-pagamentos'),
-        emptyPaymentsMessage: document.getElementById('empty-payments-message'),
-
-        btnCancelarPedidoMesa: document.getElementById('btn-cancelar-pedido-mesa'),
-        btnFinalizarContaMesa: document.getElementById('btn-finalizar-conta-mesa'),
-    });
-
-    // --- Autenticação e Carregamento Inicial ---
-    auth.onAuthStateChanged(user => {
-        if (user) {
-            console.log("Admin: Usuário autenticado:", user.email);
-            document.body.style.display = 'flex'; // Mostra o corpo da página
-            loadAdminData(); // Carrega produtos e ingredientes
-            mesasRef.on('value', renderMesas); // Ouve mudanças nas mesas
-        } else {
-            console.log("Admin: Nenhum usuário autenticado. Redirecionando para login.html");
-            window.location.replace('login.html');
-        }
-    });
-
-    // --- Listeners de Ações do Administrador ---
-    DOM_TABLE_MGMT.btnLogout.addEventListener('click', () => {
-        auth.signOut().then(() => {
-            console.log("Admin: Administrador deslogado.");
-            window.location.replace('login.html');
-        }).catch(error => console.error("Admin: Erro ao fazer logout:", error));
-    });
-
-    if (DOM_TABLE_MGMT.btnConfigurarMesas) {
-        DOM_TABLE_MGMT.btnConfigurarMesas.addEventListener('click', configureTables);
-    }
-
-    // Listeners do Modal de Detalhes da Mesa
-    if (DOM_TABLE_MGMT.closeModalButton) {
-        DOM_TABLE_MGMT.closeModalButton.addEventListener('click', closeMesaDetalhesModal);
-    }
-
-    // Adicionado verificações de existência para todos os listeners
-    if (DOM_TABLE_MGMT.valorAPagarInput) DOM_TABLE_MGMT.valorAPagarInput.addEventListener('input', updateCheckoutStatus);
-    if (DOM_TABLE_MGMT.pagamentoMetodoAtual) DOM_TABLE_MGMT.pagamentoMetodoAtual.addEventListener('change', updateCheckoutStatus);
-    if (DOM_TABLE_MGMT.trocoRecebidoInput) DOM_TABLE_MGMT.trocoRecebidoInput.addEventListener('input', updateCheckoutStatus);
-    if (DOM_TABLE_MGMT.dividirPorInput) DOM_TABLE_MGMT.dividirPorInput.addEventListener('input', updateCheckoutStatus);
-
-    if (DOM_TABLE_MGMT.btnAdicionarPagamento) DOM_TABLE_MGMT.btnAdicionarPagamento.addEventListener('click', addMesaPayment);
-    if (DOM_TABLE_MGMT.btnDividirRestante) DOM_TABLE_MGMT.btnDividirRestante.addEventListener('click', splitMesaBill);
-    if (DOM_TABLE_MGMT.btnCancelarPedidoMesa) DOM_TABLE_MGMT.btnCancelarPedidoMesa.addEventListener('click', cancelMesaOrderAdmin);
-    if (DOM_TABLE_MGMT.btnFinalizarContaMesa) DOM_TABLE_MGMT.btnFinalizarContaMesa.addEventListener('click', finalizeMesaAccount);
-});
-
-// --- Funções de Carregamento de Dados Iniciais ---
-async function loadAdminData() {
-    try {
-        console.log("Admin: Carregando dados iniciais (ingredientes, produtos)...");
-        const [ingredientsSnapshot, productsSnapshot] = await Promise.all([
-            ingredientesRef.once('value'),
-            produtosRef.once('value')
-        ]);
-        allIngredients = ingredientsSnapshot.val() || {};
-        allProducts = productsSnapshot.val() || {};
-        console.log("Admin: Dados iniciais (ingredientes, produtos) carregados com sucesso.");
-    } catch (error) {
-        console.error("Admin: Erro ao carregar dados de admin iniciais:", error);
-        alert("Erro ao carregar dados essenciais. Verifique a conexão do Firebase e as regras de segurança.");
-    }
-}
-
-// --- Funções de Gerenciamento de Mesas (Configuração e Renderização) ---
 function configureTables() {
     const numMesas = parseInt(DOM_TABLE_MGMT.numMesasInput.value, 10);
     if (isNaN(numMesas) || numMesas < 1 || numMesas > 20) {
@@ -180,13 +89,13 @@ function renderMesas(snapshot) {
 
     if (sortedMesas.length === 0) {
         DOM_TABLE_MGMT.mesasContainer.innerHTML = '<p class="text-gray-600 text-center col-span-full">Nenhuma mesa configurada. Defina o número de mesas e clique em "Configurar Mesas".</p>';
-        if (DOM_TABLE_MGMT.numMesasInput) { // Verificação adicional
+        if (DOM_TABLE_MGMT.numMesasInput) {
             DOM_TABLE_MGMT.numMesasInput.value = 10;
         }
         console.log("Admin: Nenhuma mesa encontrada. Exibindo mensagem para configurar.");
         return;
     } else {
-        if (DOM_TABLE_MGMT.numMesasInput) { // Verificação adicional
+        if (DOM_TABLE_MGMT.numMesasInput) {
             DOM_TABLE_MGMT.numMesasInput.value = sortedMesas.length;
         }
         console.log(`Admin: ${sortedMesas.length} mesas encontradas.`);
@@ -228,7 +137,6 @@ function renderMesas(snapshot) {
     console.log("Admin: Mesas renderizadas na UI.");
 }
 
-// --- Funções do Modal de Detalhes e Checkout da Mesa ---
 async function openMesaDetalhesModal(mesaNumero) {
     currentMesaIdForCheckout = mesaNumero;
     try {
@@ -242,61 +150,41 @@ async function openMesaDetalhesModal(mesaNumero) {
             return;
         }
 
-        // Preenche informações básicas da mesa
-        DOM_TABLE_MGMT.modalMesaNumero.textContent = mesa.numero;
-        DOM_TABLE_MGMT.mesaDetalhesStatus.textContent = mesa.status;
-        DOM_TABLE_MGMT.mesaDetalhesStatus.className = `font-semibold ${mesa.status === 'Livre' ? 'text-green-600' : (mesa.status === 'Ocupada' ? 'text-red-600' : 'text-yellow-600')}`;
-        DOM_TABLE_MGMT.mesaDetalhesCliente.textContent = mesa.cliente || 'N/A';
-        DOM_TABLE_MGMT.mesaDetalhesGarcom.textContent = mesa.garcom || 'N/A';
-        DOM_TABLE_MGMT.mesaDetalhesObs.textContent = mesa.observacoes || 'N/A';
+        currentMesaFullOrder = mesa.pedido ? JSON.parse(JSON.stringify(mesa.pedido)) : [];
+        currentMesaPaymentsHistory = mesa.pagamentosRegistrados ? JSON.parse(JSON.stringify(mesa.pagamentosRegistrados)) : [];
+        currentMesaOriginalTotal = mesa.total || 0;
 
-        // Inicializa o carrinho de itens para pagamento e histórico
-        currentMesaItemsToPay = mesa.pedido ? mesa.pedido.map(item => ({
-            ...item,
-            originalQuantity: item.quantity,
-            remainingQuantity: item.quantity,
-            selectedToPayQuantity: 0 // Quantidade que está sendo selecionada para o pagamento atual
-        })) : [];
+        DOM_TABLE_MGMT.checkoutMesaNumero.textContent = mesa.numero;
+        DOM_TABLE_MGMT.checkoutMesaStatus.textContent = mesa.status;
+        DOM_TABLE_MGMT.checkoutMesaStatus.className = `font-semibold ${mesa.status === 'Livre' ? 'text-green-600' : (mesa.status === 'Ocupada' ? 'text-red-600' : 'text-yellow-600')}`;
+        DOM_TABLE_MGMT.checkoutMesaCliente.textContent = mesa.cliente || 'N/A';
+        DOM_TABLE_MGMT.checkoutMesaGarcom.textContent = mesa.garcom || 'N/A';
+        DOM_TABLE_MGMT.checkoutMesaObs.textContent = mesa.observacoes || 'N/A';
 
-        currentMesaPaymentsHistory = mesa.pagamentosRegistrados || [];
-        const totalAlreadyPaid = currentMesaPaymentsHistory.reduce((sum, p) => sum + p.valorPago, 0);
-
-        currentMesaTotal = mesa.total || 0;
-        currentMesaRemainingToPay = currentMesaTotal - totalAlreadyPaid;
-        if (Math.abs(currentMesaRemainingToPay) < 0.01) { // Ajuste para pequenas diferenças de ponto flutuante
-            currentMesaRemainingToPay = 0;
-        }
-
-        DOM_TABLE_MGMT.mesaTotalOriginal.textContent = `R$ ${currentMesaTotal.toFixed(2)}`;
-        DOM_TABLE_MGMT.mesaTotalPago.textContent = `R$ ${totalAlreadyPaid.toFixed(2)}`;
-        DOM_TABLE_MGMT.mesaRestantePagar.textContent = `R$ ${currentMesaRemainingToPay.toFixed(2)}`;
-
-        // Renderiza itens e histórico
-        renderMesaItemsForCheckout();
+        // Preenche e renderiza os itens na lista de "Itens na Conta"
+        renderCheckoutItemsList();
         renderPagamentoHistory();
 
-        // Reseta e atualiza campos de pagamento
-        DOM_TABLE_MGMT.valorAPagarInput.value = currentMesaRemainingToPay.toFixed(2);
-        DOM_TABLE_MGMT.dividirPorInput.value = '';
-        DOM_TABLE_MGMT.pagamentoMetodoAtual.value = '';
-        DOM_TABLE_MGMT.trocoRecebidoInput.value = '';
-        DOM_TABLE_MGMT.trocoInputGroup.classList.add('hidden'); // Esconde o campo de troco inicialmente
+        // Reseta e atualiza campos de adição de item e pagamento
+        DOM_TABLE_MGMT.checkoutPagamentoMetodoAtual.value = '';
+        DOM_TABLE_MGMT.checkoutTrocoRecebidoInput.value = '';
+        DOM_TABLE_MGMT.checkoutTrocoInputGroup.classList.add('hidden');
+        DOM_TABLE_MGMT.checkoutDividirPorInput.value = '1';
+        DOM_TABLE_MGMT.checkoutSearchProdutoInput.value = '';
+        DOM_TABLE_MGMT.checkoutSelectCategoria.value = '';
+        if (DOM_TABLE_MGMT.checkoutContainerMontagemPizza) DOM_TABLE_MGMT.checkoutContainerMontagemPizza.classList.add('hidden');
+        if (DOM_TABLE_MGMT.checkoutContainerOutrosItens) DOM_TABLE_MGMT.checkoutContainerOutrosItens.classList.add('hidden');
+        DOM_TABLE_MGMT.checkoutQtdProdutoInput.value = '1';
+        if (DOM_TABLE_MGMT.checkoutPizzaSabor1Select) DOM_TABLE_MGMT.checkoutPizzaSabor1Select.innerHTML = '<option value="">-- Produto --</option>';
+        if (DOM_TABLE_MGMT.checkoutPizzaSabor2Select) DOM_TABLE_MGMT.checkoutPizzaSabor2Select.innerHTML = '<option value="">-- Produto --</option>';
+        if (DOM_TABLE_MGMT.checkoutSelectProduto) DOM_TABLE_MGMT.checkoutSelectProduto.innerHTML = '<option value="">-- Produto --</option>';
 
-        // Habilita/desabilita botões com base no status da mesa
-        if (mesa.status === 'Livre' || !mesa.pedido || mesa.pedido.length === 0) {
-            DOM_TABLE_MGMT.btnCancelarPedidoMesa.classList.add('hidden'); // Não há pedido para cancelar
-            DOM_TABLE_MGMT.btnFinalizarContaMesa.disabled = true;
-            DOM_TABLE_MGMT.mesaItensSelecaoContainer.innerHTML = '<p class="text-gray-500 text-center" id="empty-items-message">Nenhum item para exibir ou mesa livre.</p>';
-            DOM_TABLE_MGMT.emptyItemsMessage.classList.remove('hidden');
-            console.log(`Admin: Mesa ${mesaNumero} está livre ou sem pedido. Desabilitando ações de checkout.`);
-        } else {
-            DOM_TABLE_MGMT.btnCancelarPedidoMesa.classList.remove('hidden');
-        }
 
-        updateCheckoutStatus(); // Atualiza o status dos botões de pagamento e troco
-        DOM_TABLE_MGMT.modalMesaDetalhes.classList.remove('hidden');
-        DOM_TABLE_MGMT.modalMesaDetalhes.classList.add('flex'); // Mostra o modal
-        console.log(`Admin: Modal da Mesa ${mesaNumero} aberto.`);
+        updateCheckoutCalculations();
+        
+        DOM_TABLE_MGMT.modalCheckout.classList.remove('hidden');
+        DOM_TABLE_MGMT.modalCheckout.classList.add('flex');
+        console.log(`Admin: Modal de Checkout para Mesa ${mesaNumero} aberto.`);
     } catch (error) {
         console.error("Admin: Erro ao abrir modal de detalhes da mesa:", error);
         alert("Erro ao carregar detalhes da mesa. Verifique o console para mais informações.");
@@ -305,116 +193,288 @@ async function openMesaDetalhesModal(mesaNumero) {
 
 function closeMesaDetalhesModal() {
     console.log("Admin: Fechando modal de detalhes da mesa.");
-    DOM_TABLE_MGMT.modalMesaDetalhes.classList.add('hidden');
-    DOM_TABLE_MGMT.modalMesaDetalhes.classList.remove('flex');
+    if (DOM_TABLE_MGMT.modalCheckout) {
+        DOM_TABLE_MGMT.modalCheckout.classList.add('hidden');
+        DOM_TABLE_MGMT.modalCheckout.classList.remove('flex');
+    }
     currentMesaIdForCheckout = null;
-    currentMesaItemsToPay = [];
-    currentMesaTotal = 0;
-    currentMesaRemainingToPay = 0;
+    currentMesaFullOrder = [];
     currentMesaPaymentsHistory = [];
+    currentMesaOriginalTotal = 0;
+    currentMesaRemainingToPay = 0;
 }
 
-function renderMesaItemsForCheckout() {
-    if (!DOM_TABLE_MGMT.mesaItensSelecaoContainer) return;
-    DOM_TABLE_MGMT.mesaItensSelecaoContainer.innerHTML = '';
-    DOM_TABLE_MGMT.emptyItemsMessage.classList.add('hidden');
+function renderCheckoutItemsList() {
+    if (!DOM_TABLE_MGMT.checkoutItensLista) return;
+    DOM_TABLE_MGMT.checkoutItensLista.innerHTML = '';
 
-    const pendingItems = currentMesaItemsToPay.filter(item => item.remainingQuantity > 0.001);
-
-    if (pendingItems.length === 0 && currentMesaRemainingToPay > 0.01) {
-        DOM_TABLE_MGMT.emptyItemsMessage.classList.remove('hidden');
-        DOM_TABLE_MGMT.emptyItemsMessage.textContent = 'Todos os itens foram marcados para pagamento, mas ainda há um saldo remanescente. Verifique os pagamentos já registrados.';
-    } else if (pendingItems.length === 0 && currentMesaRemainingToPay <= 0.01) {
-        DOM_TABLE_MGMT.emptyItemsMessage.classList.remove('hidden');
-        DOM_TABLE_MGMT.emptyItemsMessage.textContent = 'Todos os itens foram pagos.';
-    } else if (pendingItems.length > 0) {
-        DOM_TABLE_MGMT.emptyItemsMessage.classList.add('hidden');
+    if (currentMesaFullOrder.length === 0) {
+        DOM_TABLE_MGMT.checkoutItensLista.innerHTML = '<p class="text-gray-500 text-center">Nenhum item na conta.</p>';
+        return;
     }
 
-    pendingItems.forEach((item, index) => {
-        let sizeInfo = item.pizzaSize || item.size ? ` (${item.pizzaSize || item.size})` : '';
+    currentMesaFullOrder.forEach((item, index) => {
         const itemDiv = document.createElement('div');
-        itemDiv.className = 'flex justify-between items-center gap-2 border-b border-gray-200 py-2 last:border-b-0';
+        itemDiv.className = 'flex justify-between items-center bg-gray-100 p-2 rounded-md mb-1';
+        let sizeInfo = item.pizzaSize || item.size ? ` (${item.pizzaSize || item.size})` : '';
+        let obsItem = item.observacaoItem ? ` <span class="text-xs italic text-gray-600">(${item.observacaoItem})</span>` : '';
+
         itemDiv.innerHTML = `
-            <div class="flex-1">
-                <p class="font-medium text-gray-800">${item.name}${sizeInfo}</p>
-                <p class="text-sm text-gray-600">Total: ${item.originalQuantity} un. | Restante: ${item.remainingQuantity.toFixed(2)} un.</p>
-            </div>
-            <div class="flex items-center gap-2">
-                <button class="px-2 py-1 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-700 decrease-pay-quantity-btn" data-index="${index}" ${item.selectedToPayQuantity === 0 ? 'disabled' : ''}>-</button>
-                <input type="number" class="w-16 p-1 border rounded text-center selected-pay-quantity-input"
-                        value="${item.selectedToPayQuantity.toFixed(0)}" min="0" max="${item.remainingQuantity.toFixed(0)}" step="1" data-index="${index}">
-                <button class="px-2 py-1 bg-blue-200 rounded-md hover:bg-blue-300 text-blue-800 increase-pay-quantity-btn" data-index="${index}" ${item.selectedToPayQuantity >= item.remainingQuantity ? 'disabled' : ''}>+</button>
-            </div>
-            <span class="text-gray-700 font-semibold w-20 text-right">R$ ${(item.price * item.selectedToPayQuantity).toFixed(2)}</span>
+            <span>${item.quantity}x ${item.name}${sizeInfo}${obsItem}</span>
+            <span class="font-semibold">R$ ${(item.totalPrice).toFixed(2)}</span>
+            <button class="text-red-500 hover:text-red-700 remove-checkout-item-btn" data-index="${index}" title="Remover Item da Conta">&times;</button>
         `;
-        DOM_TABLE_MGMT.mesaItensSelecaoContainer.appendChild(itemDiv);
+        DOM_TABLE_MGMT.checkoutItensLista.appendChild(itemDiv);
     });
 
-    DOM_TABLE_MGMT.mesaItensSelecaoContainer.querySelectorAll('.decrease-pay-quantity-btn').forEach(button => {
-        button.addEventListener('click', handlePayQuantityButton);
+    DOM_TABLE_MGMT.checkoutItensLista.querySelectorAll('.remove-checkout-item-btn').forEach(button => {
+        button.addEventListener('click', (event) => {
+            const indexToRemove = parseInt(event.target.dataset.index);
+            removeCheckoutItem(indexToRemove);
+        });
     });
-    DOM_TABLE_MGMT.mesaItensSelecaoContainer.querySelectorAll('.increase-pay-quantity-btn').forEach(button => {
-        button.addEventListener('click', handlePayQuantityButton);
-    });
-    DOM_TABLE_MGMT.mesaItensSelecaoContainer.querySelectorAll('.selected-pay-quantity-input').forEach(input => {
-        input.addEventListener('input', handlePayQuantityInput);
-    });
-
-    DOM_TABLE_MGMT.valorAPagarInput.value = calculateSelectedItemsTotalForCurrentPayment().toFixed(2);
-    updateCheckoutStatus();
 }
 
-function handlePayQuantityButton(event) {
-    const button = event.target.closest('button');
-    const indexInFilteredList = parseInt(button.dataset.index);
-    const item = currentMesaItemsToPay.filter(i => i.remainingQuantity > 0.001)[indexInFilteredList];
-
-    if (!item) return;
-
-    const step = 1;
-
-    if (button.classList.contains('increase-pay-quantity-btn')) {
-        item.selectedToPayQuantity = Math.min(item.remainingQuantity, item.selectedToPayQuantity + step);
-    } else if (button.classList.contains('decrease-pay-quantity-btn')) {
-        item.selectedToPayQuantity = Math.max(0, item.selectedToPayQuantity - step);
+function removeCheckoutItem(index) {
+    if (!confirm("Tem certeza que deseja remover este item da conta?")) {
+        return;
     }
-    item.selectedToPayQuantity = Math.round(item.selectedToPayQuantity);
-
-    renderMesaItemsForCheckout();
+    currentMesaFullOrder.splice(index, 1);
+    currentMesaOriginalTotal = currentMesaFullOrder.reduce((sum, item) => sum + item.totalPrice, 0);
+    mesasRef.child(currentMesaIdForCheckout).update({
+        pedido: currentMesaFullOrder.length > 0 ? currentMesaFullOrder : null,
+        total: currentMesaOriginalTotal
+    }).then(() => {
+        alert("Item removido da conta com sucesso!");
+        updateCheckoutCalculations();
+        renderCheckoutItemsList();
+    }).catch(error => {
+        console.error("Erro ao remover item da conta no Firebase:", error);
+        alert("Erro ao remover item da conta.");
+    });
 }
 
-function handlePayQuantityInput(event) {
-    const input = event.target;
-    const indexInFilteredList = parseInt(input.dataset.index);
-    const item = currentMesaItemsToPay.filter(i => i.remainingQuantity > 0.001)[indexInFilteredList];
-
-    if (!item) return;
-
-    let newQuantity = parseInt(input.value, 10);
-    if (isNaN(newQuantity) || newQuantity < 0) {
-        newQuantity = 0;
+function populateCheckoutCategorySelect(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Categoria --</option>';
+    if (allProducts) {
+        const sortedCategories = Object.keys(allProducts).sort();
+        sortedCategories.forEach(catKey => {
+            const option = document.createElement('option');
+            option.value = catKey;
+            option.textContent = catKey.charAt(0).toUpperCase() + catKey.slice(1);
+            select.appendChild(option);
+        });
     }
-    newQuantity = Math.min(newQuantity, Math.round(item.remainingQuantity));
-
-    item.selectedToPayQuantity = newQuantity;
-    input.value = newQuantity.toFixed(0);
-
-    DOM_TABLE_MGMT.valorAPagarInput.value = calculateSelectedItemsTotalForCurrentPayment().toFixed(2);
-    updateCheckoutStatus();
 }
 
-function calculateSelectedItemsTotalForCurrentPayment() {
-    return currentMesaItemsToPay.reduce((sum, item) => sum + (item.price * item.selectedToPayQuantity), 0);
+function populateCheckoutProductSelect(selectId, category, searchTerm = '') {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Produto --</option>';
+    
+    searchTerm = searchTerm.toLowerCase();
+
+    if (allProducts && allProducts[category]) {
+        const filteredProducts = Object.entries(allProducts[category]).filter(([id, product]) => {
+            const productName = (product.nome || product.titulo || '').toLowerCase();
+            return product.ativo !== false && productName.includes(searchTerm);
+        });
+
+        filteredProducts.sort(([, a], [, b]) => (a.nome || a.titulo).localeCompare(b.nome || b.titulo)).forEach(([id, product]) => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = product.nome || product.titulo;
+            select.appendChild(option);
+        });
+    }
 }
+
+function filterCheckoutProductsBySearch() {
+    const searchTerm = DOM_TABLE_MGMT.checkoutSearchProdutoInput ? DOM_TABLE_MGMT.checkoutSearchProdutoInput.value.trim() : '';
+    const selectedCategory = DOM_TABLE_MGMT.checkoutSelectCategoria ? DOM_TABLE_MGMT.checkoutSelectCategoria.value : '';
+
+    if (selectedCategory === 'pizzas') {
+        populateCheckoutProductSelect('checkout-pizza-sabor1', 'pizzas', searchTerm);
+        populateCheckoutProductSelect('checkout-pizza-sabor2', 'pizzas', searchTerm);
+    } else if (selectedCategory) {
+        populateCheckoutProductSelect('checkout-select-produto', selectedCategory, searchTerm);
+    }
+}
+
+function buildCheckoutPizzaItem() {
+    const tamanho = DOM_TABLE_MGMT.checkoutPizzaTamanhoSelect ? DOM_TABLE_MGMT.checkoutPizzaTamanhoSelect.value : '';
+    const bordaKey = DOM_TABLE_MGMT.checkoutPizzaBordaSelect ? DOM_TABLE_MGMT.checkoutPizzaBordaSelect.value : '';
+    const sabor1Key = DOM_TABLE_MGMT.checkoutPizzaSabor1Select ? DOM_TABLE_MGMT.checkoutPizzaSabor1Select.value : '';
+    const isMeioAMeio = DOM_TABLE_MGMT.checkoutPizzaMeioAMeioCheck ? DOM_TABLE_MGMT.checkoutPizzaMeioAMeioCheck.checked : false;
+    const sabor2Key = DOM_TABLE_MGMT.checkoutPizzaSabor2Select ? DOM_TABLE_MGMT.checkoutPizzaSabor2Select.value : '';
+
+    if (!sabor1Key) {
+        alert("Selecione o Sabor 1 da pizza.");
+        return null;
+    }
+    if (isMeioAMeio && !sabor2Key) {
+        alert("Selecione o Sabor 2 para pizzas meio a meio.");
+        return null;
+    }
+
+    const sabor1 = allProducts.pizzas[sabor1Key];
+    let precoBase1 = 0;
+    const tamanhoKey = tamanho.toLowerCase();
+
+    if (sabor1 && sabor1.precos && sabor1.precos[tamanhoKey] !== undefined) {
+        precoBase1 = sabor1.precos[tamanhoKey];
+    } else if (sabor1 && sabor1.preco !== undefined) {
+        precoBase1 = sabor1.preco;
+    } else {
+        alert(`Erro: Preço do 1º sabor (${sabor1?.nome || 'desconhecido'}) para o tamanho ${tamanho} não encontrado.`);
+        return null;
+    }
+
+    let nomeProdutoPizza = `${sabor1.nome}`;
+    let precoFinalPizza = precoBase1;
+    let sabor2 = null;
+
+    if (isMeioAMeio && sabor2Key) {
+        sabor2 = allProducts.pizzas[sabor2Key];
+        let precoBase2 = 0;
+
+        if (sabor2 && sabor2.precos && sabor2.precos[tamanhoKey] !== undefined) {
+            precoBase2 = sabor2.precos[tamanhoKey];
+        } else if (sabor2 && sabor2.preco !== undefined) {
+            precoBase2 = sabor2.preco;
+        } else {
+            alert(`Erro: Preço do 2º sabor (${sabor2?.nome || 'desconhecido'}) para o tamanho ${tamanho} não encontrado.`);
+            return null;
+        }
+
+        precoFinalPizza = Math.max(precoBase1, precoBase2);
+        nomeProdutoPizza = `${sabor1.nome} / ${sabor2.nome}`;
+    }
+
+    if (tamanho === 'Broto') {
+        const sabor1Nome = sabor1.nome || '';
+        const sabor2Nome = sabor2 ? sabor2.nome || '' : '';
+
+        const temSaborEspecial =
+            sabor1Nome.toLowerCase().includes('costela') ||
+            sabor2Nome.toLowerCase().includes('costela') ||
+            sabor1Nome.toLowerCase().includes('morango com chocolate') ||
+            sabor2Nome.toLowerCase().includes('morango com chocolate');
+
+        if (temSaborEspecial) {
+            precoFinalPizza = 35.00;
+        } else {
+            if (sabor1.precos && sabor1.precos[tamanhoKey]) {
+                precoFinalPizza = sabor1.precos[tamanhoKey];
+            } else {
+                precoFinalPizza = 30.00;
+            }
+        }
+    }
+
+    let precoBorda = 0;
+    if (bordaKey && allBordas[bordaKey]) {
+        if (allBordas[bordaKey].precos && allBordas[bordaKey].precos[tamanhoKey] !== undefined) {
+            precoBorda = allBordas[bordaKey].precos[tamanhoKey];
+            nomeProdutoPizza += ` + Borda de ${allBordas[bordaKey].nome}`;
+        }
+    }
+    
+    nomeProdutoPizza += ` (${tamanho})`;
+
+    const precoCalculadoDoItem = precoFinalPizza + precoBorda;
+
+    return {
+        id: isMeioAMeio ? `${sabor1Key}|${sabor2Key}|${tamanho}` : `${sabor1Key}|${tamanho}`,
+        name: nomeProdutoPizza,
+        price: precoCalculadoDoItem,
+        pizzaSize: tamanho,
+        originalProductId: sabor1Key,
+        halfProductId: isMeioAMeio ? sabor2Key : undefined,
+        productCategory: 'pizzas'
+    };
+}
+
+function buildCheckoutGenericItem(categoria) {
+    const produtoId = DOM_TABLE_MGMT.checkoutSelectProduto ? DOM_TABLE_MGMT.checkoutSelectProduto.value : '';
+    if (!produtoId) {
+        alert("Selecione um produto.");
+        return null;
+    }
+    const produto = allProducts[categoria][produtoId];
+    return {
+        id: produtoId,
+        name: produto.nome || produto.titulo,
+        price: produto.preco || 0,
+        size: '',
+        originalProductId: produtoId,
+        productCategory: categoria
+    };
+}
+
+function addCheckoutItemToOrder() {
+    const categoria = DOM_TABLE_MGMT.checkoutSelectCategoria ? DOM_TABLE_MGMT.checkoutSelectCategoria.value : '';
+    const quantidade = DOM_TABLE_MGMT.checkoutQtdProdutoInput ? parseInt(DOM_TABLE_MGMT.checkoutQtdProdutoInput.value) : 0;
+    const observacaoItem = DOM_TABLE_MGMT.checkoutObservacaoItemInput ? DOM_TABLE_MGMT.checkoutObservacaoItemInput.value.trim() : '';
+
+    if (!categoria || isNaN(quantidade) || quantidade <= 0) {
+        alert("Selecione uma categoria e uma quantidade válida para o item extra.");
+        return;
+    }
+
+    let itemToAdd;
+    if (categoria === 'pizzas') {
+        itemToAdd = buildCheckoutPizzaItem();
+    } else {
+        itemToAdd = buildCheckoutGenericItem(categoria);
+    }
+
+    if (itemToAdd) {
+        itemToAdd.quantity = quantidade;
+        itemToAdd.totalPrice = itemToAdd.price * itemToAdd.quantity;
+        itemToAdd.observacaoItem = observacaoItem;
+
+        // Adiciona ao pedido completo da mesa
+        currentMesaFullOrder.push(itemToAdd);
+        // Recalcula o total original da mesa
+        currentMesaOriginalTotal = currentMesaFullOrder.reduce((sum, item) => sum + item.totalPrice, 0);
+
+        // Atualiza o Firebase para persistir a adição do item
+        mesasRef.child(currentMesaIdForCheckout).update({
+            pedido: currentMesaFullOrder,
+            total: currentMesaOriginalTotal
+        }).then(() => {
+            alert("Item adicionado à conta com sucesso!");
+            renderCheckoutItemsList();
+            updateCheckoutCalculations();
+            // Limpa os campos de adição de item extra
+            if (DOM_TABLE_MGMT.checkoutSearchProdutoInput) DOM_TABLE_MGMT.checkoutSearchProdutoInput.value = '';
+            if (DOM_TABLE_MGMT.checkoutSelectCategoria) DOM_TABLE_MGMT.checkoutSelectCategoria.value = '';
+            if (DOM_TABLE_MGMT.checkoutQtdProdutoInput) DOM_TABLE_MGMT.checkoutQtdProdutoInput.value = '1';
+            if (DOM_TABLE_MGMT.checkoutObservacaoItemInput) DOM_TABLE_MGMT.checkoutObservacaoItemInput.value = '';
+            if (DOM_TABLE_MGMT.checkoutContainerMontagemPizza) DOM_TABLE_MGMT.checkoutContainerMontagemPizza.classList.add('hidden');
+            if (DOM_TABLE_MGMT.checkoutContainerOutrosItens) DOM_TABLE_MGMT.checkoutContainerOutrosItens.classList.add('hidden');
+            // Recarrega os selects de produtos para estarem vazios ou filtrados por categoria vazia
+            if (DOM_TABLE_MGMT.checkoutPizzaSabor1Select) DOM_TABLE_MGMT.checkoutPizzaSabor1Select.innerHTML = '<option value="">-- Produto --</option>';
+            if (DOM_TABLE_MGMT.checkoutPizzaSabor2Select) DOM_TABLE_MGMT.checkoutPizzaSabor2Select.innerHTML = '<option value="">-- Produto --</option>';
+            if (DOM_TABLE_MGMT.checkoutSelectProduto) DOM_TABLE_MGMT.checkoutSelectProduto.innerHTML = '<option value="">-- Produto --</option>';
+        }).catch(error => {
+            console.error("Erro ao adicionar item extra à conta no Firebase:", error);
+            alert("Erro ao adicionar item extra à conta.");
+        });
+    }
+}
+
 
 function renderPagamentoHistory() {
-    if (!DOM_TABLE_MGMT.historicoPagamentosContainer) return;
-    DOM_TABLE_MGMT.historicoPagamentosContainer.innerHTML = '';
-    DOM_TABLE_MGMT.emptyPaymentsMessage.classList.add('hidden');
+    if (!DOM_TABLE_MGMT.checkoutHistoricoPagamentos) return;
+    DOM_TABLE_MGMT.checkoutHistoricoPagamentos.innerHTML = '';
+    if (DOM_TABLE_MGMT.checkoutEmptyPaymentsMessage) DOM_TABLE_MGMT.checkoutEmptyPaymentsMessage.classList.add('hidden');
 
     if (currentMesaPaymentsHistory.length === 0) {
-        DOM_TABLE_MGMT.emptyPaymentsMessage.classList.remove('hidden');
+        if (DOM_TABLE_MGMT.checkoutEmptyPaymentsMessage) DOM_TABLE_MGMT.checkoutEmptyPaymentsMessage.classList.remove('hidden');
         return;
     }
 
@@ -432,10 +492,10 @@ function renderPagamentoHistory() {
             <span>${index + 1}. ${payment.metodo} - R$ ${payment.valorPago.toFixed(2)} ${trocoInfo}</span>
             <button class="text-red-500 hover:text-red-700 remove-payment-btn" data-index="${index}"><i class="fas fa-trash-alt"></i></button>
         `;
-        DOM_TABLE_MGMT.historicoPagamentosContainer.appendChild(paymentDiv);
+        DOM_TABLE_MGMT.checkoutHistoricoPagamentos.appendChild(paymentDiv);
     });
 
-    DOM_TABLE_MGMT.historicoPagamentosContainer.querySelectorAll('.remove-payment-btn').forEach(button => {
+    DOM_TABLE_MGMT.checkoutHistoricoPagamentos.querySelectorAll('.remove-payment-btn').forEach(button => {
         const newButton = button.cloneNode(true);
         button.parentNode.replaceChild(newButton, button);
         newButton.addEventListener('click', (event) => {
@@ -455,28 +515,6 @@ async function removeMesaPayment(index) {
 
     currentMesaPaymentsHistory.splice(index, 1);
 
-    if (payment.itemsPaid) {
-        payment.itemsPaid.forEach(paidItem => {
-            const originalItem = currentMesaItemsToPay.find(item =>
-                item.name === paidItem.name && (item.size || '') === (paidItem.size || '')
-            );
-            if (originalItem) {
-                originalItem.remainingQuantity += paidItem.quantity;
-                if (originalItem.remainingQuantity > originalItem.originalQuantity + 0.001) {
-                    originalItem.remainingQuantity = originalItem.originalQuantity;
-                }
-            }
-        });
-    }
-
-    const totalPaidSoFar = currentMesaPaymentsHistory.reduce((sum, p) => sum + p.valorPago, 0);
-    currentMesaRemainingToPay = currentMesaTotal - totalPaidSoFar;
-    if (Math.abs(currentMesaRemainingToPay) < 0.01) {
-        currentMesaRemainingToPay = 0;
-    }
-
-    currentMesaItemsToPay.forEach(item => item.selectedToPayQuantity = 0);
-
     try {
         await mesasRef.child(currentMesaIdForCheckout).update({
             pagamentosRegistrados: currentMesaPaymentsHistory.length > 0 ? currentMesaPaymentsHistory : null
@@ -489,67 +527,67 @@ async function removeMesaPayment(index) {
         return;
     }
 
-    renderMesaItemsForCheckout();
+    updateCheckoutCalculations();
     renderPagamentoHistory();
-    updateCheckoutStatus();
 }
 
-function updateCheckoutStatus() {
-    let valueToPayInput = parseFloat(DOM_TABLE_MGMT.valorAPagarInput.value) || 0;
-    const currentPaymentMethod = DOM_TABLE_MGMT.pagamentoMetodoAtual.value;
-    const trocoReceived = parseFloat(DOM_TABLE_MGMT.trocoRecebidoInput.value) || 0;
-
+function updateCheckoutCalculations() {
     const totalPaidSoFar = currentMesaPaymentsHistory.reduce((sum, p) => sum + p.valorPago, 0);
 
-    currentMesaRemainingToPay = currentMesaTotal - totalPaidSoFar;
+    currentMesaRemainingToPay = currentMesaOriginalTotal - totalPaidSoFar;
     if (Math.abs(currentMesaRemainingToPay) < 0.01) {
         currentMesaRemainingToPay = 0;
     }
 
-    DOM_TABLE_MGMT.mesaTotalPago.textContent = `R$ ${totalPaidSoFar.toFixed(2)}`;
-    DOM_TABLE_MGMT.mesaRestantePagar.textContent = `R$ ${currentMesaRemainingToPay.toFixed(2)}`;
+    if (DOM_TABLE_MGMT.checkoutTotalOriginal) DOM_TABLE_MGMT.checkoutTotalOriginal.textContent = `R$ ${currentMesaOriginalTotal.toFixed(2)}`;
+    if (DOM_TABLE_MGMT.checkoutTotalPago) DOM_TABLE_MGMT.checkoutTotalPago.textContent = `R$ ${totalPaidSoFar.toFixed(2)}`;
+    if (DOM_TABLE_MGMT.checkoutRestantePagar) DOM_TABLE_MGMT.checkoutRestantePagar.textContent = `R$ ${currentMesaRemainingToPay.toFixed(2)}`;
 
-    if (currentMesaRemainingToPay <= 0) {
-        DOM_TABLE_MGMT.valorAPagarInput.value = '0.00';
-        DOM_TABLE_MGMT.valorAPagarInput.disabled = true;
-        DOM_TABLE_MGMT.pagamentoMetodoAtual.disabled = true;
-        DOM_TABLE_MGMT.trocoRecebidoInput.disabled = true;
-        DOM_TABLE_MGMT.btnAdicionarPagamento.disabled = true;
-        DOM_TABLE_MGMT.btnDividirRestante.disabled = true;
-        DOM_TABLE_MGMT.btnFinalizarContaMesa.disabled = false;
-        DOM_TABLE_MGMT.trocoInputGroup.classList.add('hidden');
-    } else {
-        DOM_TABLE_MGMT.valorAPagarInput.disabled = false;
-        DOM_TABLE_MGMT.pagamentoMetodoAtual.disabled = false;
-        DOM_TABLE_MGMT.trocoRecebidoInput.disabled = false;
-        DOM_TABLE_MGMT.btnFinalizarContaMesa.disabled = true;
-        
-        const numPessoasDividir = parseInt(DOM_TABLE_MGMT.dividirPorInput.value, 10);
-        DOM_TABLE_MGMT.btnDividirRestante.disabled = isNaN(numPessoasDividir) || numPessoasDividir <= 0;
+    if (DOM_TABLE_MGMT.checkoutValorAPagarInput && parseFloat(DOM_TABLE_MGMT.checkoutValorAPagarInput.value) === 0 && currentMesaRemainingToPay > 0) {
+        DOM_TABLE_MGMT.checkoutValorAPagarInput.value = currentMesaRemainingToPay.toFixed(2);
+    } else if (DOM_TABLE_MGMT.checkoutValorAPagarInput && currentMesaRemainingToPay === 0) {
+        DOM_TABLE_MGMT.checkoutValorAPagarInput.value = '0.00';
+    }
 
-        const hasValueToPay = valueToPayInput > 0;
-        const isValueWithinRemaining = valueToPayInput <= currentMesaRemainingToPay + 0.01;
 
-        const anyItemSelected = currentMesaItemsToPay.some(item => item.selectedToPayQuantity > 0);
-        const payingFullRemaining = Math.abs(valueToPayInput - currentMesaRemainingToPay) < 0.01;
+    const hasRemaining = currentMesaRemainingToPay > 0.01;
 
-        if (currentPaymentMethod === 'Dinheiro') {
-            DOM_TABLE_MGMT.trocoInputGroup.classList.remove('hidden');
-            const hasEnoughChange = trocoReceived >= valueToPayInput;
-            DOM_TABLE_MGMT.btnAdicionarPagamento.disabled = !(hasValueToPay && currentPaymentMethod && isValueWithinRemaining && hasEnoughChange && (anyItemSelected || payingFullRemaining));
+    if (DOM_TABLE_MGMT.checkoutValorAPagarInput) DOM_TABLE_MGMT.checkoutValorAPagarInput.disabled = !hasRemaining;
+    if (DOM_TABLE_MGMT.checkoutPagamentoMetodoAtual) DOM_TABLE_MGMT.checkoutPagamentoMetodoAtual.disabled = !hasRemaining;
+    if (DOM_TABLE_MGMT.checkoutTrocoRecebidoInput) DOM_TABLE_MGMT.checkoutTrocoRecebidoInput.disabled = true;
+
+    if (DOM_TABLE_MGMT.checkoutBtnAdicionarPagamento) DOM_TABLE_MGMT.checkoutBtnAdicionarPagamento.disabled = true;
+    if (DOM_TABLE_MGMT.checkoutBtnDividirRestante) DOM_TABLE_MGMT.checkoutBtnDividirRestante.disabled = !hasRemaining;
+    if (DOM_TABLE_MGMT.checkoutBtnFinalizarContaMesa) DOM_TABLE_MGMT.checkoutBtnFinalizarContaMesa.disabled = hasRemaining;
+
+    const valorInput = parseFloat(DOM_TABLE_MGMT.checkoutValorAPagarInput.value) || 0;
+    const metodo = DOM_TABLE_MGMT.checkoutPagamentoMetodoAtual.value;
+
+    if (hasRemaining && valorInput > 0 && metodo) {
+        if (metodo === 'Dinheiro') {
+            if (DOM_TABLE_MGMT.checkoutTrocoInputGroup) DOM_TABLE_MGMT.checkoutTrocoInputGroup.classList.remove('hidden');
+            if (DOM_TABLE_MGMT.checkoutTrocoRecebidoInput) DOM_TABLE_MGMT.checkoutTrocoRecebidoInput.disabled = false;
+            const valorRecebido = parseFloat(DOM_TABLE_MGMT.checkoutTrocoRecebidoInput.value) || 0;
+            if (valorRecebido >= valorInput) {
+                if (DOM_TABLE_MGMT.checkoutBtnAdicionarPagamento) DOM_TABLE_MGMT.checkoutBtnAdicionarPagamento.disabled = false;
+            } else {
+                if (DOM_TABLE_MGMT.checkoutBtnAdicionarPagamento) DOM_TABLE_MGMT.checkoutBtnAdicionarPagamento.disabled = true;
+            }
         } else {
-            DOM_TABLE_MGMT.trocoInputGroup.classList.add('hidden');
-            DOM_TABLE_MGMT.trocoRecebidoInput.value = '';
-            DOM_TABLE_MGMT.btnAdicionarPagamento.disabled = !(hasValueToPay && currentPaymentMethod && isValueWithinRemaining && (anyItemSelected || payingFullRemaining));
+            if (DOM_TABLE_MGMT.checkoutTrocoInputGroup) DOM_TABLE_MGMT.checkoutTrocoInputGroup.classList.add('hidden');
+            if (DOM_TABLE_MGMT.checkoutBtnAdicionarPagamento) DOM_TABLE_MGMT.checkoutBtnAdicionarPagamento.disabled = false;
         }
+    } else {
+        if (DOM_TABLE_MGMT.checkoutTrocoInputGroup) DOM_TABLE_MGMT.checkoutTrocoInputGroup.classList.add('hidden');
+        if (DOM_TABLE_MGMT.checkoutBtnAdicionarPagamento) DOM_TABLE_MGMT.checkoutBtnAdicionarPagamento.disabled = true;
     }
 }
 
 async function addMesaPayment() {
     console.log("Admin: Adicionando pagamento...");
-    let valueToPay = parseFloat(DOM_TABLE_MGMT.valorAPagarInput.value);
-    const currentPaymentMethod = DOM_TABLE_MGMT.pagamentoMetodoAtual.value;
-    const trocoReceived = parseFloat(DOM_TABLE_MGMT.trocoRecebidoInput.value) || 0;
+    let valueToPay = parseFloat(DOM_TABLE_MGMT.checkoutValorAPagarInput.value);
+    const currentPaymentMethod = DOM_TABLE_MGMT.checkoutPagamentoMetodoAtual.value;
+    const trocoReceived = parseFloat(DOM_TABLE_MGMT.checkoutTrocoRecebidoInput.value) || 0;
 
     if (isNaN(valueToPay) || valueToPay <= 0) {
         alert('Por favor, digite um valor válido e positivo para esta parcela.');
@@ -564,123 +602,44 @@ async function addMesaPayment() {
         return;
     }
 
-    let itemsPaidInThisInstallment = [];
-    let totalFromSelectedItems = calculateSelectedItemsTotalForCurrentPayment();
-
-    if (totalFromSelectedItems > 0.01) {
-        itemsPaidInThisInstallment = currentMesaItemsToPay
-            .filter(item => item.selectedToPayQuantity > 0.001)
-            .map(item => ({
-                name: item.name,
-                price: item.price,
-                quantity: item.selectedToPayQuantity,
-                size: item.size || undefined,
-                originalProductId: item.originalProductId,
-                productCategory: item.productCategory
-            }));
-        
-        if (Math.abs(valueToPay - totalFromSelectedItems) > 0.01) {
-            if (!confirm(`Você selecionou itens totalizando R$ ${totalFromSelectedItems.toFixed(2)}, mas digitou R$ ${valueToPay.toFixed(2)}. Deseja usar o valor digitado ou o valor dos itens selecionados? (OK para usar o digitado, Cancelar para usar o dos itens)`)) {
-                valueToPay = totalFromSelectedItems;
-                DOM_TABLE_MGMT.valorAPagarInput.value = valueToPay.toFixed(2);
-            }
-        }
-
-    } else if (Math.abs(valueToPay - currentMesaRemainingToPay) < 0.01) {
-        let amountToDistribute = valueToPay;
-        const itemsToDistributeTo = currentMesaItemsToPay.filter(item => item.remainingQuantity > 0.001);
-        const totalValueToDistributeOver = itemsToDistributeTo.reduce((sum, item) => sum + (item.price * item.remainingQuantity), 0);
-
-        itemsToDistributeTo.forEach(item => {
-            if (item.remainingQuantity > 0.001 && amountToDistribute > 0.001 && totalValueToDistributeOver > 0.001) {
-                const proportion = (item.price * item.remainingQuantity) / totalValueToDistributeOver;
-                let quantityToPayForThisItem = (amountToDistribute * proportion) / item.price;
-
-                if (quantityToPayForThisItem > item.remainingQuantity) {
-                    quantityToPayForThisItem = item.remainingQuantity;
-                }
-                
-                itemsPaidInThisInstallment.push({
-                    name: item.name,
-                    price: item.price,
-                    quantity: parseFloat(quantityToPayForThisItem.toFixed(3)),
-                    size: item.size || undefined,
-                    originalProductId: item.originalProductId,
-                    productCategory: item.productCategory
-                });
-                amountToDistribute -= (quantityToPayForThisItem * item.price);
-            }
-        });
-        const distributedSum = itemsPaidInThisInstallment.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const diff = valueToPay - distributedSum;
-        if (Math.abs(diff) > 0.01 && itemsPaidInThisInstallment.length > 0) {
-            itemsPaidInThisInstallment[0].quantity += (diff / itemsPaidInThisInstallment[0].price);
-            if (itemsPaidInThisInstallment[0].quantity < 0) itemsPaidInThisInstallment[0].quantity = 0;
-        }
-
-    } else {
-        alert('Por favor, selecione os itens a serem pagos ou insira o valor total restante no campo "Valor desta Parcela".');
+    if (currentPaymentMethod === 'Dinheiro' && trocoReceived < valueToPay) {
+        alert(`O valor recebido (R$ ${trocoReceived.toFixed(2)}) é menor que a parcela a pagar (R$ ${valueToPay.toFixed(2)}).`);
         return;
     }
 
-    if (currentPaymentMethod === 'Dinheiro') {
-        if (trocoReceived < valueToPay) {
-            alert(`O valor recebido (R$ ${trocoReceived.toFixed(2)}) é menor que a parcela a pagar (R$ ${valueToPay.toFixed(2)}).`);
-            return;
-        }
-    }
-
     const trocoADevolver = currentPaymentMethod === 'Dinheiro' ? trocoReceived - valueToPay : 0;
-
-    itemsPaidInThisInstallment.forEach(paidItem => {
-        const originalItem = currentMesaItemsToPay.find(item =>
-            item.name === paidItem.name && (item.size || '') === (paidItem.size || '')
-        );
-        if (originalItem) {
-            originalItem.remainingQuantity -= paidItem.quantity;
-            if (originalItem.remainingQuantity < 0.001) originalItem.remainingQuantity = 0;
-        }
-    });
 
     currentMesaPaymentsHistory.push({
         metodo: currentPaymentMethod,
         valorPago: valueToPay,
         valorRecebido: currentPaymentMethod === 'Dinheiro' ? trocoReceived : null,
         troco: currentPaymentMethod === 'Dinheiro' ? trocoADevolver : null,
-        timestamp: firebase.database.ServerValue.TIMESTAMP,
-        itemsPaid: itemsPaidInThisInstallment
+        timestamp: firebase.database.ServerValue.TIMESTAMP
     });
 
     try {
         await mesasRef.child(currentMesaIdForCheckout).update({
             pagamentosRegistrados: currentMesaPaymentsHistory.length > 0 ? currentMesaPaymentsHistory : null
         });
+        alert('Pagamento registrado com sucesso!');
         console.log(`Admin: Pagamento de R$ ${valueToPay.toFixed(2)} adicionado para Mesa ${currentMesaIdForCheckout}.`);
     } catch (error) {
-        console.error('Admin: Erro ao salvar pagamento no Firebase:', error);
-        alert('Erro ao salvar pagamento no servidor. Tente novamente.');
+        console.error('Admin: Erro ao registrar pagamento no Firebase:', error);
+        alert('Erro ao registrar pagamento no servidor. Tente novamente.');
         return;
     }
 
-    DOM_TABLE_MGMT.valorAPagarInput.value = currentMesaRemainingToPay.toFixed(2);
-    DOM_TABLE_MGMT.trocoRecebidoInput.value = '';
-    DOM_TABLE_MGMT.pagamentoMetodoAtual.value = '';
-    currentMesaItemsToPay.forEach(item => item.selectedToPayQuantity = 0);
-
-    renderMesaItemsForCheckout();
+    updateCheckoutCalculations();
     renderPagamentoHistory();
-    updateCheckoutStatus();
 
     if (currentPaymentMethod === 'Dinheiro' && trocoADevolver > 0) {
         alert(`Pagamento adicionado com sucesso!\nTROCO A DEVOLVER: R$ ${trocoADevolver.toFixed(2)}`);
-    } else {
-        alert('Pagamento adicionado com sucesso!');
     }
 }
 
 function splitMesaBill() {
     console.log("Admin: Dividindo conta...");
-    const numPessoas = parseInt(DOM_TABLE_MGMT.dividirPorInput.value, 10);
+    const numPessoas = parseInt(DOM_TABLE_MGMT.checkoutDividirPorInput.value, 10);
     if (isNaN(numPessoas) || numPessoas <= 0) {
         alert('Por favor, digite um número válido de pessoas para dividir.');
         return;
@@ -691,12 +650,12 @@ function splitMesaBill() {
     }
 
     const valorPorPessoa = currentMesaRemainingToPay / numPessoas;
-    DOM_TABLE_MGMT.valorAPagarInput.value = valorPorPessoa.toFixed(2);
+    if (DOM_TABLE_MGMT.checkoutValorAPagarInput) DOM_TABLE_MGMT.checkoutValorAPagarInput.value = valorPorPessoa.toFixed(2);
 
-    DOM_TABLE_MGMT.dividirPorInput.value = '';
-    updateCheckoutStatus();
+    if (DOM_TABLE_MGMT.checkoutDividirPorInput) DOM_TABLE_MGMT.checkoutDividirPorInput.value = '1';
+    updateCheckoutCalculations();
 
-    alert(`O valor por pessoa (R$ ${valorPorPessoa.toFixed(2)}) foi preenchido no campo "Valor desta Parcela". Agora, selecione o método de pagamento e clique em "Adicionar Pagamento".`);
+    alert(`O valor por pessoa (R$ ${valorPorPessoa.toFixed(2)}) foi preenchido no campo "Valor desta Parcela". Agora, selecione o método de pagamento e clique em "Registrar Pagamento".`);
 }
 
 async function cancelMesaOrderAdmin() {
@@ -750,8 +709,8 @@ async function finalizeMesaAccount() {
                 return;
             }
 
-            if (mesaAtual.pedido && Array.isArray(mesaAtual.pedido)) {
-                for (const itemPedido of mesaAtual.pedido) {
+            if (currentMesaFullOrder && Array.isArray(currentMesaFullOrder)) {
+                for (const itemPedido of currentMesaFullOrder) {
                     await deductIngredientsFromStock(itemPedido);
                 }
             }
@@ -763,9 +722,9 @@ async function finalizeMesaAccount() {
                 nomeCliente: mesaAtual.cliente,
                 garcom: mesaAtual.garcom,
                 observacao: mesaAtual.observacoes,
-                cart: mesaAtual.pedido,
-                totalOriginal: mesaAtual.total,
-                totalPago: currentMesaTotal,
+                cart: currentMesaFullOrder,
+                totalOriginal: currentMesaOriginalTotal,
+                totalPago: currentMesaOriginalTotal,
                 pagamentosRegistrados: currentMesaPaymentsHistory,
                 status: 'Finalizado',
                 timestamp: firebase.database.ServerValue.TIMESTAMP
@@ -903,5 +862,122 @@ async function deductIngredientsFromStock(itemPedido) {
     if (Object.keys(updates).length > 0) {
         await database.ref().update(updates);
         console.log(`Admin: Estoque e uso dos ingredientes para ${itemPedido.name} atualizados com sucesso.`);
+    }
+}
+
+function printNotaFiscal(pedidoData) {
+    if (!pedidoData || !pedidoData.cart || pedidoData.cart.length === 0) {
+        alert("Não há itens no pedido para gerar a nota.");
+        return;
+    }
+
+    const dataHora = new Date(pedidoData.timestamp).toLocaleString('pt-BR', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+
+    let itensHtml = '';
+    pedidoData.cart.forEach(item => {
+        let sizeInfo = item.pizzaSize || item.size ? ` (${item.pizzaSize || item.size})` : '';
+        let obsItem = item.observacaoItem ? ` - Obs: ${item.observacaoItem}` : '';
+        itensHtml += `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 2mm;">
+                <span style="flex: 0 0 20mm; text-align: left;">${item.quantity}x</span>
+                <span style="flex-grow: 1; text-align: left; padding-right: 5mm;">${item.name}${sizeInfo}${obsItem}</span>
+                <span style="flex: 0 0 25mm; text-align: right; font-weight: bold;">R$ ${(item.price * item.quantity).toFixed(2).replace('.', ',')}</span>
+            </div>
+        `;
+    });
+
+    let pagamentosHtml = '';
+    if (pedidoData.pagamentosRegistrados && pedidoData.pagamentosRegistrados.length > 0) {
+        pedidoData.pagamentosRegistrados.forEach((pag, index) => {
+            let trocoInfo = '';
+            if (pag.troco !== undefined && pag.troco !== null && pag.troco > 0) {
+                trocoInfo = ` (Troco: R$ ${pag.troco.toFixed(2).replace('.', ',')})`;
+            } else if (pag.troco !== undefined && pag.troco !== null && pag.troco === 0) {
+                trocoInfo = ` (Sem troco)`;
+            }
+            pagamentosHtml += `<p style="margin: 1mm 0;">${index + 1}. ${pag.metodo}: R$ ${pag.valorPago.toFixed(2).replace('.', ',')}${trocoInfo}</p>`;
+        });
+    } else {
+        pagamentosHtml = `<p style="margin: 1mm 0;">Nenhum pagamento registrado na nota.</p>`;
+    }
+
+    let htmlContent = `
+    <html>
+    <head>
+        <title>Nota Fiscal Mesa ${pedidoData.mesaNumero}</title>
+        <style>
+            @page { size: 80mm auto; margin: 0; }
+            body { font-family: 'Consolas', 'Courier New', monospace; font-size: 10pt; margin: 0; padding: 10mm 5mm; box-sizing: border-box; line-height: 1.4; color: #000; }
+            .header, .footer { text-align: center; margin-bottom: 10mm; }
+            .header h1 { font-size: 14pt; margin: 0; text-transform: uppercase; font-weight: bold; }
+            .header p { font-size: 9pt; margin: 2mm 0; }
+            .section { border-top: 1px dashed #000; padding-top: 5mm; margin-top: 5mm; }
+            .section h2 { font-size: 11pt; margin: 0 0 3mm 0; font-weight: bold; }
+            .section p { margin: 1mm 0; }
+            .items-list { border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 5mm 0; margin: 5mm 0; }
+            .summary { text-align: right; font-size: 11pt; margin-top: 5mm; }
+            .summary .total-line { display: flex; justify-content: space-between; font-weight: bold; margin-top: 3mm; font-size: 12pt; }
+            .dashed-line { border-top: 1px dashed #000; margin: 5mm 0; }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>Bonanza Pizzaria</h1>
+            <p>Seu Melhor Sabor!</p>
+            <p>Rua Benjamin Constant, nº 621</p>
+            <p>Telefone: (14) 99816-5756</p>
+        </div>
+
+        <div class="section">
+            <h2>Nota Fiscal - Mesa ${pedidoData.mesaNumero}</h2>
+            <p><strong>Data/Hora:</strong> ${dataHora}</p>
+            <p><strong>Cliente:</strong> ${pedidoData.nomeCliente || 'N/A'}</p>
+            <p><strong>Garçom:</strong> ${pedidoData.garcom || 'N/A'}</p>
+        </div>
+
+        <div class="items-list">
+            <h2>Itens Consumidos</h2>
+            ${itensHtml}
+        </div>
+
+        <div class="section summary">
+            <p>Subtotal: R$ ${pedidoData.totalOriginal.toFixed(2).replace('.', ',')}</p>
+            <div class="total-line">
+                <span>TOTAL PAGO:</span>
+                <span>R$ ${pedidoData.totalPago.toFixed(2).replace('.', ',')}</span>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Detalhes do Pagamento</h2>
+            ${pagamentosHtml}
+        </div>
+
+        ${pedidoData.observacao !== 'N/A' && pedidoData.observacao !== '' ? `
+        <div class="section">
+            <p><strong>Observações do Pedido:</strong> ${pedidoData.observacao}</p>
+        </div>
+        ` : ''}
+
+        <div class="footer section">
+            <p>Agradecemos a sua preferência!</p>
+            <p>Volte Sempre!</p>
+            <p>Desenvolvido por LGHN System</p>
+        </div>
+    </body>
+    </html>
+    `;
+
+    const printWindow = window.open('', '', 'width=800,height=600');
+    if (printWindow) {
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+    } else {
+        alert("Não foi possível abrir a janela de impressão. Por favor, verifique se pop-ups estão bloqueados.");
     }
 }

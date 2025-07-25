@@ -66,6 +66,10 @@ let menuLink = '';
 let allProducts = {};
 let manualOrderCart = [];
 
+let currentAddonRecipe = null;
+let currentAddonRecipeId = null;
+const DOM_ADDON_RECIPE_MODAL = {};
+
 //Tentei mudar não funcinou vai ter q ficar aqui
 const allBordas = {
     'creamcheese': { 
@@ -262,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Preenchendo o objeto DOM com as referências dos elementos HTML
     Object.assign(DOM, {
         
-
+        listaAdicionaisConfiguracao: document.getElementById('lista-adicionais-configuracao'),
         tiposEntregaSummary: document.getElementById('tipos-entrega-summary'),
         tiposEntregaChartCanvas: document.getElementById('tipos-entrega-chart'),
 
@@ -327,6 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
         custoCalculadoDisplay: document.getElementById('custo-calculado-display'), // Novo elemento
         btnAddItemCompraDetalhe: document.getElementById('btn-add-item-compra-detalhe'),
         btnRegistrarCompraDetalhe: document.getElementById('btn-registrar-compra-detalhe'),
+        btnGerenciarAdicionais: document.getElementById('btn-gerenciar-adicionais'),
 
         abaAtivos: document.getElementById('aba-ativos'),
         abaFinalizados: document.getElementById('aba-finalizados'),
@@ -338,6 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
         abaGerenciarCupom: document.getElementById('aba-gerenciar-cupom'),
         abaGerenciarGarcom: document.getElementById('aba-gerenciar-garcom'),
         abaGerenciarEstoque: document.getElementById('aba-gerenciar-estoque'),
+        abaGerenciarAdicionais: document.getElementById('aba-adicionais-conteudo'),
 
         searchInput: document.getElementById('search-input'),
         categoriaSelect: document.getElementById('categoria-select'),
@@ -430,7 +436,23 @@ document.addEventListener('DOMContentLoaded', () => {
         btnSalvarMenuLink: document.getElementById('btn-salvar-menu-link'),
 
         manualTipoEntregaSelect: document.getElementById('manual-tipo-entrega'),
+
+        listaAdicionaisConfiguracao: document.getElementById('lista-adicionais-configuracao'),
+
     });
+
+    Object.assign(DOM_ADDON_RECIPE_MODAL, {
+        modal: document.getElementById('addon-recipe-modal'),
+        nameSpan: document.getElementById('addon-recipe-name'),
+        ingredientsList: document.getElementById('addon-recipe-ingredients-list'),
+        ingredienteSelect: document.getElementById('addon-recipe-ingrediente-select'),
+        quantidadeInput: document.getElementById('addon-recipe-quantidade'),
+        addIngredienteBtn: document.getElementById('btn-add-addon-recipe-ingrediente'),
+        cancelBtn: document.getElementById('cancel-addon-recipe-modal'),
+        saveBtn: document.getElementById('save-addon-recipe-modal')
+    });
+
+
 
     // --- Event Listeners para a Sidebar ---
     DOM.menuButton.addEventListener('click', () => {
@@ -449,107 +471,140 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Event Listeners para os botões do menu principal ---
-    DOM.btnAtivos.addEventListener('click', () => {
-        ativaAba(DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
-        estilizaBotaoAtivo(DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-    });
+DOM.btnAtivos.addEventListener('click', () => {
+    // Adicionado DOM.abaGerenciarAdicionais à lista de abas a esconder
+    ativaAba(DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom, DOM.abaGerenciarAdicionais);
+    // Adicionado DOM.btnGerenciarAdicionais à lista de botões a desestilizar
+    estilizaBotaoAtivo(DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom, DOM.btnGerenciarAdicionais);
+    DOM.sidebar.classList.add('-translate-x-full');
+    DOM.overlay.classList.add('hidden');
+});
 
-    DOM.btnFinalizados.addEventListener('click', () => {
-        ativaAba(DOM.abaFinalizados, DOM.abaAtivos, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
-        estilizaBotaoAtivo(DOM.btnFinalizados, DOM.btnAtivos, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
+DOM.btnFinalizados.addEventListener('click', () => {
+    // Adicionado DOM.abaGerenciarAdicionais à lista de abas a esconder
+    ativaAba(DOM.abaFinalizados, DOM.abaAtivos, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom, DOM.abaGerenciarAdicionais);
+    // Adicionado DOM.btnGerenciarAdicionais à lista de botões a desestilizar
+    estilizaBotaoAtivo(DOM.btnFinalizados, DOM.btnAtivos, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom, DOM.btnGerenciarAdicionais);
 
-        const hoje = new Date();
-        const seteDiasAtras = new Date(hoje);
-        seteDiasAtras.setDate(hoje.getDate() - 7);
+    const hoje = new Date();
+    const seteDiasAtras = new Date(hoje);
+    seteDiasAtras.setDate(hoje.getDate() - 7);
 
-        DOM.inputDataInicio.value = seteDiasAtras.toISOString().split('T')[0];
-        DOM.inputDataFim.value = hoje.toISOString().split('T')[0];
+    DOM.inputDataInicio.value = seteDiasAtras.toISOString().split('T')[0];
+    DOM.inputDataFim.value = hoje.toISOString().split('T')[0];
 
-        aplicarFiltroDatas();
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-    });
+    aplicarFiltroDatas();
+    DOM.sidebar.classList.add('-translate-x-full');
+    DOM.overlay.classList.add('hidden');
+});
 
-    DOM.btnEditarCardapio.addEventListener('click', () => {
-        ativaAba(DOM.EditarCardapio, DOM.abaFinalizados, DOM.abaAtivos, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
-        estilizaBotaoAtivo(DOM.btnEditarCardapio, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
-        if (!DOM.categoriaSelect.value) {
-            DOM.categoriaSelect.value = 'pizzas';
-        }
-        carregarItensCardapio(DOM.categoriaSelect.value, DOM.searchInput.value);
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-    });
+DOM.btnEditarCardapio.addEventListener('click', () => {
+    // Adicionado DOM.abaGerenciarAdicionais à lista de abas a esconder
+    ativaAba(DOM.EditarCardapio, DOM.abaFinalizados, DOM.abaAtivos, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom, DOM.abaGerenciarAdicionais);
+    // Adicionado DOM.btnGerenciarAdicionais à lista de botões a desestilizar
+    estilizaBotaoAtivo(DOM.btnEditarCardapio, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom, DOM.btnGerenciarAdicionais);
+    if (!DOM.categoriaSelect.value) {
+        DOM.categoriaSelect.value = 'pizzas';
+    }
+    carregarItensCardapio(DOM.categoriaSelect.value, DOM.searchInput.value);
+    DOM.sidebar.classList.add('-translate-x-full');
+    DOM.overlay.classList.add('hidden');
+});
 
-    DOM.btnEditarHorario.addEventListener('click', () => {
-        ativaAba(DOM.editarHorario, DOM.abaFinalizados, DOM.abaAtivos, DOM.EditarCardapio, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
-        estilizaBotaoAtivo(DOM.btnEditarHorario, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-        inicializarEditorHorario();
-    });
+DOM.btnEditarHorario.addEventListener('click', () => {
+    // Adicionado DOM.abaGerenciarAdicionais à lista de abas a esconder
+    ativaAba(DOM.editarHorario, DOM.abaFinalizados, DOM.abaAtivos, DOM.EditarCardapio, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom, DOM.abaGerenciarAdicionais);
+    // Adicionado DOM.btnGerenciarAdicionais à lista de botões a desestilizar
+    estilizaBotaoAtivo(DOM.btnEditarHorario, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom, DOM.btnGerenciarAdicionais);
+    DOM.sidebar.classList.add('-translate-x-full');
+    DOM.overlay.classList.add('hidden');
+    inicializarEditorHorario();
+});
 
-    DOM.btnGerenciarMesas.addEventListener('click', () => {
-        ativaAba(DOM.abaGerenciarMesas, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
-        estilizaBotaoAtivo(DOM.btnGerenciarMesas, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-        carregarMesasDoFirebase();
-    });
+DOM.btnGerenciarMesas.addEventListener('click', () => {
+    // Adicionado DOM.abaGerenciarAdicionais à lista de abas a esconder
+    ativaAba(DOM.abaGerenciarMesas, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom, DOM.abaGerenciarAdicionais);
+    // Adicionado DOM.btnGerenciarAdicionais à lista de botões a desestilizar
+    estilizaBotaoAtivo(DOM.btnGerenciarMesas, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom, DOM.btnGerenciarAdicionais);
+    DOM.sidebar.classList.add('-translate-x-full');
+    DOM.overlay.classList.add('hidden');
+    carregarMesasDoFirebase();
+});
 
-    DOM.btnConfiguracoesGerais.addEventListener('click', () => {
-        ativaAba(DOM.abaConfiguracoesGerais, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
-        estilizaBotaoAtivo(DOM.btnConfiguracoesGerais, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-    });
+DOM.btnConfiguracoesGerais.addEventListener('click', () => {
+    // Adicionado DOM.abaGerenciarAdicionais à lista de abas a esconder
+    ativaAba(DOM.abaConfiguracoesGerais, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom, DOM.abaGerenciarAdicionais);
+    // Adicionado DOM.btnGerenciarAdicionais à lista de botões a desestilizar
+    estilizaBotaoAtivo(DOM.btnConfiguracoesGerais, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom, DOM.btnGerenciarAdicionais);
+    DOM.sidebar.classList.add('-translate-x-full');
+    DOM.overlay.classList.add('hidden');
+});
 
-    DOM.btnRelatorios.addEventListener('click', () => {
-        ativaAba(DOM.abaRelatorios, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
-        estilizaBotaoAtivo(DOM.btnRelatorios, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-        setRelatorioDateRange(6, 0); // Define o filtro inicial para os últimos 7 dias ao abrir a aba
-    });
+DOM.btnRelatorios.addEventListener('click', () => {
+    // Adicionado DOM.abaGerenciarAdicionais à lista de abas a esconder
+    ativaAba(DOM.abaRelatorios, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom, DOM.abaGerenciarAdicionais);
+    // Adicionado DOM.btnGerenciarAdicionais à lista de botões a desestilizar
+    estilizaBotaoAtivo(DOM.btnRelatorios, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom, DOM.btnGerenciarAdicionais);
+    DOM.sidebar.classList.add('-translate-x-full');
+    DOM.overlay.classList.add('hidden');
+    setRelatorioDateRange(6, 0); // Define o filtro inicial para os últimos 7 dias ao abrir a aba
+});
 
-    DOM.btnGerenciarCupom.addEventListener('click', () => {
-        ativaAba(DOM.abaGerenciarCupom, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
-        estilizaBotaoAtivo(DOM.btnGerenciarCupom, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-    });
+DOM.btnGerenciarCupom.addEventListener('click', () => {
+    // Adicionado DOM.abaGerenciarAdicionais à lista de abas a esconder
+    ativaAba(DOM.abaGerenciarCupom, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom, DOM.abaGerenciarAdicionais);
+    // Adicionado DOM.btnGerenciarAdicionais à lista de botões a desestilizar
+    estilizaBotaoAtivo(DOM.btnGerenciarCupom, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom, DOM.btnGerenciarAdicionais);
+    DOM.sidebar.classList.add('-translate-x-full');
+    DOM.overlay.classList.add('hidden');
+});
 
-    DOM.btnGerenciarEstoque.addEventListener('click', () => {
-        ativaAba(DOM.abaGerenciarEstoque, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarGarcom);
-        estilizaBotaoAtivo(DOM.btnGerenciarEstoque, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarGarcom);
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
+DOM.btnGerenciarEstoque.addEventListener('click', () => {
+    // Adicionado DOM.abaGerenciarAdicionais à lista de abas a esconder
+    ativaAba(DOM.abaGerenciarEstoque, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarGarcom, DOM.abaGerenciarAdicionais);
+    // Adicionado DOM.btnGerenciarAdicionais à lista de botões a desestilizar
+    estilizaBotaoAtivo(DOM.btnGerenciarEstoque, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarGarcom, DOM.btnGerenciarAdicionais);
+    DOM.sidebar.classList.add('-translate-x-full');
+    DOM.overlay.classList.add('hidden');
 
-        // Limpar campos e estado ao entrar na aba de estoque
-        DOM.ingredienteNomeDetalheInput.value = '';
-        DOM.ingredienteUnidadeDetalheInput.value = '';
-        DOM.ingredienteEstoqueMinimoDetalheInput.value = '';
+    // Limpar campos e estado ao entrar na aba de estoque
+    DOM.ingredienteNomeDetalheInput.value = '';
+    DOM.ingredienteUnidadeDetalheInput.value = '';
+    DOM.ingredienteEstoqueMinimoDetalheInput.value = '';
 
-        DOM.compraDataDetalheInput.valueAsDate = new Date();
-        DOM.compraFornecedorDetalheInput.value = '';
-        currentPurchaseItems = [];
-        renderItensCompraDetalhe(); // Função que renderiza os itens da compra atual
+    DOM.compraDataDetalheInput.valueAsDate = new Date();
+    DOM.compraFornecedorDetalheInput.value = '';
+    currentPurchaseItems = [];
+    renderItensCompraDetalhe(); // Função que renderiza os itens da compra atual
 
-        DOM.receitaProdutoSelectCategoriaDetalhe.value = '';
-        DOM.receitaProdutoSelectDetalhe.innerHTML = '<option value="">Selecione uma categoria primeiro</option>';
-        DOM.receitaProdutoSelectDetalhe.disabled = true;
-        DOM.receitaConfigDetalheContainer.classList.add('hidden');
-        DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'none';
-    });
+    DOM.receitaProdutoSelectCategoriaDetalhe.value = '';
+    DOM.receitaProdutoSelectDetalhe.innerHTML = '<option value="">Selecione uma categoria primeiro</option>';
+    DOM.receitaProdutoSelectDetalhe.disabled = true;
+    DOM.receitaConfigDetalheContainer.classList.add('hidden');
+    DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'none';
+});
 
-    DOM.btnGerenciarGarcom.addEventListener('click', () => {
-        ativaAba(DOM.abaGerenciarGarcom, DOM.abaGerenciarCupom, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarEstoque);
-        estilizaBotaoAtivo(DOM.btnGerenciarGarcom, DOM.btnGerenciarCupom, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarEstoque);
-        DOM.sidebar.classList.add('-translate-x-full');
-        DOM.overlay.classList.add('hidden');
-    });
+DOM.btnGerenciarGarcom.addEventListener('click', () => {
+    // Adicionado DOM.abaGerenciarAdicionais à lista de abas a esconder
+    ativaAba(DOM.abaGerenciarGarcom, DOM.abaGerenciarCupom, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarEstoque, DOM.abaGerenciarAdicionais);
+    // Adicionado DOM.btnGerenciarAdicionais à lista de botões a desestilizar
+    estilizaBotaoAtivo(DOM.btnGerenciarGarcom, DOM.btnGerenciarCupom, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarEstoque, DOM.btnGerenciarAdicionais);
+    DOM.sidebar.classList.add('-translate-x-full');
+    DOM.overlay.classList.add('hidden');
+});
+
+// Listener para o novo botão 'Gerenciar Adicionais'
+DOM.btnGerenciarAdicionais.addEventListener('click', () => {
+    // Ativa a aba de adicionais
+    ativaAba(DOM.abaGerenciarAdicionais, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
+    // Estiliza o botão 'Gerenciar Adicionais' como ativo, e os outros como inativos
+    estilizaBotaoAtivo(DOM.btnGerenciarAdicionais, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
+    DOM.sidebar.classList.add('-translate-x-full');
+    DOM.overlay.classList.add('hidden');
+
+    // Chama a função para renderizar a lista de adicionais
+    renderAdicionaisConfiguracao();
+});
 
     // --- Event Listener para o botão de Sair ---
     DOM.btnLogout.addEventListener('click', () => {
@@ -580,6 +635,8 @@ document.addEventListener('DOMContentLoaded', () => {
         btn3MesesFinalizados.addEventListener('click', () => setFiltroDatas('ultimos3meses'));
     }
 
+    
+    
     // --- Event Listeners para Relatórios de Pedidos ---
     DOM.btnGerarRelatorios.addEventListener('click', gerarRelatorios);
     DOM.btnHoje.addEventListener('click', () => setRelatorioDateRange(1, 1));
@@ -646,6 +703,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+
+    if (DOM_ADDON_RECIPE_MODAL.cancelBtn) {
+        DOM_ADDON_RECIPE_MODAL.cancelBtn.addEventListener('click', () => {
+            DOM_ADDON_RECIPE_MODAL.modal.style.display = 'none';
+        });
+    }
+    if (DOM_ADDON_RECIPE_MODAL.addIngredienteBtn) {
+        DOM_ADDON_RECIPE_MODAL.addIngredienteBtn.addEventListener('click', handleAddAddonRecipeIngrediente);
+    }
+    if (DOM_ADDON_RECIPE_MODAL.saveBtn) {
+        DOM_ADDON_RECIPE_MODAL.saveBtn.addEventListener('click', handleSaveAddonRecipe);
+    }
 
     DOM.toggleGerenciamentoAvancado.addEventListener('click', () => {
         DOM.gerenciamentoDetalhadoContainer.classList.toggle('hidden');
@@ -3430,13 +3499,17 @@ async function handleSalvarIngredienteDetalhe() {
                 custoUsadoMensal: 0,
                 quantidadeUsadaDiaria: 0,
                 custoUsadaDiaria: 0,
-                ultimaAtualizacaoConsumo: firebase.database.ServerValue.TIMESTAMP
+                ultimaAtualizacaoConsumo: firebase.database.ServerValue.TIMESTAMP,
+                precoAdicional: null,
+                ativo: false,
+                receita: null
             });
             alert(`Ingrediente "${nome}" adicionado com sucesso!`);
         }
         DOM.ingredienteNomeDetalheInput.value = '';
         DOM.ingredienteUnidadeDetalheInput.value = '';
         DOM.ingredienteEstoqueMinimoDetalheInput.value = '';
+        renderAdicionaisConfiguracao();
     } catch (error) {
         console.error('Erro ao salvar ingrediente:', error);
         alert('Erro ao salvar ingrediente. Verifique o console para mais detalhes.');
@@ -3466,9 +3539,10 @@ async function handleDeleteIngrediente(event) {
     const ingredienteId = event.target.dataset.id;
     const ingredienteNome = allIngredients[ingredienteId]?.nome || 'este ingrediente';
 
-    if (confirm(`Tem certeza que deseja excluir "${ingredienteNome}"? Isso também removerá ele de todas as receitas.`)) {
+    if (confirm(`Tem certeza que deseja excluir "${ingredienteNome}"? Isso também removerá ele de todas as receitas e configurações de adicional.`)) {
         try {
             await ingredientesRef.child(ingredienteId).remove();
+            // ... (sua lógica existente para remover de produtos/receitas) ...
             const categories = ['pizzas', 'bebidas', 'esfirras', 'calzone', 'promocoes', 'novidades'];
             for (const categoria of categories) {
                 const productsSnapshot = await produtosRef.child(categoria).once('value');
@@ -3494,13 +3568,15 @@ async function handleDeleteIngrediente(event) {
                 }
             }
             alert(`Ingrediente "${ingredienteNome}" excluído com sucesso!`);
+            // Re-renderizar listas após exclusão
+            renderIngredientesListDetalhe();
+            renderAdicionaisConfiguracao();
         } catch (error) {
             console.error('Erro ao excluir ingrediente:', error);
             alert('Erro ao excluir ingrediente.');
         }
     }
 }
-
 // Registro de Compras
 function popularIngredientesParaReceitaSelects() {
     DOM.receitaIngredienteSelectDetalhe.innerHTML = '<option value="">Selecione um ingrediente</option>';
@@ -4142,6 +4218,235 @@ async function fetchAllIngredients() {
     }
 }
 
+// --------- SECÂO ADICIONAIS lghn -----------
+
+function renderAdicionaisConfiguracao() {
+    if (!DOM.listaAdicionaisConfiguracao) return;
+
+    DOM.listaAdicionaisConfiguracao.innerHTML = ''; // Limpa a lista existente
+
+    const sortedIngredients = Object.entries(allIngredients).sort(([, a], [, b]) => a.nome.localeCompare(b.nome));
+
+    if (sortedIngredients.length === 0) {
+        DOM.listaAdicionaisConfiguracao.innerHTML = '<p class="text-gray-600 text-center">Nenhum ingrediente cadastrado para configurar como adicional.</p>';
+        return;
+    }
+
+    sortedIngredients.forEach(([id, ingrediente]) => {
+        const isAddonActive = ingrediente.ativoAdicional || false; // Novo campo: ativoAdicional
+        const addonPrice = typeof ingrediente.precoAdicional === 'number' ? ingrediente.precoAdicional.toFixed(2) : '';
+        const addonRecipe = ingrediente.receitaAdicional || {}; // Nova receita específica para o adicional
+
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'bg-gray-100 p-4 rounded-md shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3';
+        itemDiv.innerHTML = `
+            <div class="flex-1">
+                <p class="font-semibold text-gray-800 text-lg">${ingrediente.nome} <span class="text-sm text-gray-500">(${ingrediente.unidadeMedida})</span></p>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3 items-end md:items-center">
+                <div class="flex items-center gap-2">
+                    <label for="addon-ativo-${id}" class="text-sm font-medium text-gray-700 cursor-pointer">Ativo como Adicional?</label>
+                    <input type="checkbox" id="addon-ativo-${id}" class="addon-toggle-active form-checkbox h-5 w-5 text-green-600 rounded" data-id="${id}" ${isAddonActive ? 'checked' : ''}>
+                </div>
+
+                <div class="flex-1 min-w-[100px]">
+                    <label for="addon-preco-${id}" class="block text-sm font-medium text-gray-700">Preço p/ Cliente (R$):</label>
+                    <input type="number" id="addon-preco-${id}" class="addon-price-input mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500" placeholder="0.00" min="0" step="0.01" value="${addonPrice}" data-id="${id}">
+                </div>
+
+                <button class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 text-sm btn-config-addon-recipe" data-id="${id}" data-name="${ingrediente.nome}">
+                    <i class="fas fa-flask"></i> Receita do Adicional
+                </button>
+
+                <button class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm btn-salvar-addon-config" data-id="${id}">
+                    Salvar
+                </button>
+            </div>
+        `;
+        DOM.listaAdicionaisConfiguracao.appendChild(itemDiv);
+    });
+
+    // Adicionar event listeners para os novos elementos
+    DOM.listaAdicionaisConfiguracao.querySelectorAll('.btn-salvar-addon-config').forEach(button => {
+        button.addEventListener('click', handleSalvarAddonConfig);
+    });
+
+    // Adicionar event listeners para os inputs de preço (para permitir edição em tempo real do estado)
+    DOM.listaAdicionaisConfiguracao.querySelectorAll('.addon-price-input, .addon-toggle-active').forEach(element => {
+        element.addEventListener('change', (e) => {
+            const id = e.target.dataset.id;
+            // Marcar o botão de salvar do item correspondente para indicar que houve mudança
+            const saveButton = DOM.listaAdicionaisConfiguracao.querySelector(`.btn-salvar-addon-config[data-id="${id}"]`);
+            if (saveButton) {
+                saveButton.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                saveButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+                saveButton.textContent = 'Salvar Alterações';
+            }
+        });
+    });
+
+    // Event listener para o botão de Receita do Adicional (abre um modal ou expande)
+    DOM.listaAdicionaisConfiguracao.querySelectorAll('.btn-config-addon-recipe').forEach(button => {
+        button.addEventListener('click', handleConfigAddonRecipe);
+    });
+}
+
+async function handleSalvarAddonConfig(event) {
+    const ingredienteId = event.target.dataset.id;
+    const toggleAtivo = DOM.listaAdicionaisConfiguracao.querySelector(`#addon-ativo-${ingredienteId}`);
+    const inputPreco = DOM.listaAdicionaisConfiguracao.querySelector(`#addon-preco-${ingredienteId}`);
+
+    const ativoAdicional = toggleAtivo.checked;
+    const precoAdicional = parseFloat(inputPreco.value);
+
+    if (ativoAdicional && (isNaN(precoAdicional) || precoAdicional <= 0)) {
+        alert('Se o adicional estiver ativo, o preço para o cliente deve ser um valor positivo.');
+        return;
+    }
+
+    try {
+        const updateData = {
+            ativoAdicional: ativoAdicional,
+            precoAdicional: ativoAdicional ? precoAdicional : null // Define como null se não for ativo
+        };
+        await ingredientesRef.child(ingredienteId).update(updateData);
+        alert('Configuração de adicional salva com sucesso!');
+        // Resetar o estilo do botão de salvar
+        const saveButton = event.target;
+        saveButton.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+        saveButton.classList.add('bg-green-600', 'hover:bg-green-700');
+        saveButton.textContent = 'Salvar';
+    } catch (error) {
+        console.error('Erro ao salvar configuração de adicional:', error);
+        alert('Erro ao salvar configuração de adicional.');
+    }
+}
+
+async function handleConfigAddonRecipe(event) {
+    const addonId = event.target.dataset.id;
+    const addonName = event.target.dataset.name;
+
+    if (!addonId || !addonName) {
+        alert('Erro: ID ou nome do adicional não encontrado.');
+        return;
+    }
+
+    currentAddonRecipeId = addonId;
+    DOM_ADDON_RECIPE_MODAL.nameSpan.textContent = addonName;
+
+    // Carrega a receita existente do ingrediente
+    const ingredienteData = allIngredients[addonId];
+    currentAddonRecipe = ingredienteData?.receitaAdicional || {}; // Use 'receitaAdicional'
+
+    renderAddonRecipeIngredients();
+    populateAddonRecipeIngredientSelect();
+
+    DOM_ADDON_RECIPE_MODAL.modal.style.display = 'flex';
+}
+
+function renderAddonRecipeIngredients() {
+    DOM_ADDON_RECIPE_MODAL.ingredientsList.innerHTML = '';
+    const ingredientIds = Object.keys(currentAddonRecipe);
+
+    if (ingredientIds.length === 0) {
+        DOM_ADDON_RECIPE_MODAL.ingredientsList.innerHTML = '<p class="text-gray-600">Nenhum ingrediente nesta receita.</p>';
+        return;
+    }
+
+    ingredientIds.forEach(ingredienteId => {
+        const quantidade = currentAddonRecipe[ingredienteId];
+        const ingredienteInfo = allIngredients[ingredienteId]; // Pega do allIngredients global
+
+        const listItem = document.createElement('div');
+        listItem.className = 'flex justify-between items-center bg-gray-100 p-2 rounded-md';
+
+        if (ingredienteInfo) {
+            listItem.innerHTML = `
+                <span>${ingredienteInfo.nome}: <strong>${quantidade.toFixed(3)} ${ingredienteInfo.unidadeMedida}</strong></span>
+                <button class="text-red-500 hover:text-red-700 btn-remove-addon-recipe-ingrediente" data-ingrediente-id="${ingredienteId}"><i class="fas fa-trash-alt"></i></button>
+            `;
+        } else {
+            listItem.classList.remove('bg-gray-100');
+            listItem.classList.add('bg-red-100', 'text-red-700');
+            listItem.innerHTML = `
+                <span>Ingrediente Desconhecido (ID: ${ingredienteId}): <strong>${quantidade.toFixed(3)}</strong></span>
+                <button class="text-red-500 hover:text-red-700 btn-remove-addon-recipe-ingrediente" data-ingrediente-id="${ingredienteId}"><i class="fas fa-trash-alt"></i></button>
+            `;
+        }
+        DOM_ADDON_RECIPE_MODAL.ingredientsList.appendChild(listItem);
+    });
+
+    DOM_ADDON_RECIPE_MODAL.ingredientsList.querySelectorAll('.btn-remove-addon-recipe-ingrediente').forEach(button => {
+        button.addEventListener('click', handleRemoveAddonRecipeIngrediente);
+    });
+}
+
+function populateAddonRecipeIngredientSelect() {
+    DOM_ADDON_RECIPE_MODAL.ingredienteSelect.innerHTML = '<option value="">Selecione um ingrediente</option>';
+    const sortedIngredients = Object.entries(allIngredients).sort(([, a], [, b]) => a.nome.localeCompare(b.nome));
+    sortedIngredients.forEach(([id, ingrediente]) => {
+        const option = document.createElement('option');
+        option.value = id;
+        option.textContent = `${ingrediente.nome} (${ingrediente.unidadeMedida})`;
+        DOM_ADDON_RECIPE_MODAL.ingredienteSelect.appendChild(option);
+    });
+}
+
+function handleAddAddonRecipeIngrediente() {
+    const ingredienteId = DOM_ADDON_RECIPE_MODAL.ingredienteSelect.value;
+    const quantidade = parseFloat(DOM_ADDON_RECIPE_MODAL.quantidadeInput.value);
+
+    if (!ingredienteId || isNaN(quantidade) || quantidade <= 0) {
+        alert('Selecione um ingrediente e insira uma quantidade válida e positiva.');
+        return;
+    }
+
+    if (!allIngredients[ingredienteId]) {
+        alert('Ingrediente selecionado não encontrado. Por favor, recarregue a página.');
+        return;
+    }
+
+    currentAddonRecipe[ingredienteId] = quantidade;
+    renderAddonRecipeIngredients();
+    DOM_ADDON_RECIPE_MODAL.ingredienteSelect.value = '';
+    DOM_ADDON_RECIPE_MODAL.quantidadeInput.value = '';
+}
+
+function handleRemoveAddonRecipeIngrediente(event) {
+    const ingredienteIdToRemove = event.target.closest('button').dataset.ingredienteId;
+    if (!currentAddonRecipe) return;
+
+    if (confirm('Tem certeza que deseja remover este ingrediente da receita do adicional?')) {
+        delete currentAddonRecipe[ingredienteIdToRemove];
+        renderAddonRecipeIngredients();
+    }
+}
+
+async function handleSaveAddonRecipe() {
+    if (!currentAddonRecipeId) {
+        alert('Nenhum adicional selecionado para salvar a receita.');
+        return;
+    }
+
+    try {
+        // Atualiza a receitaAdicional do ingrediente no Firebase
+        await ingredientesRef.child(currentAddonRecipeId).update({
+            receitaAdicional: currentAddonRecipe
+        });
+        alert('Receita do adicional salva com sucesso!');
+        DOM_ADDON_RECIPE_MODAL.modal.style.display = 'none';
+        // Atualize allIngredients globalmente (se o listener não fizer isso rápido o suficiente)
+        // ou recarregue a lista de adicionais para refletir a mudança
+        // renderAdicionaisConfiguracao(); // Pode ser chamado aqui se necessário
+    } catch (error) {
+        console.error('Erro ao salvar receita do adicional:', error);
+        alert('Erro ao salvar receita do adicional.');
+    }
+}
+
+// Listener para fechar o modal de receita do adicional
+
 // --- SEÇÃO: GERENCIAMENTO DE GARÇONS -----------------------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -4228,9 +4533,8 @@ function carregarGarcom(snapshot) {
 
 // --- INÍCIO DO SEU document.addEventListener('DOMContentLoaded', ...) em panel.js ---
 document.addEventListener('DOMContentLoaded', () => {
-    // ############ Mapeamento dos Elementos DOM ############
-    // Certifique-se de que o Object.assign está aqui e contém TODAS as referências DOM
-    // do seu panel.js, incluindo as do gerenciamento de garçons.
+    fetchAllIngredients();
+    renderAdicionaisConfiguracao();
 
     Object.assign(DOM, {
         // ... (outros elementos DOM do seu painel principal, ex: btnAtivos, pedidosAtivosContainer)

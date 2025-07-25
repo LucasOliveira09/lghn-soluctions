@@ -19,12 +19,18 @@ const database = firebase.database();
 const ingredientesRef = database.ref('ingredientes'); // Referência para os ingredientes no Firebase
 const produtosRef = database.ref('produtos'); // Referência para os produtos no Firebase (categorias)
 
+
+
 let allIngredients = {}; // Objeto para armazenar todos os ingredientes localmente
 
 // Listener para manter allIngredients sincronizado com o Firebase
 ingredientesRef.on('value', (snapshot) => {
     allIngredients = snapshot.val() || {};
+    availableAddons = Object.entries(allIngredients)
+        .filter(([, data]) => data.ativoAdicional && typeof data.precoAdicional === 'number' && data.precoAdicional > 0)
+        .map(([id, data]) => ({ id, ...data }));
     console.log("allIngredients carregado/atualizado:", Object.keys(allIngredients).length, "ingredientes.");
+     console.log("Adicionais disponíveis:", availableAddons.length);
 });
 // --- FIM DAS NOVAS DECLARAÇÕES E LISTENERS ---
 
@@ -65,7 +71,7 @@ const cepInput = document.getElementById('cep-input');
 const cepCache = {}; //Cache de memória
 const halfPizzaSearchInput = document.getElementById('half-pizza-search'); // Campo de busca para as opções de meia-meia
 const halfPizzaOptionsContainer = document.getElementById('half-pizza-options-container'); // Contêiner onde as opções de meia-meia serão renderizadas
-
+const additionalIngredientsContainer = document.getElementById('additional-ingredients-container');
 const FRETE_VALOR = 4.00;
 
 let cart = [];
@@ -78,6 +84,8 @@ let selectedHalfPrice = 0;
 let wantsCrust = "Não";
 let crustFlavor = "";
 let allPizzasSnapshot = null;
+let availableAddons = []; 
+let selectedAddons = [];
 
 
 // --- Inicialização e Carregamento de Produtos ---
@@ -302,18 +310,22 @@ function handleOpenPizzaModal() {
     selectedHalfPrice = 0;
     wantsCrust = "Não";
     crustFlavor = "";
+    selectedAddons = []; // IMPORTANT: Reset selected add-ons when opening for a new pizza!
 
     resetSelections();
     document.getElementById('modal-title').textContent = selectedPizza.name;
     document.getElementById('pizza-modal').style.display = 'flex';
     updatePizzaPricePreview();
-    resetSelections();
-    if (halfPizzaSearchInput) halfPizzaSearchInput.value = ''; // Limpa o campo de busca ao abrir o modal
-    atualizarOpcoesMeiaMeia(); // Reseta e mostra todas as opções ao abrir o modal
-    document.getElementById('modal-title').textContent = selectedPizza.name;
-    document.getElementById('pizza-modal').style.display = 'flex';
+    // No need for resetSelections() twice.
+    if (halfPizzaSearchInput) halfPizzaSearchInput.value = '';
+    atualizarOpcoesMeiaMeia();
+    document.getElementById('modal-title').textContent = selectedPizza.name; // This line is also redundant if it's already set above
+    document.getElementById('pizza-modal').style.display = 'flex'; // This line is also redundant
     updatePizzaPricePreview();
+
+    renderAddonOptions(); // New: Render add-on options when modal opens
 }
+
 
 
 //fim
@@ -994,6 +1006,7 @@ function resetSelections() {
     document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
     document.querySelectorAll('.crust-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
     document.querySelectorAll('.crust-flavor-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+    document.getElementById('crust-flavor-section').classList.add('hidden');
 
     // Define o estado selecionado padrão
     document.querySelector('.size-btn[data-size="Grande"]').classList.add('bg-green-500', 'text-white');
@@ -1001,6 +1014,9 @@ function resetSelections() {
     document.querySelector('.crust-btn[data-crust="Não"]').classList.add('bg-green-500', 'text-white'); // "Não" para borda
 
     document.getElementById('crust-flavor-section').classList.add('hidden');
+
+    selectedAddons = [];
+    renderAddonOptions();
 }
 
 function updatePizzaPricePreview() {
@@ -1013,13 +1029,11 @@ function updatePizzaPricePreview() {
     }
 
     if (selectedSize === "Broto") {
-        // Converte os nomes para minúsculo para uma comparação segura
         const nomePizzaLower = selectedPizza.name.toLowerCase();
         const nomeMetadeLower = selectedHalf ? selectedHalf.toLowerCase() : "";
 
-        // Verifica se algum dos nomes contém os sabores especiais
-        const temSaborEspecial = 
-            nomePizzaLower.includes("costela") || 
+        const temSaborEspecial =
+            nomePizzaLower.includes("costela") ||
             nomePizzaLower.includes("morango com chocolate") ||
             nomeMetadeLower.includes("costela") ||
             nomeMetadeLower.includes("morango com chocolate");
@@ -1036,6 +1050,10 @@ function updatePizzaPricePreview() {
         finalPrice += selectedSize === "Broto" ? 10 : 12;
     }
 
+    // New: Add price of selected add-ons
+    const addonsTotal = selectedAddons.reduce((sum, addon) => sum + addon.precoAdicional, 0);
+    finalPrice += addonsTotal;
+
     const preview = document.getElementById('pizza-price-preview');
     preview.textContent = `Valor: R$ ${finalPrice.toFixed(2).replace('.', ',')}`;
 }
@@ -1044,6 +1062,49 @@ function updatePizzaPricePreview() {
 document.getElementById('cancel-pizza').addEventListener('click', () => {
     document.getElementById('pizza-modal').style.display = 'none';
 });
+
+function renderAddonOptions() {
+    if (!additionalIngredientsContainer) return;
+
+    additionalIngredientsContainer.innerHTML = '';
+    if (availableAddons.length === 0) {
+        additionalIngredientsContainer.innerHTML = '<p class="text-gray-500 text-sm">Nenhum adicional disponível no momento.</p>';
+        return;
+    }
+
+    availableAddons.forEach(addon => {
+        const checkboxContainer = document.createElement('label');
+        checkboxContainer.className = 'flex items-center space-x-2 p-2 bg-gray-100 rounded-md cursor-pointer hover:bg-gray-200 transition-colors';
+        checkboxContainer.innerHTML = `
+            <input type="checkbox" class="addon-checkbox form-checkbox h-5 w-5 text-green-600 rounded"
+                   data-id="${addon.id}"
+                   data-name="${addon.nome}"
+                   data-price="${addon.precoAdicional}">
+            <span class="text-gray-800 flex-1">${addon.nome}</span>
+            <span class="text-sm font-medium text-gray-700">R$ ${addon.precoAdicional.toFixed(2).replace('.', ',')}</span>
+        `;
+        additionalIngredientsContainer.appendChild(checkboxContainer);
+
+        // Check if this addon was previously selected
+        const checkbox = checkboxContainer.querySelector('.addon-checkbox');
+        if (selectedAddons.some(sA => sA.id === addon.id)) {
+            checkbox.checked = true;
+        }
+
+        checkbox.addEventListener('change', function() {
+            const addonId = this.dataset.id;
+            const addonName = this.dataset.name;
+            const addonPrice = parseFloat(this.dataset.price);
+
+            if (this.checked) {
+                selectedAddons.push({ id: addonId, nome: addonName, precoAdicional: addonPrice });
+            } else {
+                selectedAddons = selectedAddons.filter(item => item.id !== addonId);
+            }
+            updatePizzaPricePreview();
+        });
+    });
+}
 
 // Tamanho da pizza
 document.querySelectorAll('.size-btn').forEach(button => {
@@ -1122,7 +1183,16 @@ document.getElementById('confirm-pizza').addEventListener('click', () => {
     nameFinal += ` (${selectedSize})`;
 
     if (selectedSize === "Broto") {
-        if (selectedHalf && (selectedHalf.includes("Costela") || selectedHalf.includes("Costela turbinada")) || (selectedPizza.name.includes("Costela") || selectedPizza.name.includes("Costela turbinada"))) {
+        const nomePizzaLower = selectedPizza.name.toLowerCase();
+        const nomeMetadeLower = selectedHalf ? selectedHalf.toLowerCase() : "";
+
+        const temSaborEspecial =
+            nomePizzaLower.includes("costela") ||
+            nomePizzaLower.includes("morango com chocolate") ||
+            nomeMetadeLower.includes("costela") ||
+            nomeMetadeLower.includes("morango com chocolate");
+
+        if (temSaborEspecial) {
             basePrice = 35;
         } else {
             basePrice = 30;
@@ -1130,10 +1200,30 @@ document.getElementById('confirm-pizza').addEventListener('click', () => {
     }
     let finalPrice = basePrice;
 
-
     if (wantsCrust === "Sim" && crustFlavor) {
         nameFinal += ` + Borda de ${crustFlavor}`;
         finalPrice += selectedSize === "Broto" ? 10 : 12;
+    }
+
+    // New: Add selected add-ons to the item name and price
+    let addonsDescription = [];
+    let addonsCost = 0;
+    const selectedAddonData = []; // New array to store detailed addon info for the cart
+
+    selectedAddons.forEach(addon => {
+        addonsDescription.push(addon.nome);
+        addonsCost += addon.precoAdicional;
+        selectedAddonData.push({
+            id: addon.id,
+            name: addon.nome,
+            price: addon.precoAdicional,
+            category: 'ingredientes' // Indicate this is an ingredient from the DB
+        });
+    });
+
+    if (addonsDescription.length > 0) {
+        nameFinal += ` + Adicionais: ${addonsDescription.join(', ')}`;
+        finalPrice += addonsCost;
     }
 
     const item = {
@@ -1144,7 +1234,8 @@ document.getElementById('confirm-pizza').addEventListener('click', () => {
         productCategory: itemProductCategory,
         pizzaSize: selectedSize,
         halfProductId: itemHalfProductId,
-        halfProductCategory: itemHalfProductCategory
+        halfProductCategory: itemHalfProductCategory,
+        selectedAddons: selectedAddonData // New: Store detailed add-on info
     };
 
     cart.push(item);
@@ -1471,7 +1562,17 @@ async function deduzirEstoqueDoItem(item) {
                     console.warn(`Receita para pizza única "${item.name}" (${item.pizzaSize}) não encontrada.`);
                 }
             }
-        } else {
+        } else if (item.productCategory === 'ingredientes' && item.precoAdicional) { // New: Handle direct ingredient add-ons if they have a recipe
+            console.log('Detectado adicional de ingrediente. Buscando receita...');
+            const ingredienteSnapshot = await ingredientesRef.child(item.originalProductId).once('value');
+            const ingredienteData = ingredienteSnapshot.val();
+            if (ingredienteData && ingredienteData.receita) {
+                receitaParaDeduzir = ingredienteData.receita;
+            } else {
+                console.warn(`Receita para adicional "${item.name}" não encontrada. Nenhuma dedução será feita.`);
+            }
+        }
+        else {
             console.log('Detectado item não-pizza.');
             const produtoSnapshot = await produtosRef.child(item.productCategory).child(item.originalProductId).once('value');
             const produtoData = produtoSnapshot.val();
@@ -1481,6 +1582,24 @@ async function deduzirEstoqueDoItem(item) {
                 console.warn(`Receita para produto "${item.name}" não-pizza não encontrada.`);
             }
         }
+
+        // New: Process selected add-ons if they exist for this pizza item
+        if (item.selectedAddons && item.selectedAddons.length > 0) {
+            for (const addon of item.selectedAddons) {
+                const addonIngredient = allIngredients[addon.id];
+                if (addonIngredient && addonIngredient.receitaAdicional) { // <--- MUDANÇA AQUI
+                    // Combine addon's recipe with the main item's recipe
+                    for (const ingId in addonIngredient.receitaAdicional) { // <--- MUDANÇA AQUI
+                        const qty = addonIngredient.receitaAdicional[ingId]; // <--- MUDANÇA AQUI
+                        receitaParaDeduzir[ingId] = (receitaParaDeduzir[ingId] || 0) + qty;
+                    }
+                    console.log(`Receita do adicional "${addon.name}" combinada.`);
+                } else {
+                    console.warn(`Adicional "${addon.name}" (ID: ${addon.id}) não possui receita para dedução de estoque.`);
+                }
+            }
+        }
+
 
         if (!receitaParaDeduzir || Object.keys(receitaParaDeduzir).length === 0) {
             console.warn(`Receita final para o produto "${item.name}" está vazia. Nenhuma dedução será feita.`);

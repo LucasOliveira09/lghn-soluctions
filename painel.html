@@ -91,6 +91,11 @@
                 <i class="fas fa-edit mr-2"></i> Editar Cardápio
             </button>
 
+            <button id="btn-gerenciar-adicionais"
+                class="py-3 px-4 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-600 transition w-full text-left">
+                <i class="fas fa-edit mr-2"></i> Adicionais
+            </button>
+
             <button id="btn-editar-horario"
                 class="py-3 px-4 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-600 transition w-full text-left">
                 <i class="fas fa-clock mr-2"></i> Editar Horário
@@ -1074,6 +1079,48 @@
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<div id="gerenciamento-detalhado-container" class="">
+    <div id="aba-adicionais-conteudo" class="hidden bg-white p-6 rounded-lg shadow-md mb-6">
+        <h3 class="text-xl font-semibold mb-4 text-gray-700">4. Gerenciar Adicionais para Pizzas</h3>
+        <p class="text-gray-600 mb-4">Defina quais ingredientes podem ser adicionados às pizzas como opcionais e seus respectivos custos extras.</p>
+
+        <div id="lista-adicionais-configuracao" class="space-y-4">
+            <p class="text-gray-600 text-center">Carregando adicionais...</p>
+        </div>
+    </div>
+    </div>
+
+    <div id="addon-recipe-modal" class="fixed inset-0 z-[1000] hidden items-center justify-center bg-black/60 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl overflow-y-auto max-h-[90vh]">
+        <h3 class="text-xl font-bold mb-4 text-gray-800">Receita do Adicional: <span id="addon-recipe-name" class="text-blue-700"></span></h3>
+
+        <div class="space-y-2 mb-4" id="addon-recipe-ingredients-list">
+            <p class="text-gray-600">Nenhum ingrediente nesta receita.</p>
+        </div>
+
+        <div class="flex flex-wrap items-end gap-3 mb-4">
+            <div class="flex-1 min-w-[120px]">
+                <label for="addon-recipe-ingrediente-select" class="block text-sm font-medium text-gray-700">Ingrediente:</label>
+                <select id="addon-recipe-ingrediente-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                    <option value="">Selecione um ingrediente</option>
+                </select>
+            </div>
+            <div class="flex-1 min-w-[80px]">
+                <label for="addon-recipe-quantidade" class="block text-sm font-medium text-gray-700">Quant. Usada (por 1 unid. adicional):</label>
+                <input type="number" id="addon-recipe-quantidade" min="0.001" step="0.001" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="0.000">
+            </div>
+            <button id="btn-add-addon-recipe-ingrediente" class="mt-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                Adicionar
+            </button>
+        </div>
+
+        <div class="flex justify-end gap-3 mt-6">
+            <button id="cancel-addon-recipe-modal" class="px-4 py-2 border border-gray-400 rounded-md text-gray-700">Cancelar</button>
+            <button id="save-addon-recipe-modal" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Salvar Receita do Adicional</button>
         </div>
     </div>
 </div>
