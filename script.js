@@ -471,29 +471,46 @@ cartItemsContainer.addEventListener("click", function(event) {
 
 // --- Status de Abertura da Loja ---
 
+function timeStringToMinutes(timeInput) {
+    if (typeof timeInput === 'string' && timeInput.includes(':')) {
+        const [hours, minutes] = timeInput.split(':').map(Number);
+        return (hours || 0) * 60 + (minutes || 0);
+    }
+    if (typeof timeInput === 'number') {
+        return timeInput * 60;
+    }
+    return 0;
+}
+
 function getStatusMessage(horarios) {
     const agora = new Date();
-    const dia = agora.getDay(); // 0 = domingo, ..., 6 = sábado
-    const hora = agora.getHours();
-    const diaConfig = horarios[dia];
+    const diaSemana = agora.getDay();
+    const minutosAtuais = agora.getHours() * 60 + agora.getMinutes();
 
-    if (!diaConfig || !diaConfig.aberto) {
-        return {
-            aberto: false,
-            mensagem: "Fechado hoje"
-        };
+    const configDia = horarios[diaSemana];
+
+    if (!configDia || !configDia.aberto || !configDia.inicio || !configDia.fim) {
+        return { aberto: false, mensagem: "Fechado hoje" };
     }
 
-    if (hora >= diaConfig.inicio && hora < diaConfig.fim) {
-        return {
-            aberto: true,
-            mensagem: `Aberto agora (fecha às ${diaConfig.fim}h)`
-        };
+    const minutosInicio = timeStringToMinutes(configDia.inicio);
+    const minutosFim = timeStringToMinutes(configDia.fim);
+    let estaAberto = false;
+
+    if (minutosInicio > minutosFim) {
+        if (minutosAtuais >= minutosInicio || minutosAtuais < minutosFim) {
+            estaAberto = true;
+        }
     } else {
-        return {
-            aberto: false,
-            mensagem: `Fechado agora (abre às ${diaConfig.inicio}h)`
-        };
+        if (minutosAtuais >= minutosInicio && minutosAtuais < minutosFim) {
+            estaAberto = true;
+        }
+    }
+
+    if (estaAberto) {
+        return { aberto: true, mensagem: `Aberto agora (fecha às ${configDia.fim})` };
+    } else {
+        return { aberto: false, mensagem: `Fechado agora (abre às ${configDia.inicio})` };
     }
 }
 

@@ -8,6 +8,7 @@
     <title>Painel Garçom - Bonanza</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
@@ -84,7 +85,12 @@
     <div id="main-panel" class="flex flex-1 flex-col lg:flex-row">
 
         <div class="w-full lg:w-1/2 p-4 bg-gray-50 border-r border-gray-200 h-1/2 lg:h-screen lg:overflow-y-auto">
-            <h2 class="text-2xl font-bold text-blue-700 mb-6">Mesas do Restaurante</h2>
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-blue-700">Mesas do Restaurante</h2>
+                <button id="logout-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline flex items-center gap-2">
+                    <i class="fas fa-sign-out-alt"></i> Sair
+                </button>
+            </div>
             <div id="mesas-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
                 </div>
         </div>

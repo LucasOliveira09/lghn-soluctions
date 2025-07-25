@@ -1,16 +1,18 @@
 const firebaseConfig = {
-    apiKey: "AIzaSyCxpZd8Bu1IKzFHMUMzX1AAU1id8AcjCYw",
-    authDomain: "bonanzapizzaria-b2513.firebaseapp.com",
-    databaseURL: "https://bonanzapizzaria-b2513-default-rtdb.firebaseio.com",
-    projectId: "bonanzapizzaria-b2513",
-    storageBucket: "bonanzapizzaria-b2513.firebasestorage.app",
-    messagingSenderId: "7433511053",
-    appId: "1:7433511053:web:44414e66d7e601e23b82c4",
-    measurementId: "G-TZ9RC0E7WN"
+    apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
+    authDomain: "cardapioweb-99e7b.firebaseapp.com",
+    databaseURL: "https://cardapioweb-99e7b-default-rtdb.firebaseio.com",
+    projectId: "cardapioweb-99e7b",
+    storageBucket: "cardapioweb-99e7b.firebasestorage.app",
+    messagingSenderId: "110849299422",
+    appId: "1:110849299422:web:44083feefdd967f4f9434f",
+    measurementId: "G-Y4KFGTHFP1"
 };
 
 firebase.initializeApp(firebaseConfig);
+
 const database = firebase.database();
+const auth = firebase.auth(); // Usaremos o serviço de autenticação
 
 // Elementos do formulário
 const loginForm = document.getElementById('login-garcom-form');
@@ -21,12 +23,14 @@ const loginText = document.getElementById('login-text-garcom');
 const loginSpinner = document.getElementById('login-spinner-garcom');
 const errorMessage = document.getElementById('error-message-garcom');
 
-const WAITER_NAME_STORAGE_KEY = 'garcomName'; // Chave para o sessionStorage
+// Chaves para o sessionStorage
+const WAITER_NAME_STORAGE_KEY = 'garcomName';
+const WAITER_EMAIL_STORAGE_KEY = 'garcomEmail'; 
 
 // Evento de submit do formulário
 loginForm.addEventListener('submit', (e) => {
-    e.preventDefault(); // Impede o recarregamento da página
-    errorMessage.classList.add('hidden'); // Esconde a mensagem de erro
+    e.preventDefault();
+    errorMessage.classList.add('hidden');
 
     const name = nameInput.value.trim();
     const password = passwordInput.value.trim();
@@ -40,27 +44,32 @@ loginForm.addEventListener('submit', (e) => {
     loginSpinner.classList.remove('hidden');
     accessButton.disabled = true;
 
-    const garconsRef = database.ref('garcons');
+    // Gera o e-mail no MESMO formato que o painel de admin cria
+    const email = `${name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}@seu-restaurante.com`;
 
-    garconsRef.orderByChild('nome').equalTo(name).once('value', (snapshot) => {
-        if (snapshot.exists()) {
-            const garcomData = snapshot.val();
-            const garcomKey = Object.keys(garcomData)[0];
-            const garcom = garcomData[garcomKey];
+    // Tenta fazer o login com o sistema de autenticação do Firebase
+    auth.signInWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+            // Se o login for bem-sucedido...
+            const user = userCredential.user;
+            console.log("Login do garçom bem-sucedido:", user.email);
 
-            if (garcom.senha === password) {
-                sessionStorage.setItem(WAITER_NAME_STORAGE_KEY, garcom.nome);
-                window.location.href = 'garcom.html';
-            } else {
+            // Salva o nome e o e-mail para usar na outra página
+            sessionStorage.setItem(WAITER_NAME_STORAGE_KEY, name); // Salva o nome original para exibição
+            sessionStorage.setItem(WAITER_EMAIL_STORAGE_KEY, user.email);
+            
+            // Redireciona para o painel do garçom
+            window.location.href = 'garcom.html';
+        })
+        .catch((error) => {
+            // Se o login falhar...
+            console.error("Erro no login do garçom:", error.code, error.message);
+            if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
                 showError('Nome ou senha incorretos.');
+            } else {
+                showError('Erro ao conectar. Tente novamente.');
             }
-        } else {
-            showError('Nome ou senha incorretos.');
-        }
-    }).catch(error => {
-        console.error("Erro ao acessar o Firebase:", error);
-        showError('Erro ao conectar com o servidor. Tente novamente.');
-    });
+        });
 });
 
 function showError(message) {

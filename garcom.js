@@ -1,19 +1,20 @@
 // Configuração do Firebase (SUBSTITUA PELAS SUAS CREDENCIAIS REAIS)
 const firebaseConfig = {
-  apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
-  authDomain: "cardapioweb-99e7b.firebaseapp.com",
-  databaseURL: "https://cardapioweb-99e7b-default-rtdb.firebaseio.com",
-  projectId: "cardapioweb-99e7b",
-  storageBucket: "cardapioweb-99e7b.firebasestorage.app",
-  messagingSenderId: "110849299422",
-  appId: "1:110849299422:web:60285eb408825c3ff9434f",
-  measurementId: "G-QP7K16G4NM"
+    apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
+    authDomain: "cardapioweb-99e7b.firebaseapp.com",
+    databaseURL: "https://cardapioweb-99e7b-default-rtdb.firebaseio.com",
+    projectId: "cardapioweb-99e7b",
+    storageBucket: "cardapioweb-99e7b.firebasestorage.app",
+    messagingSenderId: "110849299422",
+    appId: "1:110849299422:web:44083feefdd967f4f9434f",
+    measurementId: "G-Y4KFGTHFP1"
 };
 
 // Inicializa Firebase
 firebase.initializeApp(firebaseConfig);
 
 const database = firebase.database();
+const auth = firebase.auth();
 const mesasRef = database.ref('mesas');
 const produtosRef = database.ref('produtos');
 
@@ -35,6 +36,7 @@ const increaseQuantityBtn = document.getElementById('increase-quantity-btn');
 const removeItemBtn = document.getElementById('remove-item-btn');
 const orderObservationsInput = document.getElementById('order-observations');
 const sendOrderBtn = document.getElementById('send-order-btn');
+const logoutBtn = document.getElementById('logout-btn');
 
 let currentWaiterName = '';
 let currentSelectedTable = null; // Chave Firebase da mesa selecionada (número da mesa)
@@ -43,24 +45,32 @@ let allProducts = {};           // Todos os produtos ativos carregados do Fireba
 let currentOrderCart = [];      // Carrinho local para o pedido da mesa (array de {nome, preco, quantidade})
 let selectedOrderItemIndex = -1; // Índice do item selecionado no currentOrderCart para ações de quantidade/remover
 
-const WAITER_NAME_STORAGE_KEY = 'garcomName'; // Chave para armazenar o nome do garçom no sessionStorage
+const WAITER_NAME_STORAGE_KEY = 'garcomName';
 
-// --- Verificação de Autenticação ---
-document.addEventListener('DOMContentLoaded', () => {
-    const savedWaiterName = sessionStorage.getItem(WAITER_NAME_STORAGE_KEY);
+auth.onAuthStateChanged(user => {
+    if (user) {
+        console.log("Garçom autenticado com UID:", user.uid);
+        
+        database.ref('garcons_info/' + user.uid).once('value').then((snapshot) => {
+            if (snapshot.exists()) {
+                const waiterData = snapshot.val();
+                currentWaiterName = waiterData.nome;
+                
+                document.body.style.display = 'flex';
+                waiterNameDisplay.value = currentWaiterName;
+                loadAllProducts(); // Carrega os produtos
 
-    if (savedWaiterName) {
-        // Garçom está logado, configura o painel
-        document.body.style.display = 'flex'; // Mostra o conteúdo da página
-        currentWaiterName = savedWaiterName;
-        waiterNameDisplay.value = savedWaiterName;
-        loadAllProducts(); // Carrega os produtos
+            } else {
+                console.error("Usuário autenticado, mas não encontrado no banco de dados 'garcons_info'. Forçando logout.");
+                auth.signOut();
+            }
+        });
+
     } else {
-        // Garçom não está logado, redireciona para a página de login
+        console.log("Nenhum garçom autenticado. Redirecionando...");
         window.location.replace('logingarcom.html');
     }
 });
-
 // --- Monitoramento de Mesas em Tempo Real ---
 mesasRef.on('value', (snapshot) => {
     const mesasData = snapshot.val() || {};
@@ -409,3 +419,14 @@ function resetOrderSection() {
 function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
+
+
+// --- Sair ---
+logoutBtn.addEventListener('click', () => {
+    if (confirm('Tem certeza que deseja sair?')) {
+        auth.signOut().catch(error => {
+            console.error("Erro ao fazer logout:", error);
+            alert("Ocorreu um erro ao tentar sair.");
+        });
+    }
+});
