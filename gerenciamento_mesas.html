@@ -4,96 +4,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gerenciamento de Mesas - Bonanza Pizzaria (Admin)</title>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
             font-family: 'Arial', sans-serif;
             background-color: #f3f4f6;
-            display: none; /* Esconde o corpo até a autenticação */
         }
         .table-card {
             cursor: pointer;
             transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-            min-height: 150px;
+            min-height: 150px; /* Garante altura mínima */
         }
         .table-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
         }
-        .table-status-free { border-color: #10B981; } /* green-500 */
-        .table-status-occupied { border-color: #EF4444; } /* red-500 */
-        .table-status-awaiting-payment { border-color: #F59E0B; } /* amber-500 */
-
-        /* Modal de Tela Cheia */
-        .full-screen-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-color: rgba(0, 0, 0, 0.8);
-            z-index: 1000; /* Alto z-index para ficar acima de tudo */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow-y: auto; /* Para rolagem se o conteúdo for grande */
+        .table-status-free {
+            border-color: #10B981; /* green-500 */
         }
-        .full-screen-modal-content {
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            width: 95%; /* Ocupa a maior parte da tela */
-            max-width: 1200px; /* Mas com limite máximo */
-            height: 95vh; /* Ocupa a maior parte da altura da viewport */
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            padding: 20px;
+        .table-status-occupied {
+            border-color: #EF4444; /* red-500 */
         }
-        .modal-close-button {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            font-size: 1.8rem;
-            cursor: pointer;
-            color: #666;
-            transition: color 0.2s;
+        .table-status-awaiting-payment {
+            border-color: #F59E0B; /* amber-500 */
         }
-        .modal-close-button:hover {
-            color: #333;
-        }
-        .modal-body-scrollable {
-            flex-grow: 1;
-            overflow-y: auto;
-            padding-right: 10px; /* Para espaço da scrollbar */
-        }
-        /* Ajustes para mobile no modal */
-        @media (max-width: 767px) {
-            .full-screen-modal-content {
-                width: 100%;
-                height: 100%;
-                border-radius: 0;
-                padding: 10px;
-            }
-            .modal-close-button {
-                top: 10px;
-                right: 10px;
-                font-size: 1.5rem;
-            }
-            .modal-grid-checkout {
-                grid-template-columns: 1fr; /* Empilha colunas em mobile */
-            }
-            .modal-actions-mobile-stack {
-                flex-direction: column;
-            }
-            .modal-actions-mobile-stack button {
-                width: 100%;
-                margin-top: 8px;
-            }
+        .modal {
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 50;
         }
     </style>
 </head>
@@ -127,163 +65,97 @@
         </div>
     </main>
 
-    <div id="modal-checkout" class="full-screen-modal hidden">
-        <div class="full-screen-modal-content">
-            <button class="modal-close-button">&times;</button>
-            <h2 class="text-2xl font-bold mb-4 text-gray-800">Checkout da Mesa <span id="checkout-mesa-numero"></span></h2>
+    <div id="modal-mesa-detalhes" class="modal fixed inset-0 hidden items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full p-6 relative">
+            <button class="close-modal absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-xl font-bold">&times;</button>
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">Detalhes da Mesa <span id="modal-mesa-numero"></span></h2>
 
-            <div class="modal-body-scrollable">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 modal-grid-checkout">
-                    <div>
-                        <h3 class="text-lg font-semibold mb-3">Detalhes do Pedido</h3>
-                        <div id="checkout-mesa-info" class="mb-4 text-gray-700">
-                            <p>Status: <span id="checkout-mesa-status" class="font-semibold"></span></p>
-                            <p>Cliente: <span id="checkout-mesa-cliente"></span></p>
-                            <p>Garçom: <span id="checkout-mesa-garcom"></span></p>
-                            <p>Observações: <span id="checkout-mesa-obs"></span></p>
-                        </div>
+            <div id="mesa-detalhes-info" class="mb-4 text-gray-700">
+                <p>Status: <span id="mesa-detalhes-status" class="font-semibold"></span></p>
+                <p>Cliente: <span id="mesa-detalhes-cliente"></span></p>
+                <p>Garçom: <span id="mesa-detalhes-garcom"></span></p>
+                <p>Observações: <span id="mesa-detalhes-obs"></span></p>
+            </div>
 
-                        <h3 class="text-lg font-semibold mb-3">Adicionar Itens (extra)</h3>
-                        <div class="mb-4">
-                            <label for="checkout-search-produto" class="block text-sm font-medium text-gray-700">Pesquisar Produto:</label>
-                            <input type="text" id="checkout-search-produto" placeholder="Digite para pesquisar..." class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="text-lg font-semibold mb-3">Itens do Pedido</h3>
+                    <div id="mesa-itens-selecao-container" class="space-y-2 max-h-60 overflow-y-auto border p-3 rounded-md bg-gray-50">
+                        <p id="empty-items-message" class="text-gray-500 text-center">Nenhum item no pedido.</p>
                         </div>
+                </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                            <div>
-                                <label for="checkout-select-categoria" class="block text-sm font-medium text-gray-700">Categoria:</label>
-                                <select id="checkout-select-categoria" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
-                                </select>
-                            </div>
-                            <div>
-                                <label for="checkout-qtd-produto" class="block text-sm font-medium text-gray-700">Quantidade:</label>
-                                <input type="number" id="checkout-qtd-produto" value="1" min="1" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
-                            </div>
-                        </div>
+                <div>
+                    <h3 class="text-lg font-semibold mb-3">Pagamento</h3>
+                    <div class="bg-blue-50 p-4 rounded-md mb-4">
+                        <p class="text-md font-bold">Total Original: <span id="mesa-total-original" class="text-blue-800">R$ 0.00</span></p>
+                        <p class="text-md font-bold">Total Pago: <span id="mesa-total-pago" class="text-green-800">R$ 0.00</span></p>
+                        <p class="text-xl font-bold">Restante a Pagar: <span id="mesa-restante-pagar" class="text-red-800">R$ 0.00</span></p>
+                    </div>
 
-                        <div id="checkout-container-montagem-pizza" class="hidden bg-gray-50 p-4 rounded-md mb-4 border border-gray-200">
-                            <h4 class="font-semibold text-gray-700 mb-3">Montar Pizza</h4>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label for="checkout-pizza-tamanho" class="block text-sm font-medium text-gray-700">Tamanho:</label>
-                                    <select id="checkout-pizza-tamanho" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
-                                        <option value="Grande">Grande</option>
-                                        <option value="Broto">Broto</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label for="checkout-pizza-sabor1" class="block text-sm font-medium text-gray-700">Sabor 1:</label>
-                                    <select id="checkout-pizza-sabor1" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></select>
-                                </div>
-                                <div class="sm:col-span-2 flex items-center mt-2">
-                                    <input type="checkbox" id="checkout-pizza-meio-a-meio-check" class="h-4 w-4 text-blue-600 border-gray-300 rounded">
-                                    <label for="checkout-pizza-meio-a-meio-check" class="ml-2 block text-sm text-gray-900">Meio a Meio?</label>
-                                </div>
-                                <div id="checkout-container-sabor2" class="hidden">
-                                    <label for="checkout-pizza-sabor2" class="block text-sm font-medium text-gray-700">Sabor 2:</label>
-                                    <select id="checkout-pizza-sabor2" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></select>
-                                </div>
-                                <div>
-                                    <label for="checkout-pizza-borda" class="block text-sm font-medium text-gray-700">Borda:</label>
-                                    <select id="checkout-pizza-borda" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></select>
-                                </div>
-                            </div>
+                    <div class="space-y-3">
+                        <div>
+                            <label for="valor-a-pagar-input" class="block text-sm font-medium text-gray-700">Valor desta Parcela:</label>
+                            <input type="number" id="valor-a-pagar-input" step="0.01" min="0" value="0.00"
+                                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
                         </div>
-
-                        <div id="checkout-container-outros-itens" class="hidden bg-gray-50 p-4 rounded-md mb-4 border border-gray-200">
-                            <h4 class="font-semibold text-gray-700 mb-3">Selecionar Item</h4>
-                            <div>
-                                <label for="checkout-select-produto" class="block text-sm font-medium text-gray-700">Produto:</label>
-                                <select id="checkout-select-produto" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></select>
-                            </div>
+                        <div>
+                            <label for="pagamento-metodo-atual" class="block text-sm font-medium text-gray-700">Método de Pagamento:</label>
+                            <select id="pagamento-metodo-atual" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                                <option value="">Selecione</option>
+                                <option value="Dinheiro">Dinheiro</option>
+                                <option value="Cartão">Cartão</option>
+                                <option value="Pix">Pix</option>
+                            </select>
                         </div>
-                        <label for="checkout-observacao-item" class="block text-sm font-medium text-gray-700 mt-2">Observação para o Item (opcional):</label>
-                        <input type="text" id="checkout-observacao-item" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 mb-4">
-                        <button id="checkout-btn-add-item" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition">
-                            Adicionar Item à Conta
+                        <div id="troco-input-group" class="hidden">
+                            <label for="troco-recebido" class="block text-sm font-medium text-gray-700">Valor Recebido (Dinheiro):</label>
+                            <input type="number" id="troco-recebido" step="0.01" min="0" value="0.00"
+                                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        </div>
+                        <button id="btn-adicionar-pagamento" disabled
+                                class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition">
+                            Adicionar Pagamento
                         </button>
+                    </div>
 
-                        <div class="mt-6">
-                            <h3 class="text-lg font-semibold mb-3">Itens na Conta</h3>
-                            <div id="checkout-itens-lista" class="space-y-2 max-h-80 overflow-y-auto border p-3 rounded-md bg-gray-50">
-                                <p class="text-gray-500 text-center">Nenhum item adicionado à conta.</p>
-                            </div>
+                    <div class="mt-4 border-t border-gray-200 pt-4">
+                        <label for="dividir-por-input" class="block text-sm font-medium text-gray-700">Dividir Restante por (pessoas):</label>
+                        <div class="flex space-x-2 mt-1">
+                            <input type="number" id="dividir-por-input" min="1" value="1"
+                                   class="border border-gray-300 rounded-md p-2 w-24 text-center">
+                            <button id="btn-dividir-restante" disabled
+                                    class="flex-1 bg-yellow-500 text-white py-2 px-4 rounded-md hover:bg-yellow-600 transition">
+                                Calcular Divisão
+                            </button>
                         </div>
                     </div>
 
-                    <div>
-                        <h3 class="text-lg font-semibold mb-3">Resumo da Conta</h3>
-                        <div class="bg-blue-50 p-4 rounded-md mb-4">
-                            <p class="text-md font-bold">Total Original: <span id="checkout-total-original" class="text-blue-800">R$ 0.00</span></p>
-                            <p class="text-md font-bold">Total Pago: <span id="checkout-total-pago" class="text-green-800">R$ 0.00</span></p>
-                            <p class="text-xl font-bold">Restante a Pagar: <span id="checkout-restante-pagar" class="text-red-800">R$ 0.00</span></p>
-                        </div>
-
-                        <h3 class="text-lg font-semibold mb-3">Adicionar Pagamento</h3>
-                        <div class="space-y-3">
-                            <div>
-                                <label for="checkout-valor-a-pagar-input" class="block text-sm font-medium text-gray-700">Valor desta Parcela:</label>
-                                <input type="number" id="checkout-valor-a-pagar-input" step="0.01" min="0" value="0.00"
-                                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                    <div class="mt-4">
+                        <h4 class="text-md font-semibold mb-2">Histórico de Pagamentos:</h4>
+                        <div id="historico-pagamentos" class="space-y-1 max-h-40 overflow-y-auto border p-2 rounded-md bg-white">
+                            <p id="empty-payments-message" class="text-gray-500 text-center">Nenhum pagamento registrado.</p>
                             </div>
-                            <div>
-                                <label for="checkout-pagamento-metodo-atual" class="block text-sm font-medium text-gray-700">Método de Pagamento:</label>
-                                <select id="checkout-pagamento-metodo-atual" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
-                                    <option value="">Selecione</option>
-                                    <option value="Dinheiro">Dinheiro</option>
-                                    <option value="Cartão">Cartão</option>
-                                    <option value="Pix">Pix</option>
-                                </select>
-                            </div>
-                            <div id="checkout-troco-input-group" class="hidden">
-                                <label for="checkout-troco-recebido" class="block text-sm font-medium text-gray-700">Valor Recebido (Dinheiro):</label>
-                                <input type="number" id="checkout-troco-recebido" step="0.01" min="0" value="0.00"
-                                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
-                            </div>
-                            <button id="checkout-btn-adicionar-pagamento" disabled
-                                    class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition">
-                                Registrar Pagamento
-                            </button>
-                        </div>
-
-                        <div class="mt-4 border-t border-gray-200 pt-4">
-                            <label for="checkout-dividir-por-input" class="block text-sm font-medium text-gray-700">Dividir Saldo Restante por (pessoas):</label>
-                            <div class="flex space-x-2 mt-1">
-                                <input type="number" id="checkout-dividir-por-input" min="1" value="1"
-                                    class="border border-gray-300 rounded-md p-2 w-24 text-center">
-                                <button id="checkout-btn-dividir-restante" disabled
-                                        class="flex-1 bg-yellow-500 text-white py-2 px-4 rounded-md hover:bg-yellow-600 transition">
-                                    Calcular Divisão
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="mt-4">
-                            <h4 class="text-md font-semibold mb-2">Histórico de Pagamentos:</h4>
-                            <div id="checkout-historico-pagamentos" class="space-y-1 max-h-40 overflow-y-auto border p-2 rounded-md bg-white">
-                                <p id="checkout-empty-payments-message" class="text-gray-500 text-center">Nenhum pagamento registrado.</p>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="mt-6 flex justify-end gap-4 modal-actions-mobile-stack">
-                <button id="checkout-btn-cancelar-pedido-mesa"
+            <div class="mt-6 flex justify-end gap-4">
+                <button id="btn-cancelar-pedido-mesa"
                         class="bg-red-500 text-white py-2 px-4 rounded-md hover:bg-red-600 transition">
                     Cancelar Pedido
                 </button>
-                <button id="checkout-btn-imprimir-nota"
-                        class="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition">
-                    Imprimir Nota
-                </button>
-                <button id="checkout-btn-finalizar-conta-mesa" disabled
+                <button id="btn-finalizar-conta-mesa" disabled
                         class="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition">
                     Finalizar Conta e Liberar Mesa
                 </button>
             </div>
         </div>
     </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="table_management.js"></script>
 </body>
 </html>

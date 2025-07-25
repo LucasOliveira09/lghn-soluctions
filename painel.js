@@ -225,10 +225,6 @@ cuponsRef.on('value', async (snapshot) => {
     carregarCupons(snapshot);
 });
 
-garconsInfoRef.on('value', (snapshot) => {
-    carregarGarcom(snapshot);
-});
-
 produtosRef.on('value', snapshot => {
     allProducts = snapshot.val() || {};
 });
@@ -522,13 +518,9 @@ DOM.btnEditarHorario.addEventListener('click', () => {
 });
 
 DOM.btnGerenciarMesas.addEventListener('click', () => {
-    // Adicionado DOM.abaGerenciarAdicionais à lista de abas a esconder
-    ativaAba(DOM.abaGerenciarMesas, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom, DOM.abaGerenciarAdicionais);
-    // Adicionado DOM.btnGerenciarAdicionais à lista de botões a desestilizar
-    estilizaBotaoAtivo(DOM.btnGerenciarMesas, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom, DOM.btnGerenciarAdicionais);
-    DOM.sidebar.classList.add('-translate-x-full');
-    DOM.overlay.classList.add('hidden');
-    carregarMesasDoFirebase();
+        window.location.href = 'gerenciamento_mesas.html';
+        DOM.sidebar.classList.add('-translate-x-full');
+        DOM.overlay.classList.add('hidden');
 });
 
 DOM.btnConfiguracoesGerais.addEventListener('click', () => {
@@ -591,6 +583,7 @@ DOM.btnGerenciarGarcom.addEventListener('click', () => {
     estilizaBotaoAtivo(DOM.btnGerenciarGarcom, DOM.btnGerenciarCupom, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarEstoque, DOM.btnGerenciarAdicionais);
     DOM.sidebar.classList.add('-translate-x-full');
     DOM.overlay.classList.add('hidden');
+    setupGarcomManagement();
 });
 
 // Listener para o novo botão 'Gerenciar Adicionais'
@@ -1849,17 +1842,40 @@ function salvarHorariosNoFirebase(horarios) {
         .catch((error) => console.error("Erro ao salvar horários:", error));
 }
 
+function timeStringToMinutes(timeInput) {
+    // Se o input for um texto (formato novo "HH:mm")
+    if (typeof timeInput === 'string' && timeInput.includes(':')) {
+        const [hours, minutes] = timeInput.split(':').map(Number);
+        return (hours || 0) * 60 + (minutes || 0);
+    }
+    // Se o input for um número (formato antigo, só a hora)
+    if (typeof timeInput === 'number') {
+        return timeInput * 60;
+    }
+    // Se for qualquer outra coisa (nulo, indefinido), retorna 0 para não quebrar.
+    return 0;
+}
+
 function checkRestaurantOpen(horarios) {
     const agora = new Date();
-    const diaSemana = agora.getDay();
-    const horaAtual = agora.getHours();
+    const diaSemana = agora.getDay(); // 0 = Domingo, 1 = Segunda, etc.
+    const minutosAtuais = agora.getHours() * 60 + agora.getMinutes();
 
     if (!horarios || !horarios[diaSemana]) return false;
 
     const configDia = horarios[diaSemana];
-    if (!configDia.aberto) return false;
+    if (!configDia.aberto || !configDia.inicio || !configDia.fim) return false;
 
-    return horaAtual >= configDia.inicio && horaAtual < configDia.fim;
+    const minutosInicio = timeStringToMinutes(configDia.inicio);
+    const minutosFim = timeStringToMinutes(configDia.fim);
+
+    // Lógica para horários que viram a noite (ex: abre às 18:00 e fecha às 02:00)
+    if (minutosInicio > minutosFim) {
+        return minutosAtuais >= minutosInicio || minutosAtuais < minutosFim;
+    }
+
+    // Lógica para horários no mesmo dia
+    return minutosAtuais >= minutosInicio && minutosAtuais < minutosFim;
 }
 
 function inicializarEditorHorario() {
@@ -1883,9 +1899,9 @@ function inicializarEditorHorario() {
                 <input type="checkbox" name="aberto-${i}" class="form-checkbox h-5 w-5 text-blue-600" />
                 <span class="text-gray-700">Aberto</span>
             </label>
-            <input type="number" name="inicio-${i}" min="0" max="23" value="18" class="border p-1 w-16 rounded-md" />
+            <input type="time" name="inicio-${i}" value="18:00" class="border p-1 w-24 rounded-md" />
             <span class="text-gray-600">às</span>
-            <input type="number" name="fim-${i}" min="0" max="23" value="23" class="border p-1 w-16 rounded-md" />
+            <input type="time" name="fim-${i}" value="23:00" class="border p-1 w-24 rounded-md" />
         `;
         containerHorario.appendChild(linha);
     });
@@ -1897,37 +1913,33 @@ function inicializarEditorHorario() {
                 for (let i = 0; i <= 6; i++) {
                     const diaConfig = horariosSalvos[i];
                     if (diaConfig) {
-                        const abertoCheckbox = document.querySelector(`[name="aberto-${i}"]`);
-                        const inicioInput = document.querySelector(`[name="inicio-${i}"]`);
-                        const fimInput = document.querySelector(`[name="fim-${i}"]`);
-                        if (abertoCheckbox) abertoCheckbox.checked = diaConfig.aberto;
-                        if (inicioInput) inicioInput.value = diaConfig.inicio;
-                        if (fimInput) fimInput.value = diaConfig.fim;
+                        document.querySelector(`[name="aberto-${i}"]`).checked = diaConfig.aberto;
+                        document.querySelector(`[name="inicio-${i}"]`).value = diaConfig.inicio || "18:00";
+                        document.querySelector(`[name="fim-${i}"]`).value = diaConfig.fim || "23:00";
                     }
                 }
             }
-        })
-        .catch(error => console.error("Erro ao carregar horários do Firebase:", error));
+        });
+    
+    const newForm = formHorario.cloneNode(true);
+    formHorario.parentNode.replaceChild(newForm, formHorario);
 
-    formHorario.addEventListener("submit", (e) => {
+    newForm.addEventListener("submit", (e) => {
         e.preventDefault();
         const horarios = {};
-        let hasError = false;
         for (let i = 0; i <= 6; i++) {
             const aberto = document.querySelector(`[name="aberto-${i}"]`).checked;
-            const inicio = parseInt(document.querySelector(`[name="inicio-${i}"]`).value);
-            const fim = parseInt(document.querySelector(`[name="fim-${i}"]`).value);
+            const inicio = document.querySelector(`[name="inicio-${i}"]`).value;
+            const fim = document.querySelector(`[name="fim-${i}"]`).value;
 
-            if (aberto && (isNaN(inicio) || isNaN(fim) || inicio < 0 || inicio > 23 || fim < 0 || fim > 24 || inicio >= fim)) {
-                alert(`Por favor, verifique os horários de ${dias[i]}. Fim deve ser maior que início.`);
-                hasError = true;
+            // Validação simples para garantir que os campos de tempo não estão vazios se estiver aberto
+            if (aberto && (!inicio || !fim)) {
+                alert(`Por favor, preencha os horários de início e fim para ${dias[i]}.`);
                 return;
             }
             horarios[i] = { aberto, inicio, fim };
         }
-        if (!hasError) {
-            salvarHorariosNoFirebase(horarios);
-        }
+        salvarHorariosNoFirebase(horarios);
     });
 
     database.ref('config/horarios').on('value', snapshot => {
@@ -4447,123 +4459,164 @@ async function handleSaveAddonRecipe() {
 
 // Listener para fechar o modal de receita do adicional
 
-// --- SEÇÃO: GERENCIAMENTO DE GARÇONS -----------------------------------------------------------------------------------------------------------------------------------------------------
+// --- SEÇÃO: GERENCIAMENTO DE GARÇONS LGHN-----------------------------------------------------------------------------------------------------------------------------------------------------
 
+function setupGarcomManagement() {
+    // Listener para o botão SALVAR
+    if (DOM.btnSalvarGarcom) {
+        DOM.btnSalvarGarcom.addEventListener('click', handleSalvarGarcom);
+    }
+    
+    // Listener para o botão da SIDEBAR que abre a aba
+    if (DOM.btnGerenciarGarcom) {
+        DOM.btnGerenciarGarcom.addEventListener('click', () => {
+            // Adapte esta linha às suas funções de navegação
+            ativaAba(DOM.abaGerenciarGarcom, DOM.abaGerenciarCupom, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaGerenciarMesas, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarEstoque);
+            estilizaBotaoAtivo(DOM.btnGerenciarGarcom, DOM.btnGerenciarCupom, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnGerenciarMesas, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarEstoque);
+            DOM.sidebar.classList.add('-translate-x-full');
+            DOM.overlay.classList.add('hidden');
+            // Carrega a lista sempre que a aba for aberta
+            carregarGarcons();
+        });
+    }
 
+    // Listener em tempo real para o nó de garçons no Firebase
+    garconsInfoRef.on('value', (snapshot) => {
+        // Verifica se a aba de garçons está visível antes de recarregar
+        if (DOM.abaGerenciarGarcom && !DOM.abaGerenciarGarcom.classList.contains('hidden')) {
+            carregarGarcons(snapshot);
+        }
+    });
+}
 
-function carregarGarcom(snapshot) {
-    if (!DOM.listaGarconsContainer) {
-        console.error("Container da lista de garçons (listaGarconsContainer) não encontrado no DOM. Não foi possível carregar a lista.");
+/**
+ * Lida com o clique no botão "Salvar Garçom".
+ */
+async function handleSalvarGarcom() {
+    const nome = DOM.garcomNomeInput.value.trim();
+    const senha = DOM.garcomSenhaInput.value.trim();
+    const btnText = document.getElementById('btn-salvar-garcom-text');
+    const btnSpinner = document.getElementById('btn-salvar-garcom-spinner');
+
+    if (!nome || !senha) {
+        alert("O nome e a senha são obrigatórios.");
+        return;
+    }
+    if (senha.length < 6) {
+        alert("A senha deve ter pelo menos 6 caracteres.");
         return;
     }
 
+    // Mostra o spinner e desabilita o botão
+    btnText.textContent = 'Salvando...';
+    btnSpinner.classList.remove('hidden');
+    DOM.btnSalvarGarcom.disabled = true;
+
+    const email = `${nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}@seu-restaurante.com`;
+
+    try {
+        // 1. Cria o usuário no Firebase Authentication
+        const userCredential = await auth.createUserWithEmailAndPassword(email, senha);
+        const user = userCredential.user;
+
+        // 2. Salva as informações no Realtime Database
+        await garconsInfoRef.child(user.uid).set({
+            nome: nome,
+            email: email,
+            createdAt: firebase.database.ServerValue.TIMESTAMP
+        });
+
+        alert(`Garçom "${nome}" adicionado com sucesso!`);
+        DOM.garcomNomeInput.value = '';
+        DOM.garcomSenhaInput.value = '';
+
+    } catch (error) {
+        console.error("Erro ao adicionar garçom:", error);
+        if (error.code === 'auth/email-already-in-use') {
+            alert('Erro: Já existe um garçom com este nome. Use um nome diferente.');
+        } else {
+            alert("Erro ao adicionar garçom: " + error.message);
+        }
+    } finally {
+        // Esconde o spinner e reabilita o botão
+        btnText.textContent = 'Salvar Garçom';
+        btnSpinner.classList.add('hidden');
+        DOM.btnSalvarGarcom.disabled = false;
+    }
+}
+
+/**
+ * Carrega e renderiza a lista de garçons do Firebase.
+ * Pode receber um 'snapshot' para evitar uma nova busca.
+ */
+async function carregarGarcons(snapshot = null) {
+    const container = DOM.listaGarconsContainer;
+    const spinner = document.getElementById('lista-garcons-spinner');
+    
+    if (!snapshot) {
+        spinner.classList.remove('hidden');
+        container.innerHTML = ''; // Limpa antes de colocar o spinner
+        container.appendChild(spinner);
+        snapshot = await garconsInfoRef.once('value');
+    }
+
     const garcons = snapshot.val();
-    DOM.listaGarconsContainer.innerHTML = ''; // Limpa a lista existente
+    container.innerHTML = ''; // Limpa o container (incluindo o spinner)
 
     if (!garcons) {
-        DOM.listaGarconsContainer.innerHTML = '<p class="text-gray-600 col-span-full text-center">Nenhum garçom cadastrado.</p>';
+        container.innerHTML = '<p class="text-gray-600 col-span-full text-center">Nenhum garçom cadastrado.</p>';
         return;
     }
 
     Object.entries(garcons).forEach(([uid, garcom]) => {
-        if (!garcom) return; // Garante que o objeto garcom não é nulo
-
-        const garcomDiv = document.createElement('div');
-        garcomDiv.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col justify-between';
-
-        garcomDiv.innerHTML = `
-            <div class="flex-grow">
-                <h3 class="text-lg font-semibold text-gray-800">${garcom.nome}</h3>
-                <p class="text-sm text-gray-500">ID: ${uid}</p>
-                <p class="text-sm text-gray-500">Email: ${garcom.email || 'N/A'}</p>
+        const card = document.createElement('div');
+        card.className = 'bg-gray-50 p-4 rounded-lg shadow-sm border flex flex-col justify-between';
+        card.innerHTML = `
+            <div>
+                <h4 class="text-lg font-semibold text-gray-800">${garcom.nome}</h4>
+                <p class="text-sm text-gray-500 truncate" title="${garcom.email}">${garcom.email}</p>
             </div>
             <div class="flex gap-2 mt-4">
-                <button class="btn-reset-senha-garcom bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm flex-1" data-email="${garcom.email}" data-nome="${garcom.nome}">
-                    Redefinir Senha
-                </button>
-                <button class="btn-excluir-garcom bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm flex-1" data-uid="${uid}" data-nome="${garcom.nome}">
+                <button class="btn-excluir-garcom bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 text-sm flex-1" data-uid="${uid}" data-nome="${garcom.nome}">
                     Excluir
                 </button>
             </div>
         `;
-        DOM.listaGarconsContainer.appendChild(garcomDiv);
+        container.appendChild(card);
     });
 
-    // Anexa os event listeners aos botões criados dinamicamente
-    // É crucial clonar e substituir o nó para garantir que não haja listeners duplicados
-    DOM.listaGarconsContainer.querySelectorAll('.btn-reset-senha-garcom').forEach(button => {
-        const newButton = button.cloneNode(true);
-        button.parentNode.replaceChild(newButton, button); // Substitui o botão existente pelo clone
-        newButton.addEventListener('click', (e) => {
-            const email = e.target.dataset.email;
-            const nome = e.target.dataset.nome;
-            if (confirm(`Deseja enviar um e-mail de redefinição de senha para ${nome} (${email})?`)) {
-                firebase.auth().sendPasswordResetEmail(email)
-                    .then(() => {
-                        alert(`E-mail de redefinição de senha enviado para ${email}.`);
-                    })
-                    .catch((error) => {
-                        alert('Erro ao enviar e-mail: ' + error.message);
-                        console.error("Erro ao enviar redefinição de senha:", error);
-                    });
-            }
-        });
-    });
-
-    DOM.listaGarconsContainer.querySelectorAll('.btn-excluir-garcom').forEach(button => {
-        const newButton = button.cloneNode(true);
-        button.parentNode.replaceChild(newButton, button); // Substitui o botão existente pelo clone
-        newButton.addEventListener('click', async (e) => {
-            const uid = e.target.dataset.uid;
-            const nome = e.target.dataset.nome;
-            if (confirm(`Deseja realmente excluir o garçom ${nome}? Esta ação removerá os dados do banco de dados.`)) {
-                try {
-                    await garconsInfoRef.child(uid).remove();
-                    alert(`Dados do garçom ${nome} excluídos do banco de dados.`);
-                    alert("Atenção: O usuário correspondente no Firebase Authentication NÃO foi excluído. Faça isso manualmente no console do Firebase (Authentication).");
-                } catch (error) {
-                    alert("Erro ao excluir dados do garçom: " + error.message);
-                    console.error("Erro ao excluir dados do garçom:", error);
-                }
-            }
+    // Adiciona os listeners de exclusão
+    container.querySelectorAll('.btn-excluir-garcom').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const uid = e.currentTarget.dataset.uid;
+            const nome = e.currentTarget.dataset.nome;
+            handleExcluirGarcom(uid, nome);
         });
     });
 }
 
-
-// --- INÍCIO DO SEU document.addEventListener('DOMContentLoaded', ...) em panel.js ---
-document.addEventListener('DOMContentLoaded', () => {
-    fetchAllIngredients();
-    renderAdicionaisConfiguracao();
-
-    Object.assign(DOM, {
-        // ... (outros elementos DOM do seu painel principal, ex: btnAtivos, pedidosAtivosContainer)
-
-        // Elementos DOM para Gerenciar Garçons
-        btnGerenciarGarcom: document.getElementById('btn-gerenciar-garcom'), // Botão da sidebar
-        abaGerenciarGarcom: document.getElementById('aba-gerenciar-garcom'), // A div da aba
-        garcomNomeInput: document.getElementById('garcom-nome'),
-        garcomSenhaInput: document.getElementById('garcom-senha'),
-        btnSalvarGarcom: document.getElementById('btn-salvar-garcom'),
-        listaGarconsContainer: document.getElementById('lista-garcons-container'),
-        // ... (outros elementos DOM)
-    });
-
-    // --- Lógica de Autenticação (já deve existir no seu panel.js) ---
-    auth.onAuthStateChanged(user => {
-        if (user) {
-            console.log("Admin: Usuário autenticado:", user.email);
-            document.body.style.display = 'flex'; // Mostra o corpo da página
+/**
+ * Lida com a exclusão de um garçom.
+ * ATENÇÃO: A exclusão do usuário de autenticação requer uma Cloud Function.
+ */
+async function handleExcluirGarcom(uid, nome) {
+    if (confirm(`Tem certeza que deseja excluir o garçom "${nome}"?`)) {
+        try {
+            // 1. Remove do Realtime Database (isso o cliente pode fazer)
+            await garconsInfoRef.child(uid).remove();
+            alert(`Garçom "${nome}" removido da lista com sucesso!`);
             
-            // Ouve as mudanças nos garçons para atualizar a lista AUTOMATICAMENTE
-            garconsInfoRef.on('value', carregarGarcom);
-            
-            // ... (outras inicializações e listeners para o resto do seu painel)
-        } else {
-            console.log("Admin: Nenhum usuário autenticado. Redirecionando para login.html");
-            window.location.replace('login.html');
+            // 2. AVISO sobre a conta de autenticação
+            alert("⚠️ ATENÇÃO: A conta de login do garçom ('${nome}') NÃO foi excluída. Para uma exclusão completa e segura, isso deve ser feito no servidor. Veja o console para mais detalhes.");
+            console.warn(`Para excluir completamente o usuário de autenticação (UID: ${uid}), você precisa usar uma Cloud Function do Firebase. O SDK do cliente não tem permissão para excluir outros usuários.`);
+
+        } catch (error) {
+            alert("Erro ao excluir dados do garçom: " + error.message);
+            console.error("Erro ao excluir dados do garçom:", error);
         }
-    });
+    }
+}
+
 
     // --- Listeners para os Botões do Menu Principal ---
     // (Ajuste conforme a estrutura do seu menu, ex: sidebar buttons)
@@ -4583,62 +4636,50 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- SEÇÃO: GERENCIAMENTO DE GARÇONS (Listener do Botão Salvar) ---
-    // ############ ATENÇÃO AQUI: O LISTENER É ADICIONADO APÓS OS ELEMENTOS DOM SEREM MAPEADOS ############
-    if (DOM.btnSalvarGarcom) { // Verifica se o botão foi encontrado e não é null
+    if (DOM.btnSalvarGarcom) {
         DOM.btnSalvarGarcom.addEventListener('click', async () => {
-            // Certifique-se de que os inputs também foram encontrados
-            const nomeGarcom = DOM.garcomNomeInput ? DOM.garcomNomeInput.value.trim() : '';
-            const senhaGarcom = DOM.garcomSenhaInput ? DOM.garcomSenhaInput.value.trim() : '';
+            const nomeGarcom = DOM.garcomNomeInput.value.trim();
+            const senhaGarcom = DOM.garcomSenhaInput.value.trim();
 
-            if (!nomeGarcom || !senhaGarcom) {
-                alert("O nome e a senha do garçom são obrigatórios.");
-                return;
-            }
-            if (senhaGarcom.length < 6) {
-                alert("A senha deve ter pelo menos 6 caracteres.");
-                return;
-            }
-
-            // A lógica de criação de e-mail deve ser robusta para garantir unicidade
-            // O replace(/\s+/g, '_') substitui múltiplos espaços por um único underscore
-            // O replace(/[^a-z0-9_]/g, '') remove qualquer caractere que não seja letra, número ou underscore
-            const emailGarcom = `${nomeGarcom.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}@seu-restaurante.com`;
-
-            try {
-                // Tenta criar o usuário no Firebase Authentication
-                const userCredential = await firebase.auth().createUserWithEmailAndPassword(emailGarcom, senhaGarcom);
-                const user = userCredential.user;
-
-                // Salva os dados do garçom no Realtime Database usando o UID como chave
-                await garconsInfoRef.child(user.uid).set({
-                    nome: nomeGarcom,
-                    email: emailGarcom,
-                    createdAt: firebase.database.ServerValue.TIMESTAMP
-                });
-
-                alert(`Garçom "${nomeGarcom}" adicionado com sucesso!`);
-                // Limpa os campos do formulário
-                if (DOM.garcomNomeInput) DOM.garcomNomeInput.value = '';
-                if (DOM.garcomSenhaInput) DOM.garcomSenhaInput.value = '';
-
-                // Como há um listener 'on('value')' para garconsInfoRef, a lista deve ser atualizada automaticamente.
-            } catch (error) {
-                console.error("Erro ao adicionar garçom:", error);
-                if (error.code === 'auth/email-already-in-use') {
-                    alert('Erro: Já existe um garçom com este nome (ou e-mail interno). Use um nome diferente.');
-                } else if (error.code === 'auth/weak-password') {
-                    alert('Erro: A senha deve ter pelo menos 6 caracteres.');
-                } else {
-                    alert("Erro ao adicionar garçom: " + error.message);
+                if (!nomeGarcom || !senhaGarcom) {
+                    alert("O nome e a senha do garçom são obrigatórios.");
+                    return;
                 }
-            }
+                if (senhaGarcom.length < 6) {
+                    alert("A senha deve ter pelo menos 6 caracteres.");
+                    return;
+                }
+
+                const emailGarcom = `${nomeGarcom.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}@seu-restaurante.com`;
+
+                try {
+                    // Cria o usuário no Firebase Authentication
+                    const userCredential = await firebase.auth().createUserWithEmailAndPassword(emailGarcom, senhaGarcom);
+                    const user = userCredential.user;
+
+                    // Salva os dados do garçom no Realtime Database usando o UID como chave
+                    await garconsInfoRef.child(user.uid).set({
+                        nome: nomeGarcom,
+                        email: emailGarcom,
+                        createdAt: firebase.database.ServerValue.TIMESTAMP
+                    });
+
+                    alert(`Garçom "${nomeGarcom}" adicionado com sucesso!`);
+                    DOM.garcomNomeInput.value = '';
+                    DOM.garcomSenhaInput.value = '';
+
+                } catch (error) {
+                    console.error("Erro ao adicionar garçom:", error);
+                    if (error.code === 'auth/email-already-in-use') {
+                        alert('Erro: Já existe um garçom com este nome. Use um nome diferente.');
+                    } else if (error.code === 'auth/weak-password') {
+                        alert('Erro: A senha deve ter pelo menos 6 caracteres.');
+                    } else {
+                        alert("Erro ao adicionar garçom: " + error.message);
+                    }
+                }
         });
     }
-
-    // ... (restante do seu código DOMContentLoaded, outros listeners, etc.)
-
-}); // Fim de DOMContentLoaded
 
 
 // SEÇÂO CLIENTES INATIVOS lghn ------------------------------------------------------------------------------------------------
