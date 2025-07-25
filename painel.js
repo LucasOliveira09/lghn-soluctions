@@ -1777,17 +1777,40 @@ function salvarHorariosNoFirebase(horarios) {
         .catch((error) => console.error("Erro ao salvar horários:", error));
 }
 
+function timeStringToMinutes(timeInput) {
+    // Se o input for um texto (formato novo "HH:mm")
+    if (typeof timeInput === 'string' && timeInput.includes(':')) {
+        const [hours, minutes] = timeInput.split(':').map(Number);
+        return (hours || 0) * 60 + (minutes || 0);
+    }
+    // Se o input for um número (formato antigo, só a hora)
+    if (typeof timeInput === 'number') {
+        return timeInput * 60;
+    }
+    // Se for qualquer outra coisa (nulo, indefinido), retorna 0 para não quebrar.
+    return 0;
+}
+
 function checkRestaurantOpen(horarios) {
     const agora = new Date();
-    const diaSemana = agora.getDay();
-    const horaAtual = agora.getHours();
+    const diaSemana = agora.getDay(); // 0 = Domingo, 1 = Segunda, etc.
+    const minutosAtuais = agora.getHours() * 60 + agora.getMinutes();
 
     if (!horarios || !horarios[diaSemana]) return false;
 
     const configDia = horarios[diaSemana];
-    if (!configDia.aberto) return false;
+    if (!configDia.aberto || !configDia.inicio || !configDia.fim) return false;
 
-    return horaAtual >= configDia.inicio && horaAtual < configDia.fim;
+    const minutosInicio = timeStringToMinutes(configDia.inicio);
+    const minutosFim = timeStringToMinutes(configDia.fim);
+
+    // Lógica para horários que viram a noite (ex: abre às 18:00 e fecha às 02:00)
+    if (minutosInicio > minutosFim) {
+        return minutosAtuais >= minutosInicio || minutosAtuais < minutosFim;
+    }
+
+    // Lógica para horários no mesmo dia
+    return minutosAtuais >= minutosInicio && minutosAtuais < minutosFim;
 }
 
 function inicializarEditorHorario() {
@@ -1811,9 +1834,9 @@ function inicializarEditorHorario() {
                 <input type="checkbox" name="aberto-${i}" class="form-checkbox h-5 w-5 text-blue-600" />
                 <span class="text-gray-700">Aberto</span>
             </label>
-            <input type="number" name="inicio-${i}" min="0" max="23" value="18" class="border p-1 w-16 rounded-md" />
+            <input type="time" name="inicio-${i}" value="18:00" class="border p-1 w-24 rounded-md" />
             <span class="text-gray-600">às</span>
-            <input type="number" name="fim-${i}" min="0" max="23" value="23" class="border p-1 w-16 rounded-md" />
+            <input type="time" name="fim-${i}" value="23:00" class="border p-1 w-24 rounded-md" />
         `;
         containerHorario.appendChild(linha);
     });
@@ -1825,37 +1848,33 @@ function inicializarEditorHorario() {
                 for (let i = 0; i <= 6; i++) {
                     const diaConfig = horariosSalvos[i];
                     if (diaConfig) {
-                        const abertoCheckbox = document.querySelector(`[name="aberto-${i}"]`);
-                        const inicioInput = document.querySelector(`[name="inicio-${i}"]`);
-                        const fimInput = document.querySelector(`[name="fim-${i}"]`);
-                        if (abertoCheckbox) abertoCheckbox.checked = diaConfig.aberto;
-                        if (inicioInput) inicioInput.value = diaConfig.inicio;
-                        if (fimInput) fimInput.value = diaConfig.fim;
+                        document.querySelector(`[name="aberto-${i}"]`).checked = diaConfig.aberto;
+                        document.querySelector(`[name="inicio-${i}"]`).value = diaConfig.inicio || "18:00";
+                        document.querySelector(`[name="fim-${i}"]`).value = diaConfig.fim || "23:00";
                     }
                 }
             }
-        })
-        .catch(error => console.error("Erro ao carregar horários do Firebase:", error));
+        });
+    
+    const newForm = formHorario.cloneNode(true);
+    formHorario.parentNode.replaceChild(newForm, formHorario);
 
-    formHorario.addEventListener("submit", (e) => {
+    newForm.addEventListener("submit", (e) => {
         e.preventDefault();
         const horarios = {};
-        let hasError = false;
         for (let i = 0; i <= 6; i++) {
             const aberto = document.querySelector(`[name="aberto-${i}"]`).checked;
-            const inicio = parseInt(document.querySelector(`[name="inicio-${i}"]`).value);
-            const fim = parseInt(document.querySelector(`[name="fim-${i}"]`).value);
+            const inicio = document.querySelector(`[name="inicio-${i}"]`).value;
+            const fim = document.querySelector(`[name="fim-${i}"]`).value;
 
-            if (aberto && (isNaN(inicio) || isNaN(fim) || inicio < 0 || inicio > 23 || fim < 0 || fim > 24 || inicio >= fim)) {
-                alert(`Por favor, verifique os horários de ${dias[i]}. Fim deve ser maior que início.`);
-                hasError = true;
+            // Validação simples para garantir que os campos de tempo não estão vazios se estiver aberto
+            if (aberto && (!inicio || !fim)) {
+                alert(`Por favor, preencha os horários de início e fim para ${dias[i]}.`);
                 return;
             }
             horarios[i] = { aberto, inicio, fim };
         }
-        if (!hasError) {
-            salvarHorariosNoFirebase(horarios);
-        }
+        salvarHorariosNoFirebase(horarios);
     });
 
     database.ref('config/horarios').on('value', snapshot => {
