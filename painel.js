@@ -487,12 +487,10 @@ document.addEventListener('DOMContentLoaded', () => {
         inicializarEditorHorario();
     });
 
-    DOM.btnGerenciarMesas.addEventListener('click', () => {
-        ativaAba(DOM.abaGerenciarMesas, DOM.abaAtivos, DOM.abaFinalizados, DOM.EditarCardapio, DOM.editarHorario, DOM.abaConfiguracoesGerais, DOM.abaRelatorios, DOM.abaGerenciarCupom, DOM.abaGerenciarEstoque, DOM.abaGerenciarGarcom);
-        estilizaBotaoAtivo(DOM.btnGerenciarMesas, DOM.btnAtivos, DOM.btnFinalizados, DOM.btnEditarCardapio, DOM.btnEditarHorario, DOM.btnConfiguracoesGerais, DOM.btnRelatorios, DOM.btnGerenciarCupom, DOM.btnGerenciarEstoque, DOM.btnGerenciarGarcom);
+     DOM.btnGerenciarMesas.addEventListener('click', () => {
+        window.location.href = 'gerenciamento_mesas.html';
         DOM.sidebar.classList.add('-translate-x-full');
         DOM.overlay.classList.add('hidden');
-        carregarMesasDoFirebase();
     });
 
     DOM.btnConfiguracoesGerais.addEventListener('click', () => {

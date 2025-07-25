@@ -36,7 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
         numMesasInput: document.getElementById('num-mesas'),
         btnConfigurarMesas: document.getElementById('btn-configurar-mesas'),
         mesasContainer: document.getElementById('mesas-container'),
-        btnLogout: document.getElementById('btn-logout'),
 
         modalMesaDetalhes: document.getElementById('modal-mesa-detalhes'),
         modalMesaNumero: document.getElementById('modal-mesa-numero'),
@@ -46,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
         mesaDetalhesCliente: document.getElementById('mesa-detalhes-cliente'),
         mesaDetalhesGarcom: document.getElementById('mesa-detalhes-garcom'),
         mesaDetalhesObs: document.getElementById('mesa-detalhes-obs'),
+        btnVoltar: document.getElementById('btn-voltar'),
 
         mesaItensSelecaoContainer: document.getElementById('mesa-itens-selecao-container'),
         emptyItemsMessage: document.getElementById('empty-items-message'),
@@ -83,12 +83,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Listeners de Ações do Administrador ---
-    DOM_TABLE_MGMT.btnLogout.addEventListener('click', () => {
-        auth.signOut().then(() => {
-            console.log("Admin: Administrador deslogado.");
-            window.location.replace('login.html');
-        }).catch(error => console.error("Admin: Erro ao fazer logout:", error));
-    });
+     if (DOM_TABLE_MGMT.btnVoltar) {
+        DOM_TABLE_MGMT.btnVoltar.addEventListener('click', () => {
+            // Apenas redireciona de volta para o painel principal
+            window.location.href = 'painel.html';
+        });
+    }
 
     if (DOM_TABLE_MGMT.btnConfigurarMesas) {
         DOM_TABLE_MGMT.btnConfigurarMesas.addEventListener('click', configureTables);
