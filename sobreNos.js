@@ -9,7 +9,6 @@ const firebaseConfig = {
     measurementId: "G-Y4KFGTHFP1"
 };
 
-// Inicializa o Firebase (com segurança para não reiniciar)
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
@@ -18,10 +17,18 @@ const database = firebase.database();
 const horariosRef = database.ref('config/horarios');
 
 /**
- * Converte uma string de tempo "HH:mm" OU um número de hora para o total de minutos.
- * @param {string|number} timeInput - A string "HH:mm" ou o número da hora.
- * @returns {number} - O total de minutos.
+ * NOVA FUNÇÃO: Formata uma string de hora para HH:mm.
+ * @param {string} horaString - A string de hora, ex: "18:30:00" ou "18:30".
+ * @returns {string} - A hora formatada como "HH:mm".
  */
+function formatarHora(horaString) {
+    if (typeof horaString === 'string' && horaString.includes(':')) {
+        const partes = horaString.split(':');
+        return `${partes[0]}:${partes[1]}`; // Pega apenas as horas e minutos
+    }
+    return horaString; // Retorna o valor original se não for o formato esperado
+}
+
 function timeStringToMinutes(timeInput) {
     if (typeof timeInput === 'string' && timeInput.includes(':')) {
         const [hours, minutes] = timeInput.split(':').map(Number);
@@ -33,14 +40,10 @@ function timeStringToMinutes(timeInput) {
     return 0;
 }
 
-/**
- * Função principal que busca os horários no Firebase e atualiza a página.
- */
 function atualizarStatusEHorarios() {
     horariosRef.on('value', (snapshot) => {
         if (!snapshot.exists()) {
             console.warn("Horários de funcionamento não encontrados no Firebase.");
-            // Exibe uma mensagem padrão se não houver horários configurados
             const statusElement = document.getElementById('status-funcionamento');
             if (statusElement) {
                 statusElement.textContent = "Horários não definidos";
@@ -62,9 +65,6 @@ function atualizarStatusEHorarios() {
     });
 }
 
-/**
- * Verifica se o restaurante está aberto e atualiza o elemento de status na tela.
- */
 function atualizarStatus(horarios) {
     const agora = new Date();
     const diaSemana = agora.getDay();
@@ -78,21 +78,24 @@ function atualizarStatus(horarios) {
         const minutosInicio = timeStringToMinutes(configDia.inicio);
         const minutosFim = timeStringToMinutes(configDia.fim);
 
-        // Lógica para horários que viram a noite (ex: 18:00 - 02:00)
         if (minutosInicio > minutosFim) {
             if (minutosAtuais >= minutosInicio || minutosAtuais < minutosFim) {
                 estaAberto = true;
             }
-        } else { // Lógica para horários no mesmo dia
+        } else {
             if (minutosAtuais >= minutosInicio && minutosAtuais < minutosFim) {
                 estaAberto = true;
             }
         }
+        
+        // APLICA A FORMATAÇÃO DA HORA AQUI
+        const horaInicioFormatada = formatarHora(configDia.inicio);
+        const horaFimFormatada = formatarHora(configDia.fim);
 
         if (estaAberto) {
-            mensagemStatus = `Aberto agora (fecha às ${configDia.fim})`;
+            mensagemStatus = `Aberto agora (fecha às ${horaFimFormatada})`;
         } else {
-             mensagemStatus = `Fechado agora (abre às ${configDia.inicio})`;
+             mensagemStatus = `Fechado agora (abre às ${horaInicioFormatada})`;
         }
     } else {
         mensagemStatus = "Fechado hoje";
@@ -105,9 +108,6 @@ function atualizarStatus(horarios) {
     }
 }
 
-/**
- * Renderiza a lista de horários de funcionamento em um container na página.
- */
 function renderizarListaDeHorarios(horarios) {
     const container = document.getElementById('lista-horarios');
     if (!container) return;
@@ -120,7 +120,8 @@ function renderizarListaDeHorarios(horarios) {
         let horarioTexto = '<span class="text-red-500">Fechado</span>';
 
         if (configDia && configDia.aberto && configDia.inicio && configDia.fim) {
-            horarioTexto = `${configDia.inicio} às ${configDia.fim}`;
+            // APLICA A FORMATAÇÃO DA HORA AQUI TAMBÉM
+            horarioTexto = `${formatarHora(configDia.inicio)} às ${formatarHora(configDia.fim)}`;
         }
         
         const li = document.createElement('li');
@@ -133,9 +134,6 @@ function renderizarListaDeHorarios(horarios) {
     });
 }
 
-/**
- * Inicializa a funcionalidade da sidebar (abrir/fechar).
- */
 function inicializarSidebar() {
     const menuButton = document.getElementById('menu-button');
     const sidebar = document.getElementById('sidebar');
@@ -162,7 +160,6 @@ function inicializarSidebar() {
     }
 }
 
-// Inicia o processo quando o DOM estiver pronto
 document.addEventListener('DOMContentLoaded', () => {
     atualizarStatusEHorarios();
     inicializarSidebar();
