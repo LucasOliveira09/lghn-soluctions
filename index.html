@@ -1,724 +1,615 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
     <link rel="stylesheet" href="./styles/output.css">
     <link rel="stylesheet" href="styles/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/k7ujTnHg4CGR2D7kSs0v4LLanw2qksYuRlEzO+tcaEPQogQ0KaoGN26/zrn20ImR1DfuLWnOo7aBA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="icon" type="image/png" sizes="16x16" href="assets/sua-logo.png">
-    
+
     <title>LGHN</title>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <link rel="preconnect" href="https://www.gstatic.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
 
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
 
-    <!-- META TAGdasd -->
-     <meta property="og:type" content="website">
-     <meta property="og:title" content="LGHN">
-     <meta property="og:image" content="https://central-code.vercel.app/assets/sua-logo.jpg">
-     <meta property="og:description" content="LGHN Soluctions">
-     <meta property="og:site_name" content="LGHN">
-     <!--<meta property="og:url" content=""> -->
-</head> 
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="LGHN">
+    <meta property="og:image" content="https://central-code.vercel.app/assets/sua-logo.jpg">
+    <meta property="og:description" content="LGHN Soluctions">
+    <meta property="og:site_name" content="LGHN">
+    </head>
 <style>
-
-html {
-    scroll-behavior: smooth;
-  }
-
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-
-
-  body {
-      font-family: 'Cinzel', serif;
+    html {
+        scroll-behavior: smooth;
     }
 
- .input-ok {
-  border-color: #22c55e !important; /* verde-500 do Tailwind */
-  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3);
-}
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+    .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
 
-.input-error {
-  border-color: #ef4444 !important; /* vermelho-500 do Tailwind */
-  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3);
-}
+    body {
+        font-family: 'Cinzel', serif;
+    }
 
-/*Cumpom em maiusculo*/
-.uppercase-input {
-  text-transform: uppercase;
-}
+    .input-ok {
+        border-color: #22c55e !important; /* verde-500 do Tailwind */
+        box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3);
+    }
 
-/*PlaceHolder minusculo*/
-.uppercase-input::placeholder {
-  text-transform: none;
-}
+    .input-error {
+        border-color: #ef4444 !important; /* vermelho-500 do Tailwind */
+        box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3);
+    }
 
-body.bg-main::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 100%;
-  z-index: -1;
-  background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url(assets/bgNovo.png);
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
-}
+    /* Cupom em maiusculo */
+    .uppercase-input {
+        text-transform: uppercase;
+    }
 
-/* Estilos para os passos de status ativos */
-        .status-step.active {
-            background-color: #10B981; /* Tailwind green-500 */
-            border-color: #34D399; /* Tailwind green-400 */
-        }
-        /* Estilos para as linhas de conexão ativas */
-        .status-line.active {
-            background-color: #10B981; /* Tailwind green-500 */
-        }
-        /* Estilos do Modal */
-        .modal {
-            display: none; /* Escondido por padrão */
-            position: fixed; /* Fica no lugar */
-            z-index: 1000; /* Fica por cima de tudo */
-            left: 0;
-            top: 0;
-            width: 100%; /* Largura total */
-            height: 100%; /* Altura total */
-            overflow: auto; /* Permite rolagem se o conteúdo for muito grande */
-            background-color: rgba(0,0,0,0.8); /* Fundo preto com opacidade */
-            backdrop-filter: blur(5px); /* Efeito de desfoque no fundo */
-            -webkit-backdrop-filter: blur(5px); /* Suporte para Safari */
-            display: flex; /* Usa flexbox para centralizar o conteúdo */
-            align-items: center; /* Centraliza verticalmente */
-            justify-content: center; /* Centraliza horizontalmente */
-        }
-        .modal-content {
-            background-color: #1f1f1f;
-            margin: auto;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-            width: 90%;
-            max-width: 450px;
-            text-align: center;
-            position: relative;
-        }
-        .modal-input {
-            width: calc(100% - 20px); /* Largura total menos padding */
-            padding: 12px;
-            margin-bottom: 20px;
-            border: 1px solid #333;
-            border-radius: 8px;
-            background-color: #0E0C0A;
-            color: white;
-            font-size: 1rem;
-            box-sizing: border-box; /* Inclui padding e borda na largura */
-        }
-        .modal-button {
-            background-color: #10B981; /* green-500 */
-            color: white;
-            padding: 12px 25px;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: bold;
-            transition: background-color 0.3s ease;
-        }
-        .modal-button:hover {
-            background-color: #059669; /* green-600 */
-        }
+    /* PlaceHolder minusculo */
+    .uppercase-input::placeholder {
+        text-transform: none;
+    }
 
-        /* Estilos para a Sidebar */
-        .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 100%;
-            width: 280px; /* Largura da sidebar */
-            background-color: #1f1f1f;
-            z-index: 1050; /* Acima do overlay */
-            transform: translateX(-100%); /* Escondida por padrão */
-            transition: transform 0.3s ease-in-out;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.5);
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-        }
-        .sidebar.active {
-            transform: translateX(0); /* Visível */
-        }
-        .overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.7);
-            z-index: 1040; /* Abaixo da sidebar, acima do conteúdo */
-            display: none; /* Escondido por padrão */
-            transition: opacity 0.3s ease-in-out;
-        }
-        .overlay.active {
-            display: block;
-        }
+    body.bg-main::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 100%;
+        z-index: -1;
+        background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url(assets/bgNovo.png);
+        background-repeat: no-repeat;
+        background-size: cover;
+        background-position: center;
+    }
+
+    /* Estilos para os passos de status ativos */
+    .status-step.active {
+        background-color: #10B981; /* Tailwind green-500 */
+        border-color: #34D399; /* Tailwind green-400 */
+    }
+    /* Estilos para as linhas de conexão ativas */
+    .status-line.active {
+        background-color: #10B981; /* Tailwind green-500 */
+    }
+    /* Estilos do Modal */
+    .modal {
+        display: none; /* Escondido por padrão */
+        position: fixed; /* Fica no lugar */
+        z-index: 1000; /* Fica por cima de tudo */
+        left: 0;
+        top: 0;
+        width: 100%; /* Largura total */
+        height: 100%; /* Altura total */
+        overflow: auto; /* Permite rolagem se o conteúdo for muito grande */
+        background-color: rgba(0,0,0,0.8); /* Fundo preto com opacidade */
+        backdrop-filter: blur(5px); /* Efeito de desfoque no fundo */
+        -webkit-backdrop-filter: blur(5px); /* Suporte para Safari */
+        display: flex; /* Usa flexbox para centralizar o conteúdo */
+        align-items: center; /* Centraliza verticalmente */
+        justify-content: center; /* Centraliza horizontalmente */
+    }
+    .modal-content {
+        background-color: #1f1f1f;
+        margin: auto;
+        padding: 30px;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        width: 90%;
+        max-width: 450px;
+        text-align: center;
+        position: relative;
+    }
+    .modal-input {
+        width: calc(100% - 20px); /* Largura total menos padding */
+        padding: 12px;
+        margin-bottom: 20px;
+        border: 1px solid #333;
+        border-radius: 8px;
+        background-color: #0E0C0A;
+        color: white;
+        font-size: 1rem;
+        box-sizing: border-box; /* Inclui padding e borda na largura */
+    }
+    .modal-button {
+        background-color: #10B981; /* green-500 */
+        color: white;
+        padding: 12px 25px;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: bold;
+        transition: background-color 0.3s ease;
+    }
+    .modal-button:hover {
+        background-color: #059669; /* green-600 */
+    }
+
+    /* Estilos para a Sidebar */
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 280px; /* Largura da sidebar */
+        background-color: #1f1f1f;
+        z-index: 1050; /* Acima do overlay */
+        transform: translateX(-100%); /* Escondida por padrão */
+        transition: transform 0.3s ease-in-out;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+    }
+    .sidebar.active {
+        transform: translateX(0); /* Visível */
+    }
+    .overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.7);
+        z-index: 1040; /* Abaixo da sidebar, acima do conteúdo */
+        display: none; /* Escondido por padrão */
+        transition: opacity 0.3s ease-in-out;
+    }
+    .overlay.active {
+        display: block;
+    }
 </style>
 <body class="bg-[#0E0C0A] font-serif">
 
-<header class="w-full h-[320px] bg-[#0E0C0A] bg-cover bg-center shadow-sm flex flex-col justify-center items-center px-4 relative">
-
-  <button id="menu-button" class="absolute top-4 right-4 z-20 text-yellow-50 hover:scale-110 transition-transform duration-200">
-    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-    </svg>
-  </button>
-
-  <img src="assets/sua-logo.png" alt="" class="relative w-28 h-28 rounded-full shadow-lg hover:scale-110 transition-transform duration-200 z-10">
-  <h1 class="relative text-3xl mt-3 font-bold text-yellow-50 z-10">Nome</h1>
-  <h1 class="relative text-3xl mb-1 font-bold text-yellow-50 z-10">Do seu estabelcimento</h1>
-  <span class="relative text-sm font-medium text-yellow-50 z-10">Rua, Fartura - SP</span>
-  <div class="relative bg-green-600 px-4 py-1 rounded-lg mt-4 z-10" id="date-span">
-    <span class="text-sm font-medium text-yellow-50">Seg à Dom – 18:00 às 23:00</span>
-  </div>
-</header>
-
-
-
-<!-- Sidebar -->
-<div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-[#0E0C0A] shadow-lg transform -translate-x-full transition-transform duration-300 z-[999]">
-  <div class="p-7">
-
-  
-  <div class="flex items-center justify-between mb-8">
-            <h2 class="text-2xl font-bold text-white">Navegação</h2>
-            <button id="close-sidebar-button" class="text-gray-400 hover:text-white transition-colors">
-                <i class="fa-solid fa-times text-2xl"></i>
-            </button>
-        </div>
-        <nav class="flex flex-col space-y-4">
-            <a href="index.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                <i class="fa-solid fa-pizza-slice"></i>
-                <span>Cardápio</span>
-            </a>
-            <a href="status.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                <i class="fa-solid fa-clock-rotate-left"></i>
-                <span>Meus Pedidos</span>
-            </a>
-            <!-- Adicione mais links conforme necessário -->
-            <a href="cupons.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                <i class="fa-solid fa-ticket-simple"></i>
-                <span>Cupons</span>
-            </a>
-            <a href="#" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                <i class="fa-solid fa-phone"></i>
-                <span>Contato</span>
-            </a>
-            <a href="sobreNos.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                <i class="fa-solid fa-info-circle"></i>
-                <span>Sobre Nós</span>
-            </a>
-        </nav>
-        </div>
-</div>
-
-<!-- Overlay ao abrir a sidebar -->
-<div id="overlay" class="fixed inset-0 bg-black opacity-50 hidden z-50"></div>
-
-
-
-
- <div id="scrollbar" class="sticky top-0 pt-5 z-40 bg-[#0E0C0A]">
- <!-- Botões de categorias com scroll horizontal responsivo -->
-<div class="relative flex items-center ">
-  <!-- Indicador de scroll lateral -->
-  <div id="scroll-indicator" class="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-black to-transparent pointer-events-auto flex items-center justify-center z-10 cursor-pointer">
-    <svg class="w-5 h-5 text-black/70 animate-bounce-right" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-    </svg>
-  </div>
-
-
- 
-  <div id="scroll-container" class="w-full overflow-x-auto scrollbar-hide flex md:justify-center items-center ">
-  <div class="flex flex-nowrap space-x-3 px-3 py-2">
-
-    <a href="#show-novidades" id="btn-novidades" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all hidden">
-      🔥 Novidades
-    </a>
-
-    <a href="#show-promocoes" id="btn-promocoes" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all hidden">
-      💰 Promoções
-    </a>
-
-    <a href="#show-promocoes" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all hidden">
-      💰 Promoções
-    </a>
-
-    <a href="#show-pizza" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
-      🍕 Pizzas
-    </a>
-
-    <a href="#show-esfirra" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
-      🥟 Esfirras
-    </a>
-
-    <a href="#show-lanche" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
-      🥐 Calzones
-    </a>
-
-    <a href="#show-bebida" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
-      🥤 Bebidas
-    </a>
-
-  </div>
-</div>
-</div>
-
-
-<div class="mt-4 flex w-full" style="height: 3px;">
-    <div style="background-color: #009246; flex-grow: 1;"></div>
-    <div style="background-color: #ffffff; flex-grow: 1;"></div>
-    <div style="background-color: #f30616; flex-grow: 1;"></div>
-</div>
-</div>
-
-    <!-- carrinho -->
-
-   <div id="cart-modal" class="bg-black/50 w-full h-full fixed top-0 left-0 z-[99] hidden items-center justify-center p-2 sm:p-4">
-  <div class="bg-white w-full max-w-md rounded-2xl shadow-xl p-5 max-h-[90vh] overflow-y-auto animate-fade-in scale-95">
-    
-    <!-- Título -->
-    <h2 class="text-center text-2xl font-bold mb-4 text-gray-800 flex items-center justify-center gap-2">
-      <i class="fa-solid fa-cart-shopping text-green-600"></i> Meu Carrinho
-    </h2>
-
-    <!-- Itens -->
-    <div id="cart-items" class="flex flex-col gap-4 mb-4"></div>
-
-    <!-- Total -->
-    <p class="text-base sm:text-lg font-semibold text-gray-700 border-t pt-4">
-      Total: <span id="cart-total" class="text-green-600 font-bold">R$ 0,00</span>
-    </p>
-
-    <!-- Observação -->
-    <label for="observation" class="block font-semibold mt-4 text-gray-700 text-base">Observação:</label>
-    <input 
-      type="text"
-      id="observation"
-      placeholder="Ex: Tirar cebola"
-      class="w-full border border-gray-300 rounded-lg p-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm sm:text-base"
-    />
-
-    <!-- Alerta de endereço -->
-    <p class="text-red-500 text-sm hidden mt-2" id="address-warn">Digite seu endereço completo!</p>
-
-    <!-- Botões -->
-    <div class="flex flex-col sm:flex-row sm:justify-between gap-3 mt-6">
-      <button id="cart-modal-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-5 py-3 rounded-lg w-full text-base font-medium flex items-center justify-center gap-2">
-        <i class="fa-solid fa-xmark"></i> Fechar
-      </button>
-      <button id="checkout-btn" class="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-lg w-full text-base font-medium flex items-center justify-center gap-2">
-        <i class="fa-solid fa-check"></i> Finalizar Pedido
-      </button>
-    </div>
-  </div>
-</div>
-
-
-    <!-- Confirmação de Dados -->
-<div id="confirm-modal" class="bg-white w-full h-full fixed top-0 left-0 z-[99] overflow-y-auto p-5 hidden">
-  <div class="max-w-lg mx-auto">
-
-    <h2 class="text-3xl font-bold mb-8 text-center text-gray-800">Confirmar Pedido</h2>
-
-    <!-- Dados do Cliente -->
-    <div class="mb-6 border p-4 rounded-lg shadow-sm">
-      <h3 class="text-lg font-semibold mb-4">Seus Dados</h3>
-
-      <div class="space-y-4">
-        <div>
-          <label for="nome-cliente" class="block font-medium mb-1">Nome Completo</label>
-          <input type="text" id="nome-cliente" placeholder="Digite seu nome" class="w-full border rounded-lg p-3">
-          <p id="nome-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
-        </div>
-
-        <div>
-          <label for="telefone" class="block font-medium mb-1">Telefone</label>
-          <input type="tel" id="telefone" placeholder="(99) 99999-9999" class="w-full border rounded-lg p-3">
-          <p id="telefone-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Tipo de Entrega -->
-    <div class="mb-6 border p-4 rounded-lg shadow-sm">
-      <h3 class="text-lg font-semibold mb-4">Tipo de Entrega</h3>
-      <div class="flex flex-col gap-3 md:flex-row md:justify-center">
-        <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
-          <input type="radio" name="entrega" id="retirada" onchange="atualizarEntrega()" class="w-5 h-5 text-green-500">
-          Retirada no Local
-        </label>
-        <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
-          <input type="radio" name="entrega" id="entrega" onchange="atualizarEntrega()" class="w-5 h-5 text-green-500">
-          Entrega em Casa
-        </label>
-      </div>
-    </div>
-
-    <!-- Endereço de Entrega -->
-    <div id="address-section" class="mb-6 border p-4 rounded-lg shadow-sm hidden">
-      <h3 class="text-lg font-semibold mb-4">Endereço de Entrega <span class="text-sm text-gray-500">(Frete: R$ 4,00)</span></h3>
-
-      <!-- CEP -->
-      <button id="cep-btn" class="w-full bg-green-500 text-white py-2 px-4 rounded-lg mb-4 flex items-center justify-center gap-2 hover:bg-green-600 transition-colors">
-        <i class="fa-solid fa-magnifying-glass-location"></i>
-        Consultar Endereço por CEP
-      </button>
-
-      <div id="cep-modal" class="fixed inset-0 z-[999] hidden items-center justify-center bg-black/60 p-4">
-        <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
-          <h2 class="text-xl font-bold mb-4 text-center text-gray-800">Consultar CEP</h2>
-
-          <div>
-            <label for="cep-input" class="block text-sm font-medium text-gray-700 mb-2">Digite seu CEP:</label>
-            <input 
-              type="tel" 
-              id="cep-input" 
-              placeholder="00000-000"
-              maxlength="9"
-              class="w-full border border-gray-300 rounded-lg p-3 text-center text-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-
-          <div class="flex justify-between gap-3 mt-6">
-            <button id="close-cep-modal-btn" class="w-full px-4 py-3 border border-gray-400 rounded-lg text-gray-700 font-semibold">Cancelar</button>
-            <button id="buscar-cep-btn" class="w-full bg-green-500 text-white px-4 py-3 rounded-lg font-semibold shadow-md">Buscar</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="space-y-4">
-        <div>
-          <label for="rua" class="block font-medium mb-1">Rua</label>
-          <input type="text" id="rua" placeholder="Digite a rua" class="w-full border rounded-lg p-3">
-          <p id="rua-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
-        </div>
-
-        <div class="flex gap-3">
-          <div class="w-1/2">
-            <label for="bairro" class="block font-medium mb-1">Bairro</label>
-            <input type="text" id="bairro" placeholder="Digite o bairro" class="w-full border rounded-lg p-3">
-            <p id="bairro-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
-          </div>
-
-          <div class="w-1/2">
-            <label for="numero" class="block font-medium mb-1">Número</label>
-            <input type="text" id="numero" placeholder="Nº" class="w-full border rounded-lg p-3">
-            <p id="numero-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
-          </div>
-        </div>
-
-        <div>
-          <label for="referencia" class="block font-medium mb-1">Ponto de Referência</label>
-          <input type="text" id="referencia" placeholder="Ex: Casa amarela, próximo ao mercado..." class="w-full border rounded-lg p-3">
-        </div>
-      </div>
-    </div>
-
-    <!-- Local de Retirada -->
-    <div id="retirada-section" class="mb-6 border p-4 rounded-lg shadow-sm hidden">
-      <h3 class="text-lg font-semibold mb-4">Local de Retirada</h3>
-      <p>Rua Benjamin Constant, nº 621, Fartura - SP</p>
-    </div>
-
-    <!-- Forma de Pagamento -->
-    <div class="mb-6 border p-4 rounded-lg shadow-sm">
-  <h3 class="text-lg font-semibold mb-4">Forma de Pagamento</h3>
-  <div class="flex flex-col gap-3 md:flex-row md:justify-center">
-    
-    <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
-      <input type="radio" name="pagamento" id="pagPix" onclick="atualizarPagamento()" class="w-5 h-5 text-green-500">
-      Pix
-    </label>
-
-    <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
-      <input type="radio" name="pagamento" id="pagCartao" onclick="atualizarPagamento()" class="w-5 h-5 text-green-500">
-      Cartão
-    </label>
-
-    <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
-      <input type="radio" name="pagamento" id="pagDinheiro" onclick="atualizarPagamento()" class="w-5 h-5 text-green-500">
-      Dinheiro
-    </label>
-
-  </div>
-</div>
-
-      <!-- Seção PIX -->
-      <div id="PixSection" class="my-4 hidden border p-4 rounded-lg bg-gray-50 shadow-sm text-gray-800">
-        <h3 class="text-lg font-semibold mb-3 text-center">Pagamento via Pix</h3>
-        <p class="text-sm text-center text-gray-600 mb-4">1. Copie a chave abaixo para pagar.<br>2. Envie o comprovante pelo WhatsApp.</p>
-        
-        <div class="flex items-center justify-center bg-gray-200 p-3 rounded-lg mb-4">
-          <span id="pix-key" class="text-gray-700 font-mono select-all">14998165756</span> <!-- Pix da Bonanza -->
-          <button id="copy-pix-btn" class="ml-4 bg-green-500 text-white px-3 py-1 rounded-md hover:bg-green-600 transition-colors">
-            <i class="fa-regular fa-copy mr-1"></i> Copiar
-          </button>
-        </div>
-
-        <button id="whatsapp-receipt-btn" class="w-full bg-green-600 text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-green-700 transition-colors font-semibold">
-          <i class="fab fa-whatsapp text-xl"></i>
-          Enviar Comprovante
+    <header class="w-full h-[320px] bg-[#0E0C0A] bg-cover bg-center shadow-sm flex flex-col justify-center items-center px-4 relative">
+        <button id="menu-button" class="absolute top-4 right-4 z-20 text-yellow-50 hover:scale-110 transition-transform duration-200">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
         </button>
-      </div>
 
-      <div id="trocoSection" class="my-4 hidden">
-        <label for="troco" class="block font-medium mb-1">Troco para quanto?</label>
-        <input type="number" id="troco" placeholder="Ex: 100.00" class="w-full border rounded-lg p-3">
-        <p id="troco-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
-      </div>
-    </div>
-
-    <!-- Cupom -->
-    <div class="mb-6 border p-4 rounded-lg shadow-sm">
-      <div class="space-y-4">
-        <div>
-          <label for="cupom" class="block font-medium mb-1">Cupom de Desconto</label>
-          <div class="flex items-center gap-2">
-            <input type="text" id="cupom" placeholder="Insira seu Cupom" class="w-full border rounded-lg p-3 uppercase-input">
-            <button id="apply-cupom" class="bg-green-500 text-white px-5 py-3 rounded-lg hover:bg-green-600 transition-colors font-semibold">Aplicar</button>
-          </div>
+        <img src="assets/sua-logo.png" alt="Logo da Empresa" class="relative w-28 h-28 rounded-full shadow-lg hover:scale-110 transition-transform duration-200 z-10">
+        <h1 class="relative text-3xl mt-3 font-bold text-yellow-50 z-10">Nome</h1>
+        <h1 class="relative text-3xl mb-1 font-bold text-yellow-50 z-10">Do seu estabelcimento</h1>
+        <span class="relative text-sm font-medium text-yellow-50 z-10">Rua, Fartura - SP</span>
+        <div class="relative bg-green-600 px-4 py-1 rounded-lg mt-4 z-10" id="date-span">
+            <span class="text-sm font-medium text-yellow-50">Seg à Dom – 18:00 às 23:00</span>
         </div>
-      </div>
+    </header>
+
+    <div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-[#0E0C0A] shadow-lg transform -translate-x-full transition-transform duration-300 z-[999]">
+        <div class="p-7">
+            <div class="flex items-center justify-between mb-8">
+                <h2 class="text-2xl font-bold text-white">Navegação</h2>
+                <button id="close-sidebar-button" class="text-gray-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-times text-2xl"></i>
+                </button>
+            </div>
+            <nav class="flex flex-col space-y-4">
+                <a href="index.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                    <i class="fa-solid fa-pizza-slice"></i>
+                    <span>Cardápio</span>
+                </a>
+                <a href="status.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>Meus Pedidos</span>
+                </a>
+                <a href="cupons.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                    <i class="fa-solid fa-ticket-simple"></i>
+                    <span>Cupons</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                    <i class="fa-solid fa-phone"></i>
+                    <span>Contato</span>
+                </a>
+                <a href="sobreNos.html" class="flex items-center gap-3 p-3 rounded-lg text-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                    <i class="fa-solid fa-info-circle"></i>
+                    <span>Sobre Nós</span>
+                </a>
+            </nav>
+        </div>
     </div>
 
-    <!-- Resumo do Pedido -->
-    <div class="mb-6 border p-4 rounded-lg shadow-sm bg-gray-50">
-      <h3 class="text-lg font-semibold mb-4">Resumo do Pedido</h3>
-      <div id="confirm-cart-items" class="text-gray-700 text-sm"></div>
-      <div id="confirm-total" class="font-bold text-lg mt-2">Total: R$ 0,00</div>
+    <div id="overlay" class="fixed inset-0 bg-black opacity-50 hidden z-50"></div>
+
+    <div id="scrollbar" class="sticky top-0 pt-5 z-40 bg-[#0E0C0A]">
+        <div class="relative flex items-center ">
+            <div id="scroll-indicator" class="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-black to-transparent pointer-events-auto flex items-center justify-center z-10 cursor-pointer">
+                <svg class="w-5 h-5 text-black/70 animate-bounce-right" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+            </div>
+
+            <div id="scroll-container" class="w-full overflow-x-auto scrollbar-hide flex md:justify-center items-center ">
+                <div class="flex flex-nowrap space-x-3 px-3 py-2">
+                    <a href="#show-novidades" id="btn-novidades" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all hidden">
+                        🔥 Novidades
+                    </a>
+                    <a href="#show-promocoes" id="btn-promocoes" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all hidden">
+                        💰 Promoções
+                    </a>
+                    <a href="#show-pizza" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
+                        🍕 Pizzas
+                    </a>
+                    <a href="#show-esfirra" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
+                        🥟 Esfirras
+                    </a>
+                    <a href="#show-lanche" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
+                        🥐 Calzones
+                    </a>
+                    <a href="#show-bebida" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
+                        🥤 Bebidas
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 flex w-full" style="height: 3px;">
+            <div style="background-color: #009246; flex-grow: 1;"></div>
+            <div style="background-color: #ffffff; flex-grow: 1;"></div>
+            <div style="background-color: #f30616; flex-grow: 1;"></div>
+        </div>
     </div>
 
-    <!-- Botões -->
-    <div class="flex justify-between items-center mt-8">
-      <button id="back-cart" class="px-5 py-3 border rounded-lg text-gray-700">Voltar</button>
-      <button id="submit-order" class="bg-green-500 text-white px-6 py-3 rounded-lg font-semibold shadow-md">Enviar Pedido</button>
+    <div id="cart-modal" class="bg-black/50 w-full h-full fixed top-0 left-0 z-[99] hidden items-center justify-center p-2 sm:p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-xl p-5 max-h-[90vh] overflow-y-auto animate-fade-in scale-95">
+            <h2 class="text-center text-2xl font-bold mb-4 text-gray-800 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-cart-shopping text-green-600"></i> Meu Carrinho
+            </h2>
+
+            <div id="cart-items" class="flex flex-col gap-4 mb-4"></div>
+
+            <p class="text-base sm:text-lg font-semibold text-gray-700 border-t pt-4">
+                Total: <span id="cart-total" class="text-green-600 font-bold">R$ 0,00</span>
+            </p>
+
+            <label for="observation" class="block font-semibold mt-4 text-gray-700 text-base">Observação:</label>
+            <input
+                type="text"
+                id="observation"
+                placeholder="Ex: Tirar cebola"
+                class="w-full border border-gray-300 rounded-lg p-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm sm:text-base"
+            />
+
+            <p class="text-red-500 text-sm hidden mt-2" id="address-warn">Digite seu endereço completo!</p>
+
+            <div class="flex flex-col sm:flex-row sm:justify-between gap-3 mt-6">
+                <button id="cart-modal-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-5 py-3 rounded-lg w-full text-base font-medium flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-xmark"></i> Fechar
+                </button>
+                <button id="checkout-btn" class="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-lg w-full text-base font-medium flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-check"></i> Finalizar Pedido
+                </button>
+            </div>
+        </div>
     </div>
 
-  </div>
-</div>
+    <div id="confirm-modal" class="bg-white w-full h-full fixed top-0 left-0 z-[99] overflow-y-auto p-5 hidden">
+        <div class="max-w-lg mx-auto">
+            <h2 class="text-3xl font-bold mb-8 text-center text-gray-800">Confirmar Pedido</h2>
 
-<div id="show-novidades" class="mb-12 hidden">
-  <section id="novidades" class="p-4">
-        <div class="w-full items-center justify-center flex mt-8 mb-6">
-    <h2 class="text-5xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50">NOVIDADES</h2>
-  </div>
-  <div id="lista-novidades" class="grid gap-4 md:grid-cols-2"></div>
-</section>
-</div>
+            <div class="mb-6 border p-4 rounded-lg shadow-sm">
+                <h3 class="text-lg font-semibold mb-4">Seus Dados</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label for="nome-cliente" class="block font-medium mb-1">Nome Completo</label>
+                        <input type="text" id="nome-cliente" placeholder="Digite seu nome" class="w-full border rounded-lg p-3">
+                        <p id="nome-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
+                    </div>
+                    <div>
+                        <label for="telefone" class="block font-medium mb-1">Telefone</label>
+                        <input type="tel" id="telefone" placeholder="(99) 99999-9999" class="w-full border rounded-lg p-3">
+                        <p id="telefone-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
+                    </div>
+                </div>
+            </div>
 
-<div id="show-promocoes" class="mb-12 hidden">
-  <section id="promocoes" class="p-4">
-        <div class="w-full items-center justify-center flex mt-8 mb-6">
-    <h2 class="text-5xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50">PROMOÇÕES</h2>
-  </div>
-  <div id="lista-promocoes" class="grid gap-4 md:grid-cols-2"></div>
-</section>
-</div>
+            <div class="mb-6 border p-4 rounded-lg shadow-sm">
+                <h3 class="text-lg font-semibold mb-4">Tipo de Entrega</h3>
+                <div class="flex flex-col gap-3 md:flex-row md:justify-center">
+                    <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
+                        <input type="radio" name="entrega" id="retirada" onchange="atualizarEntrega()" class="w-5 h-5 text-green-500">
+                        Retirada no Local
+                    </label>
+                    <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
+                        <input type="radio" name="entrega" id="entrega" onchange="atualizarEntrega()" class="w-5 h-5 text-green-500">
+                        Entrega em Casa
+                    </label>
+                </div>
+            </div>
 
-    <!-- Pizzas ------------------------------------------------------------------- -->   
+            <div id="address-section" class="mb-6 border p-4 rounded-lg shadow-sm hidden">
+                <h3 class="text-lg font-semibold mb-4">Endereço de Entrega <span class="text-sm text-gray-500">(Frete: R$ 4,00)</span></h3>
 
-<main id="menu" class="pt-20 space-y-24 mb-12">
-    
-    <!-- Pizzas -->
-        <!-- PIZZAS -->
-<div id="show-pizza">
-  <div class="w-full items-center justify-center flex mt-8">
-    <h2 class="text-5xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50">PIZZAS</h2>
-  </div> 
- 
-  <div class="text-yellow-50 mt-6 px-4 text-center">
-    <div id="lista-pizzas-salgadas" class="grid grid-cols-1 gap-7 md:grid-cols-2 mb-10"></div>
+                <button id="cep-btn" class="w-full bg-green-500 text-white py-2 px-4 rounded-lg mb-4 flex items-center justify-center gap-2 hover:bg-green-600 transition-colors">
+                    <i class="fa-solid fa-magnifying-glass-location"></i>
+                    Consultar Endereço por CEP
+                </button>
 
-    <h2 class="text-3xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50 ">PIZZAS DOCE</h2>
-    <div id="lista-pizzas-doces" class="grid grid-cols-1 gap-7 md:grid-cols-2 mb-20 mt-6"></div>
-  </div>
-</div>
+                <div id="cep-modal" class="fixed inset-0 z-[999] hidden items-center justify-center bg-black/60 p-4">
+                    <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
+                        <h2 class="text-xl font-bold mb-4 text-center text-gray-800">Consultar CEP</h2>
+                        <div>
+                            <label for="cep-input" class="block text-sm font-medium text-gray-700 mb-2">Digite seu CEP:</label>
+                            <input
+                                type="tel"
+                                id="cep-input"
+                                placeholder="00000-000"
+                                maxlength="9"
+                                class="w-full border border-gray-300 rounded-lg p-3 text-center text-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                            />
+                        </div>
+                        <div class="flex justify-between gap-3 mt-6">
+                            <button id="close-cep-modal-btn" class="w-full px-4 py-3 border border-gray-400 rounded-lg text-gray-700 font-semibold">Cancelar</button>
+                            <button id="buscar-cep-btn" class="w-full bg-green-500 text-white px-4 py-3 rounded-lg font-semibold shadow-md">Buscar</button>
+                        </div>
+                    </div>
+                </div>
 
-<!-- Esfirras -->
+                <div class="space-y-4">
+                    <div>
+                        <label for="rua" class="block font-medium mb-1">Rua</label>
+                        <input type="text" id="rua" placeholder="Digite a rua" class="w-full border rounded-lg p-3">
+                        <p id="rua-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <div class="w-1/2">
+                            <label for="bairro" class="block font-medium mb-1">Bairro</label>
+                            <input type="text" id="bairro" placeholder="Digite o bairro" class="w-full border rounded-lg p-3">
+                            <p id="bairro-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
+                        </div>
+                        <div class="w-1/2">
+                            <label for="numero" class="block font-medium mb-1">Número</label>
+                            <input type="text" id="numero" placeholder="Nº" class="w-full border rounded-lg p-3">
+                            <p id="numero-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="referencia" class="block font-medium mb-1">Ponto de Referência</label>
+                        <input type="text" id="referencia" placeholder="Ex: Casa amarela, próximo ao mercado..." class="w-full border rounded-lg p-3">
+                    </div>
+                </div>
+            </div>
+
+            <div id="retirada-section" class="mb-6 border p-4 rounded-lg shadow-sm hidden">
+                <h3 class="text-lg font-semibold mb-4">Local de Retirada</h3>
+                <p>Rua Benjamin Constant, nº 621, Fartura - SP</p>
+            </div>
+
+            <div class="mb-6 border p-4 rounded-lg shadow-sm">
+                <h3 class="text-lg font-semibold mb-4">Forma de Pagamento</h3>
+                <div class="flex flex-col gap-3 md:flex-row md:justify-center">
+                    <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
+                        <input type="radio" name="pagamento" id="pagPix" onclick="atualizarPagamento()" class="w-5 h-5 text-green-500">
+                        Pix
+                    </label>
+                    <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
+                        <input type="radio" name="pagamento" id="pagCartao" onclick="atualizarPagamento()" class="w-5 h-5 text-green-500">
+                        Cartão
+                    </label>
+                    <label class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg cursor-pointer w-full md:w-auto">
+                        <input type="radio" name="pagamento" id="pagDinheiro" onclick="atualizarPagamento()" class="w-5 h-5 text-green-500">
+                        Dinheiro
+                    </label>
+                </div>
+            </div>
+
+            <div id="PixSection" class="my-4 hidden border p-4 rounded-lg bg-gray-50 shadow-sm text-gray-800">
+                <h3 class="text-lg font-semibold mb-3 text-center">Pagamento via Pix</h3>
+                <p class="text-sm text-center text-gray-600 mb-4">1. Copie a chave abaixo para pagar.<br>2. Envie o comprovante pelo WhatsApp.</p>
+                <div class="flex items-center justify-center bg-gray-200 p-3 rounded-lg mb-4">
+                    <span id="pix-key" class="text-gray-700 font-mono select-all">14998165756</span>
+                    <button id="copy-pix-btn" class="ml-4 bg-green-500 text-white px-3 py-1 rounded-md hover:bg-green-600 transition-colors">
+                        <i class="fa-regular fa-copy mr-1"></i> Copiar
+                    </button>
+                </div>
+                <button id="whatsapp-receipt-btn" class="w-full bg-green-600 text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-green-700 transition-colors font-semibold">
+                    <i class="fab fa-whatsapp text-xl"></i>
+                    Enviar Comprovante
+                </button>
+            </div>
+
+            <div id="trocoSection" class="my-4 hidden">
+                <label for="troco" class="block font-medium mb-1">Troco para quanto?</label>
+                <input type="number" id="troco" placeholder="Ex: 100.00" class="w-full border rounded-lg p-3">
+                <p id="troco-aste" class="text-red-500 text-sm hidden">Campo obrigatório</p>
+            </div>
+        </div>
+
+        <div class="mb-6 border p-4 rounded-lg shadow-sm">
+            <div class="space-y-4">
+                <div>
+                    <label for="cupom" class="block font-medium mb-1">Cupom de Desconto</label>
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="cupom" placeholder="Insira seu Cupom" class="w-full border rounded-lg p-3 uppercase-input">
+                        <button id="apply-cupom" class="bg-green-500 text-white px-5 py-3 rounded-lg hover:bg-green-600 transition-colors font-semibold">Aplicar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-6 border p-4 rounded-lg shadow-sm bg-gray-50">
+            <h3 class="text-lg font-semibold mb-4">Resumo do Pedido</h3>
+            <div id="confirm-cart-items" class="text-gray-700 text-sm"></div>
+            <div id="confirm-total" class="font-bold text-lg mt-2">Total: R$ 0,00</div>
+        </div>
+
+        <div class="flex justify-between items-center mt-8">
+            <button id="back-cart" class="px-5 py-3 border rounded-lg text-gray-700">Voltar</button>
+            <button id="submit-order" class="bg-green-500 text-white px-6 py-3 rounded-lg font-semibold shadow-md">Enviar Pedido</button>
+        </div>
+    </div>
+
+    <div id="show-novidades" class="mb-12 hidden">
+        <section id="novidades" class="p-4">
+            <div class="w-full items-center justify-center flex mt-8 mb-6">
+                <h2 class="text-5xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50">NOVIDADES</h2>
+            </div>
+            <div id="lista-novidades" class="grid gap-4 md:grid-cols-2"></div>
+        </section>
+    </div>
+
+    <div id="show-promocoes" class="mb-12 hidden">
+        <section id="promocoes" class="p-4">
+            <div class="w-full items-center justify-center flex mt-8 mb-6">
+                <h2 class="text-5xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50">PROMOÇÕES</h2>
+            </div>
+            <div id="lista-promocoes" class="grid gap-4 md:grid-cols-2"></div>
+        </section>
+    </div>
+
+    <main id="menu" class="pt-20 space-y-24 mb-12">
+        <div id="show-pizza">
+            <div class="w-full items-center justify-center flex mt-8">
+                <h2 class="text-5xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50">PIZZAS</h2>
+            </div>
+            <div class="text-yellow-50 mt-6 px-4 text-center">
+                <div id="lista-pizzas-salgadas" class="grid grid-cols-1 gap-7 md:grid-cols-2 mb-10"></div>
+                <h2 class="text-3xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50 ">PIZZAS DOCE</h2>
+                <div id="lista-pizzas-doces" class="grid grid-cols-1 gap-7 md:grid-cols-2 mb-20 mt-6"></div>
+            </div>
+        </div>
+
         <div id="show-esfirra">
-        <div class="w-full items-center justify-center flex mt-8">
-    <h2 class="text-5xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50">ESFIRRAS</h2>
-  </div>
+            <div class="w-full items-center justify-center flex mt-8">
+                <h2 class="text-5xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50">ESFIRRAS</h2>
+            </div>
+            <div class="text-yellow-50 mt-6 px-4 text-center">
+                <div id="lista-esfirras-salgadas" class="grid grid-cols-1 gap-7 md:grid-cols-2 mb-10"></div>
+                <h2 class="text-3xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50 ">ESFIRRAS DOCE</h2>
+                <div id="lista-esfirras-doces" class="grid grid-cols-1 gap-7 md:grid-cols-2 mb-20 mt-6"></div>
+            </div>
+        </div>
 
-  <div class="text-yellow-50 mt-6 px-4 text-center">
-    <div id="lista-esfirras-salgadas" class="grid grid-cols-1 gap-7 md:grid-cols-2 mb-10"></div>
-
-    <h2 class="text-3xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50 ">ESFIRRAS DOCE</h2>
-    <div id="lista-esfirras-doces" class="grid grid-cols-1 gap-7 md:grid-cols-2 mb-20 mt-6"></div>
-  </div>
-</div>
-
-<!-- Lanches -->
         <div id="show-lanche" >
             <div class="w-full items-center justify-center flex mt-8">
                 <h2 class="text-yellow-50 text-5xl font-bold mb-2 border-b border-green-800 pb-2">CALZONES</h2>
             </div>
-            
-            <div class="grid grid-cols-1  gap-7 mx-auto max-w-7xl md:grid-cols-2 mt-9 mb-20 p-4">
-            <!-- Itens de pizza serão inseridos aqui via JS -->
-            <div id="lista-lanches" class="contents"></div>
+            <div class="grid grid-cols-1 gap-7 mx-auto max-w-7xl md:grid-cols-2 mt-9 mb-20 p-4">
+                <div id="lista-lanches-salgados" class="contents"></div>
             </div>
-
             <div class="text-yellow-50 mt-6 px-4 text-center">
-              <div id="lista-lanches-salgados" class="grid grid-cols-1 gap-7 md:grid-cols-2 mb-10"></div>
-
-              <h2 class="text-3xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50 ">CALZONES DOCE</h2>
-              <div id="lista-lanches-doces" class="grid grid-cols-1 gap-7 md:grid-cols-2 mb-20 mt-6"></div>
+                <h2 class="text-3xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50 ">CALZONES DOCE</h2>
+                <div id="lista-lanches-doces" class="grid grid-cols-1 gap-7 md:grid-cols-2 mb-20 mt-6"></div>
             </div>
         </div>
 
-        <!-- Bebidas -->
-       <div id="show-bebida" >
+        <div id="show-bebida" >
             <div class="w-full items-center justify-center flex mt-8">
                 <h2 class="text-5xl font-bold mb-2 border-b border-green-800 pb-2 text-yellow-50">BEBIDAS</h2>
             </div>
-            
             <div class="grid grid-cols-1 gap-7 mx-auto max-w-7xl md:grid-cols-2 mt-9 mb-20 p-4">
-            <div id="lista-bebidas" class="contents"></div>
+                <div id="lista-bebidas" class="contents"></div>
             </div>
         </div>
+    </main>
 
-        
+    <footer class="fixed bottom-0 left-0 right-0 bg-black border-t border-gray-700 p-4 gap-2">
+        <button id="cart-btn" class="max-w-md mx-auto flex justify-center text-center text-white text-lg font-semibold">
+            (<span id="cart-count" class="text-green-600">0</span>) Ver carrinho
+            <i class="fa fa-cart-plus text-lg"></i>
+        </button>
+    </footer>
 
-        
+    <div id="pizza-modal" class="fixed inset-0 z-[999] hidden items-center justify-center bg-black/60 p-4">
+        <div class="bg-white rounded-2xl w-full max-w-sm sm:max-w-md p-4 sm:p-6 shadow-xl overflow-y-auto max-h-[90vh]">
+            <h2 id="modal-title" class="text-xl sm:text-2xl font-bold mb-5 text-center text-gray-800"></h2>
 
-</main>
-
-<!-- Carrinho fixo inferior -->
-<footer class="fixed bottom-0 left-0 right-0 bg-black border-t border-gray-700 p-4 gap-2">
-  <button id="cart-btn" class="max-w-md mx-auto flex justify-center text-center text-white text-lg font-semibold">
-    (<span id="cart-count" class="text-green-600">0</span>) Ver carrinho
-    <i class="fa fa-cart-plus text-lg"></i>
-  </button>
-</footer>
-    
-<div id="pizza-modal" class="fixed inset-0 z-[999] hidden items-center justify-center bg-black/60 p-4">
-    <div class="bg-white rounded-2xl w-full max-w-sm sm:max-w-md p-4 sm:p-6 shadow-xl overflow-y-auto max-h-[90vh]">
-
-        <h2 id="modal-title" class="text-xl sm:text-2xl font-bold mb-5 text-center text-gray-800"></h2>
-
-        <div class="mb-5">
-            <h3 class="font-semibold text-base sm:text-lg mb-3 text-gray-700">Escolha o tamanho:</h3>
-            <div class="flex justify-center gap-3 flex-wrap">
-                <button class="size-btn bg-gray-200 text-gray-700 py-2 sm:py-3 rounded-full font-medium w-24 transition-all" data-size="Broto">Broto</button>
-                <button class="size-btn bg-gray-200 text-gray-700 py-2 sm:py-3 rounded-full font-medium w-24 transition-all" data-size="Grande">Grande</button>
-            </div>
-        </div>
-
-        <div class="mb-5">
-            <h3 class="font-semibold text-base sm:text-lg mb-3 text-gray-700">Deseja Meia-Meia?</h3>
-            <input type="text" id="half-pizza-search" placeholder="Pesquisar pizza..." class="w-full p-2 border border-gray-300 rounded-md mb-3 focus:ring-blue-500 focus:border-blue-500 text-gray-900">
-            <div id="half-pizza-options-container" class="max-h-48 overflow-y-auto flex flex-col gap-2 px-1 sm:px-2">
-                <button class="half-btn bg-gray-200 text-gray-700 px-3 py-2 sm:py-3 rounded-md text-left" data-half="" data-price="0">Não</button>
-                </div>
-        </div>
-
-        <div class="mb-5">
-            <h3 class="font-semibold text-base sm:text-lg mb-3 text-gray-700">Deseja adicionar borda?</h3>
-            <div class="flex gap-3 mb-3 flex-wrap">
-                <button class="crust-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm" data-crust="Não">Não</button>
-                <button class="crust-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm" data-crust="Sim">Sim</button>
-            </div>
-
-            <div id="crust-flavor-section" class="hidden">
-                <h4 class="text-sm font-medium text-gray-700 mb-2">Escolha o sabor da borda:</h4>
-                <div class="flex flex-col gap-2">
-                    <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-left" data-flavor="Cream cheese">Cream cheese (+R$10 ou R$12)</button>
-                    <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-left" data-flavor="Mussarela">Mussarela (+R$10 ou R$12)</button>
-                    <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-left" data-flavor="Chocolote">Chocolote (+R$10 ou R$12)</button>
-                    <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-left" data-flavor="Cheddar">Cheddar (+R$10 ou R$12)</button>
-                    <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-left" data-flavor="Catupiry">Catupiry (+R$10 ou R$12)</button>
+            <div class="mb-5">
+                <h3 class="font-semibold text-base sm:text-lg mb-3 text-gray-700">Escolha o tamanho:</h3>
+                <div class="flex justify-center gap-3 flex-wrap">
+                    <button class="size-btn bg-gray-200 text-gray-700 py-2 sm:py-3 rounded-full font-medium w-24 transition-all" data-size="Broto">Broto</button>
+                    <button class="size-btn bg-gray-200 text-gray-700 py-2 sm:py-3 rounded-full font-medium w-24 transition-all" data-size="Grande">Grande</button>
                 </div>
             </div>
-        </div>
 
-        <div class="mb-5">
-            <h3 class="font-semibold text-base sm:text-lg mb-3 text-gray-700">Adicionais:</h3>
-            <div id="additional-ingredients-container" class="max-h-48 overflow-y-auto flex flex-col gap-2 px-1 sm:px-2">
+            <div class="mb-5">
+                <h3 class="font-semibold text-base sm:text-lg mb-3 text-gray-700">Deseja Meia-Meia?</h3>
+                <input type="text" id="half-pizza-search" placeholder="Pesquisar pizza..." class="w-full p-2 border border-gray-300 rounded-md mb-3 focus:ring-blue-500 focus:border-blue-500 text-gray-900">
+                <div id="half-pizza-options-container" class="max-h-48 overflow-y-auto flex flex-col gap-2 px-1 sm:px-2">
+                    <button class="half-btn bg-gray-200 text-gray-700 px-3 py-2 sm:py-3 rounded-md text-left" data-half="" data-price="0">Não</button>
                 </div>
-        </div>
-        <p id="pizza-price-preview" class="text-lg font-semibold text-center text-gray-800 mt-4">Valor: R$ 0,00</p>
+            </div>
 
-        <div class="flex flex-col sm:flex-row justify-between gap-3 mt-6">
-            <button id="cancel-pizza" class="w-full sm:w-auto px-4 py-3 border border-gray-400 rounded-full text-gray-700 text-sm">Cancelar</button>
-            <button id="confirm-pizza" class="w-full sm:w-auto bg-green-500 text-white px-4 py-3 rounded-full font-semibold shadow-md text-sm">Adicionar</button>
+            <div class="mb-5">
+                <h3 class="font-semibold text-base sm:text-lg mb-3 text-gray-700">Deseja adicionar borda?</h3>
+                <div class="flex gap-3 mb-3 flex-wrap">
+                    <button class="crust-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm" data-crust="Não">Não</button>
+                    <button class="crust-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm" data-crust="Sim">Sim</button>
+                </div>
+
+                <div id="crust-flavor-section" class="hidden">
+                    <h4 class="text-sm font-medium text-gray-700 mb-2">Escolha o sabor da borda:</h4>
+                    <div class="flex flex-col gap-2">
+                        <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-left" data-flavor="Cream cheese">Cream cheese</button>
+                        <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-left" data-flavor="Mussarela">Mussarela</button>
+                        <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-left" data-flavor="Chocolate">Chocolate</button>
+                        <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-left" data-flavor="Cheddar">Cheddar</button>
+                        <button class="crust-flavor-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-left" data-flavor="Catupiry">Catupiry</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-5">
+                <h3 class="font-semibold text-base sm:text-lg mb-3 text-gray-700">Adicionais:</h3>
+                <div id="additional-ingredients-container" class="max-h-48 overflow-y-auto flex flex-col gap-2 px-1 sm:px-2">
+                </div>
+            </div>
+            <p id="pizza-price-preview" class="text-lg font-semibold text-center text-gray-800 mt-4">Valor: R$ 0,00</p>
+
+            <div class="flex flex-col sm:flex-row justify-between gap-3 mt-6">
+                <button id="cancel-pizza" class="w-full sm:w-auto px-4 py-3 border border-gray-400 rounded-full text-gray-700 text-sm">Cancelar</button>
+                <button id="confirm-pizza" class="w-full sm:w-auto bg-green-500 text-white px-4 py-3 rounded-full font-semibold shadow-md text-sm">Adicionar</button>
+            </div>
         </div>
     </div>
-</div>
 
 </body>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
-<script src="https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js"></script>
-
-<!-- Firebase Analytics (opcional) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics-compat.js"></script>
-
-<!-- Firebase Realtime Database -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="script.js"></script>
 
 <script>
-     function showPizza() {
-        document.getElementById('show-pizza').style.display = "grid"
-        document.getElementById('show-bebida').style.display = "none"
-        document.getElementById('show-esfirra').style.display = "none"
-        document.getElementById('show-lanche').style.display = "none"
-        document.getElementById('show-promocoes').style.display = "none"
-        
+    // Funções de visibilidade das seções do menu
+    function hideAllMenuSections() {
+        document.getElementById('show-pizza').style.display = "none";
+        document.getElementById('show-bebida').style.display = "none";
+        document.getElementById('show-esfirra').style.display = "none";
+        document.getElementById('show-lanche').style.display = "none";
+        document.getElementById('show-promocoes').style.display = "none";
+        document.getElementById('show-novidades').style.display = "none";
     }
 
-    function showBebida(){
-        document.getElementById('show-pizza').style.display = "none"
-        document.getElementById('show-bebida').style.display = "grid"
-        document.getElementById('show-esfirra').style.display = "none"
-        document.getElementById('show-lanche').style.display = "none"
-        document.getElementById('show-promocoes').style.display = "none"
+    function showSection(sectionId) {
+        hideAllMenuSections();
+        document.getElementById(sectionId).style.display = "grid";
     }
 
-    function showEsfirra() {
-        document.getElementById('show-pizza').style.display = "none"
-        document.getElementById('show-bebida').style.display = "none"
-        document.getElementById('show-esfirra').style.display = "grid"
-        document.getElementById('show-lanche').style.display = "none"
-        document.getElementById('show-promocoes').style.display = "none"
-    }
+    // Adiciona event listeners aos botões de categoria
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelector('a[href="#show-pizza"]').addEventListener('click', (e) => { e.preventDefault(); showSection('show-pizza'); });
+        document.querySelector('a[href="#show-esfirra"]').addEventListener('click', (e) => { e.preventDefault(); showSection('show-esfirra'); });
+        document.querySelector('a[href="#show-lanche"]').addEventListener('click', (e) => { e.preventDefault(); showSection('show-lanche'); });
+        document.querySelector('a[href="#show-bebida"]').addEventListener('click', (e) => { e.preventDefault(); showSection('show-bebida'); });
+        document.getElementById('btn-promocoes').addEventListener('click', (e) => { e.preventDefault(); showSection('show-promocoes'); });
+        document.getElementById('btn-novidades').addEventListener('click', (e) => { e.preventDefault(); showSection('show-novidades'); });
 
-    function showLanche() {
-        document.getElementById('show-pizza').style.display = "none"
-        document.getElementById('show-bebida').style.display = "none"
-        document.getElementById('show-esfirra').style.display = "none"
-        document.getElementById('show-lanche').style.display = "grid"
-        document.getElementById('show-promocoes').style.display = "none"
-    }
-
-    function showPromocoes() {
-        document.getElementById('show-pizza').style.display = "none"
-        document.getElementById('show-bebida').style.display = "none"
-        document.getElementById('show-esfirra').style.display = "none"
-        document.getElementById('show-lanche').style.display = "none"
-        document.getElementById('show-promocoes').style.display = "grid"
-        
-    }
+        // Exibe a seção de pizzas por padrão ao carregar
+        showSection('show-pizza');
+    });
 </script>
 </html>

@@ -7,7 +7,7 @@ const firebaseConfig = {
     messagingSenderId: "110849299422",
     appId: "1:110849299422:web:44083feefdd967f4f9434f",
     measurementId: "G-Y4KFGTHFP1"
-  };
+};
 
 // Inicializar Firebase
 firebase.initializeApp(firebaseConfig);
@@ -15,26 +15,15 @@ firebase.initializeApp(firebaseConfig);
 // Obter referência ao Realtime Database
 const database = firebase.database();
 
-// --- NOVAS DECLARAÇÕES E LISTENERS PARA INGREDIENTES E PRODUTOS ---
-const ingredientesRef = database.ref('ingredientes'); // Referência para os ingredientes no Firebase
-const produtosRef = database.ref('produtos'); // Referência para os produtos no Firebase (categorias)
+// --- Referências do Firebase ---
+const ingredientesRef = database.ref('ingredientes');
+const produtosRef = database.ref('produtos');
+const pedidosRef = database.ref('pedidos');
+const configRef = database.ref('config/ultimoPedidoId');
+const cuponsRef = database.ref('cupons');
+const cuponsUsadosRef = database.ref('cupons_usados');
 
-
-
-let allIngredients = {}; // Objeto para armazenar todos os ingredientes localmente
-
-// Listener para manter allIngredients sincronizado com o Firebase
-ingredientesRef.on('value', (snapshot) => {
-    allIngredients = snapshot.val() || {};
-    availableAddons = Object.entries(allIngredients)
-        .filter(([, data]) => data.ativoAdicional && typeof data.precoAdicional === 'number' && data.precoAdicional > 0)
-        .map(([id, data]) => ({ id, ...data }));
-    console.log("allIngredients carregado/atualizado:", Object.keys(allIngredients).length, "ingredientes.");
-     console.log("Adicionais disponíveis:", availableAddons.length);
-});
-// --- FIM DAS NOVAS DECLARAÇÕES E LISTENERS ---
-
-
+// --- Elementos do DOM ---
 const cartBtn = document.getElementById('cart-btn');
 const cartModal = document.getElementById('cart-modal');
 const cartItemsContainer = document.getElementById('cart-items');
@@ -68,57 +57,121 @@ const cepModal = document.getElementById('cep-modal');
 const closeCepModalBtn = document.getElementById('close-cep-modal-btn');
 const buscarCepBtn = document.getElementById('buscar-cep-btn');
 const cepInput = document.getElementById('cep-input');
-const cepCache = {}; //Cache de memória
-const halfPizzaSearchInput = document.getElementById('half-pizza-search'); // Campo de busca para as opções de meia-meia
-const halfPizzaOptionsContainer = document.getElementById('half-pizza-options-container'); // Contêiner onde as opções de meia-meia serão renderizadas
+const halfPizzaSearchInput = document.getElementById('half-pizza-search');
+const halfPizzaOptionsContainer = document.getElementById('half-pizza-options-container');
 const additionalIngredientsContainer = document.getElementById('additional-ingredients-container');
-const FRETE_VALOR = 4.00;
+const crustFlavorSection = document.getElementById('crust-flavor-section');
+const pizzaPricePreview = document.getElementById('pizza-price-preview');
+const pizzaModalTitle = document.getElementById('modal-title');
 
+// --- Variáveis de Estado ---
+const FRETE_VALOR = 4.00;
 let cart = [];
 let cupomAplicado = null;
-
-let selectedPizza = null;
+let selectedPizza = null; // Objeto com {name, price, id, category}
 let selectedSize = "Grande";
 let selectedHalf = "";
 let selectedHalfPrice = 0;
 let wantsCrust = "Não";
 let crustFlavor = "";
-let allPizzasSnapshot = null;
-let availableAddons = []; 
-let selectedAddons = [];
+let selectedAddons = []; // [{ id, nome, precoAdicional }]
 
+let allIngredients = {}; // Cache local de ingredientes
+let availableAddons = []; // Ingredientes ativos para adicionais
+let allPizzasSnapshot = null; // Snapshot de todas as pizzas para o modal de meia-meia
+const cepCache = {}; // Cache de memória para CEPs
 
-// --- Inicialização e Carregamento de Produtos ---
+// --- Listeners do Firebase para dados em tempo real ---
+ingredientesRef.on('value', (snapshot) => {
+    allIngredients = snapshot.val() || {};
+    availableAddons = Object.entries(allIngredients)
+        .filter(([, data]) => data.ativoAdicional && typeof data.precoAdicional === 'number' && data.precoAdicional > 0)
+        .map(([id, data]) => ({ id, ...data }));
+    console.log("allIngredients carregado/atualizado:", Object.keys(allIngredients).length, "ingredientes.");
+    console.log("Adicionais disponíveis:", availableAddons.length);
+    if (document.getElementById('pizza-modal').style.display === 'flex') {
+        renderAddonOptions(); // Atualiza os adicionais se o modal de pizza estiver aberto
+    }
+});
 
-// Função genérica para carregar e renderizar produtos
-async function loadAndRenderProducts(dbRefPath, containerId, itemType, sectionId = null, btnId = null, subTipo = null) {
+// --- Funções de Carregamento e Renderização de Produtos ---
+
+/**
+ * Cria o HTML para um item do cardápio.
+ * @param {object} item - Os dados do item (nome, preco, descricao, imagem).
+ * @param {string} type - O tipo do item ('pizza', 'bebida', etc.).
+ * @param {string} idDoItemFirebase - O ID do item no Firebase.
+ * @returns {string} O HTML do item.
+ */
+function criarItemCardapio(item, type, idDoItemFirebase) {
+    const buttonClass = type === 'pizza' ? 'open-modal-btn' : 'add-to-cart-btn';
+    const name = item.nome || item.titulo;
+    const description = item.descricao || '';
+    const price = item.preco.toFixed(2).replace('.', ',');
+    const image = item.imagem || 'assets/default.png';
+
+    return `
+    <div class="flex gap-4 p-3 border border-[#3a3a3a] rounded-xl shadow bg-[#111] hover:shadow-md transition-shadow text-[#f5f0e6] font-[Cinzel]">
+      <img src="${image}" alt="${name}" loading="lazy" class="w-20 h-20 rounded-lg object-cover hover:scale-105 hover:rotate-1 transition-transform duration-300" />
+      <div class="flex-1">
+        <p class="font-bold text-lg">${name}</p>
+        <p class="text-sm text-gray-400">${description}</p>
+        <div class="flex items-center justify-between mt-3">
+          <p class="text-lg font-bold text-[#f5f0e6]">R$ ${price}</p>
+          <button
+            class="bg-green-700 hover:bg-green-600 transition-colors px-4 py-1 rounded-md ${buttonClass}"
+            data-name="${name}"
+            data-price="${item.preco}"
+            data-id="${idDoItemFirebase}"
+            data-category="${type === 'pizza' ? 'pizzas' : type === 'bebida' ? 'bebidas' : type === 'esfirra' ? 'esfirras' : type === 'lanche' ? 'calzone' : type === 'promocao' ? 'promocoes' : 'novidades'}">
+            <i class="fa fa-cart-plus text-white text-lg"></i>
+          </button>
+        </div>
+      </div>
+    </div>`;
+}
+
+/**
+ * Carrega e renderiza produtos de uma categoria específica do Firebase.
+ * @param {string} dbRefPath - O caminho do nó no Firebase Realtime Database.
+ * @param {string} containerId - O ID do elemento HTML onde os itens serão renderizados.
+ * @param {string} itemType - O tipo de item (ex: 'pizza', 'bebida').
+ * @param {string} [sectionId] - Opcional. O ID da seção HTML a ser mostrada/escondida.
+ * @param {string} [btnId] - Opcional. O ID do botão de categoria a ser mostrado/escondido.
+ * @param {string} [subType] - Opcional. Usado para filtrar por subtipo (ex: 'Salgado', 'Doce').
+ */
+async function loadAndRenderProducts(dbRefPath, containerId, itemType, sectionId = null, btnId = null, subType = null) {
     try {
         const snapshot = await database.ref(dbRefPath).once('value');
         const container = document.getElementById(containerId);
-        let htmlContent = '';
-        let hasActiveItems = false; 
-
         if (!container) {
             console.warn(`Contêiner com ID ${containerId} não encontrado.`);
             return;
         }
 
+        const fragment = document.createDocumentFragment();
+        let hasActiveItems = false;
+
         snapshot.forEach((itemSnap) => {
             const item = itemSnap.val();
             const itemId = itemSnap.key;
             if (item.ativo) {
-                hasActiveItems = true; 
-
-                // LÓGICA PRINCIPAL DO FILTRO:
-                // Se um 'subTipo' (ex: "Salgada") foi passado, ele só adiciona o item se o item tiver o tipo correspondente.
-                // Se nenhum 'subTipo' foi passado (como no caso de bebidas), ele adiciona o item.
-                if (!subTipo || (item.tipo && item.tipo.toLowerCase() === subTipo.toLowerCase())) {
-                    htmlContent += criarItemCardapio(item, itemType, itemId);
+                // Filtra por subtipo se for especificado
+                if (!subType || (item.tipo && item.tipo.toLowerCase() === subType.toLowerCase())) {
+                    fragment.appendChild(
+                        document.createRange().createContextualFragment(
+                            criarItemCardapio(item, itemType, itemId)
+                        )
+                    );
+                    hasActiveItems = true;
                 }
             }
         });
-        container.innerHTML = htmlContent;
 
+        container.innerHTML = ''; // Limpa o container uma única vez
+        container.appendChild(fragment); // Adiciona todos os elementos de uma vez
+
+        // Controla a visibilidade da seção e do botão de categoria
         if (sectionId && btnId) {
             const sectionDiv = document.getElementById(sectionId);
             const sectionBtn = document.getElementById(btnId);
@@ -133,157 +186,43 @@ async function loadAndRenderProducts(dbRefPath, containerId, itemType, sectionId
             }
         }
 
+        // Armazena o snapshot de pizzas para o modal de meia-meia
         if (itemType === 'pizza') {
-            allPizzasSnapshot = snapshot; // Armazena o snapshot completo aqui
-            atualizarOpcoesMeiaMeia(); // Chama sem o snapshot, pois agora é global
-        }
+            allPizzasSnapshot = snapshot;
+            atualizarOpcoesMeiaMeia();
+        }
     } catch (error) {
         console.error(`Erro ao carregar produtos de ${dbRefPath}:`, error);
         Toastify({ text: "Erro ao carregar o menu. Tente novamente mais tarde.", duration: 3000, style: { background: "#ef4444" } }).showToast();
     }
 }
 
-// Chamar as funções de carregamento para cada categoria
+/**
+ * Carrega todas as categorias de produtos.
+ */
 async function carregarTodasCategorias() {
-    // Pizzas agora são filtradas por tipo
     await loadAndRenderProducts('produtos/pizzas', 'lista-pizzas-salgadas', 'pizza', null, null, 'Salgado');
     await loadAndRenderProducts('produtos/pizzas', 'lista-pizzas-doces', 'pizza', null, null, 'Doce');
-
-    // Esfirras agora são filtradas por tipo
     await loadAndRenderProducts('produtos/esfirras', 'lista-esfirras-salgadas', 'esfirra', null, null, 'Salgado');
     await loadAndRenderProducts('produtos/esfirras', 'lista-esfirras-doces', 'esfirra', null, null, 'Doce');
-
-    // Calzones
-    await loadAndRenderProducts('produtos/calzone', 'lista-lanches', 'lanche', null, null, 'Salgado');
+    await loadAndRenderProducts('produtos/calzone', 'lista-lanches-salgados', 'lanche', null, null, 'Salgado');
     await loadAndRenderProducts('produtos/calzone', 'lista-lanches-doces', 'lanche', null, null, 'Doce');
-    
-    // Categorias sem subtipos continuam como antes
     await loadAndRenderProducts('produtos/bebidas', 'lista-bebidas', 'bebida');
     await loadAndRenderProducts('produtos/promocoes', 'lista-promocoes', 'promocao', 'show-promocoes', 'btn-promocoes');
     await loadAndRenderProducts('produtos/novidades', 'lista-novidades', 'novidade', 'show-novidades', 'btn-novidades');
 }
 
-// Chame a função principal de carregamento quando o DOM estiver pronto
-document.addEventListener('DOMContentLoaded', carregarTodasCategorias);
-
-
-function criarItemCardapio(item, tipo, idDoItemFirebase) {
-    const botaoClass = tipo === 'pizza' ? 'open-modal-btn' : 'add-to-cart-btn';
-    const nome = item.nome || item.titulo;
-    const descricao = item.descricao || '';
-    const preco = item.preco.toFixed(2);
-    const imagem = item.imagem || 'assets/default.png';
-
-    return `
-    <div class="flex gap-4 p-3 border border-[#3a3a3a] rounded-xl shadow bg-[#111] hover:shadow-md transition-shadow text-[#f5f0e6] font-[Cinzel]">
-      <img src="${imagem}" alt="${nome}" class="w-20 h-20 rounded-lg object-cover hover:scale-105 hover:rotate-1 transition-transform duration-300" />
-      <div class="flex-1">
-        <p class="font-bold text-lg">${nome}</p>
-        <p class="text-sm text-gray-400">${descricao}</p>
-        <div class="flex items-center justify-between mt-3">
-          <p class="text-lg font-bold text-[#f5f0e6]">R$ ${preco.replace('.', ',')}</p>
-          <button
-            class="bg-green-700 hover:bg-green-600 transition-colors px-4 py-1 rounded-md ${botaoClass}"
-            data-name="${nome}"
-            data-price="${item.preco}"
-            data-id="${idDoItemFirebase}"
-            data-category="${tipo === 'pizza' ? 'pizzas' : tipo === 'bebida' ? 'bebidas' : tipo === 'esfirra' ? 'esfirras' : tipo === 'lanche' ? 'calzone' : tipo === 'promocao' ? 'promocoes' : 'novidades'}">
-            <i class="fa fa-cart-plus text-white text-lg"></i>
-          </button>
-        </div>
-      </div>
-    </div>`;
-}
-
 // --- Delegação de Eventos para botões de adicionar ao carrinho e abrir modal ---
-// Centraliza a escuta de cliques no corpo do documento para elementos dinâmicos
 document.body.addEventListener('click', function(event) {
     const targetButton = event.target.closest('.add-to-cart-btn, .open-modal-btn');
-
     if (targetButton) {
         if (targetButton.classList.contains('add-to-cart-btn')) {
-            // Usa .call para que 'this' dentro de handleAddToCart se refira ao botão clicado
             handleAddToCart.call(targetButton);
         } else if (targetButton.classList.contains('open-modal-btn')) {
             handleOpenPizzaModal.call(targetButton);
         }
     }
 });
-
-
-function atualizarOpcoesMeiaMeia(searchTerm = '') { // Adicionado searchTerm com valor padrão vazio
-    const containerMeiaMeia = halfPizzaOptionsContainer; // Usa o novo ID do contêiner
-
-    // Limpa todas as opções existentes, exceto o botão "Não" inicial
-    const initialButtonHtml = `<button class="half-btn bg-gray-200 text-gray-700 px-3 py-2 sm:py-3 rounded-md text-left" data-half="" data-price="0">Não</button>`;
-    containerMeiaMeia.innerHTML = initialButtonHtml; // Reseta com apenas o botão "Não"
-
-    // Reanexa o event listener para o botão "Não" se ele foi removido
-    const noHalfButton = containerMeiaMeia.querySelector('.half-btn[data-half=""]');
-    if (noHalfButton) {
-        noHalfButton.addEventListener('click', function() {
-            document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
-            this.classList.add('bg-green-500', 'text-white');
-            selectedHalf = this.getAttribute('data-half');
-            selectedHalfPrice = parseFloat(this.getAttribute('data-price'));
-            updatePizzaPricePreview();
-        });
-    }
-
-    if (!allPizzasSnapshot) { // Verifica se as pizzas foram carregadas
-        console.warn("Snapshot de todas as pizzas não disponível para opções de meia-meia.");
-        return;
-    }
-
-    const lowerCaseSearchTerm = searchTerm.toLowerCase(); // Converte o termo de busca para minúsculas
-
-    allPizzasSnapshot.forEach((pizzaSnap) => {
-        const pizza = pizzaSnap.val();
-        const pizzaId = pizzaSnap.key;
-        // Filtra com base no status 'ativo' E no termo de busca
-        if (pizza.ativo && pizza.nome.toLowerCase().includes(lowerCaseSearchTerm)) {
-            const botaoMeiaMeia = document.createElement('button');
-            botaoMeiaMeia.className = 'half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left';
-            botaoMeiaMeia.setAttribute('data-half', pizza.nome);
-            botaoMeiaMeia.setAttribute('data-price', pizza.preco);
-            botaoMeiaMeia.setAttribute('data-id', pizzaId);
-            botaoMeiaMeia.setAttribute('data-category', 'pizzas');
-            botaoMeiaMeia.textContent = pizza.nome;
-
-            botaoMeiaMeia.addEventListener('click', function() {
-                document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
-                this.classList.add('bg-green-500', 'text-white');
-                selectedHalf = this.getAttribute('data-half');
-                selectedHalfPrice = parseFloat(this.getAttribute('data-price'));
-                updatePizzaPricePreview();
-            });
-            containerMeiaMeia.appendChild(botaoMeiaMeia);
-        }
-    });
-
-    // Garante que a opção atualmente selecionada permaneça marcada após a filtragem
-    if (selectedHalf) {
-        const currentSelectedHalfBtn = containerMeiaMeia.querySelector(`.half-btn[data-half="${selectedHalf}"]`);
-        if (currentSelectedHalfHalfBtn) {
-            currentSelectedHalfBtn.classList.add('bg-green-500', 'text-white');
-        } else if (selectedHalf === "") { // Lida com o caso do "Não" estar selecionado
-            noHalfButton.classList.add('bg-green-500', 'text-white');
-        }
-    } else { // Se nada estiver selecionado, garante que "Não" esteja selecionado por padrão
-        noHalfButton.classList.add('bg-green-500', 'text-white');
-    }
-}
-
-
-if (halfPizzaSearchInput) {
-    halfPizzaSearchInput.addEventListener('input', function() {
-        // Debounce para evitar muitas atualizações ao digitar rapidamente
-        clearTimeout(this.searchTimeout);
-        this.searchTimeout = setTimeout(() => {
-            atualizarOpcoesMeiaMeia(this.value);
-        }, 300); // Espera 300ms após a última digitação para filtrar
-    });
-}
 
 function handleAddToCart() {
     const name = this.getAttribute('data-name');
@@ -293,47 +232,39 @@ function handleAddToCart() {
     addToCart(name, price, productId, productCategory);
 }
 
-
 function handleOpenPizzaModal() {
-    const name = this.getAttribute('data-name');
-    const price = parseFloat(this.getAttribute('data-price'));
-    const productId = this.getAttribute('data-id');
-    const productCategory = this.getAttribute('data-category');
     selectedPizza = {
-        name,
-        price,
-        id: productId,
-        category: productCategory
+        name: this.getAttribute('data-name'),
+        price: parseFloat(this.getAttribute('data-price')),
+        id: this.getAttribute('data-id'),
+        category: this.getAttribute('data-category')
     };
+
+    // Reseta todas as seleções e estado do modal para uma nova pizza
     selectedSize = "Grande";
     selectedHalf = "";
     selectedHalfPrice = 0;
     wantsCrust = "Não";
     crustFlavor = "";
-    selectedAddons = []; // IMPORTANT: Reset selected add-ons when opening for a new pizza!
+    selectedAddons = []; // Limpa adicionais
 
-    resetSelections();
-    document.getElementById('modal-title').textContent = selectedPizza.name;
+    resetPizzaModalSelections(); // Reseta os botões visuais e mostra/esconde seções
+    pizzaModalTitle.textContent = selectedPizza.name;
     document.getElementById('pizza-modal').style.display = 'flex';
     updatePizzaPricePreview();
-    // No need for resetSelections() twice.
     if (halfPizzaSearchInput) halfPizzaSearchInput.value = '';
-    atualizarOpcoesMeiaMeia();
-    document.getElementById('modal-title').textContent = selectedPizza.name; // This line is also redundant if it's already set above
-    document.getElementById('pizza-modal').style.display = 'flex'; // This line is also redundant
-    updatePizzaPricePreview();
-
-    renderAddonOptions(); // New: Render add-on options when modal opens
+    atualizarOpcoesMeiaMeia(); // Recarrega opções de meia-meia
+    renderAddonOptions(); // Recarrega opções de adicionais
 }
 
-
-
-//fim
 // --- Funções do Carrinho ---
-
 cartBtn.addEventListener("click", function() {
     updateCartModal();
     cartModal.style.display = "flex";
+});
+
+closeModalBtn.addEventListener("click", function() {
+    cartModal.style.display = "none";
 });
 
 cartModal.addEventListener("click", function(event) {
@@ -342,16 +273,21 @@ cartModal.addEventListener("click", function(event) {
     }
 });
 
-closeModalBtn.addEventListener("click", function() {
-    cartModal.style.display = "none";
-});
-
-function addToCart(name, price, productId, productCategory) {
+/**
+ * Adiciona um item ao carrinho ou incrementa sua quantidade.
+ * @param {string} name - Nome do item.
+ * @param {number} price - Preço do item.
+ * @param {string} productId - ID do produto no Firebase.
+ * @param {string} productCategory - Categoria do produto no Firebase.
+ * @param {object} [options] - Opções adicionais para itens complexos (ex: pizzaSize, halfProductId, selectedAddons).
+ */
+function addToCart(name, price, productId, productCategory, options = {}) {
+    // Para itens simples, verifica se já existe uma entrada idêntica
     const existingItem = cart.find(item =>
         item.name === name &&
         item.originalProductId === productId &&
         item.productCategory === productCategory &&
-        item.pizzaSize === undefined // Garante que não misture pizzas personalizadas com itens simples
+        !item.pizzaSize // Garante que não misture pizzas personalizadas com itens simples
     );
 
     if (existingItem) {
@@ -362,7 +298,8 @@ function addToCart(name, price, productId, productCategory) {
             price,
             quantity: 1,
             originalProductId: productId,
-            productCategory: productCategory
+            productCategory,
+            ...options // Adiciona opções como pizzaSize, halfProductId, selectedAddons
         });
     }
     updateCartModal();
@@ -374,51 +311,57 @@ function addToCart(name, price, productId, productCategory) {
         gravity: "top",
         position: "right",
         stopOnFocus: true,
-        style: {
-            background: "#22c55e",
-        },
+        style: { background: "#22c55e" },
     }).showToast();
 }
 
-
+/**
+ * Atualiza o conteúdo e o total do modal do carrinho.
+ */
 function updateCartModal() {
     cartItemsContainer.innerHTML = "";
     let total = 0;
+    const fragment = document.createDocumentFragment(); // Cria um fragmento para otimizar o DOM
 
     cart.forEach(item => {
         const cartItemElement = document.createElement("div");
         cartItemElement.classList.add("flex", "justify-between", "mb-4", "flex-col");
 
         // Detalhes adicionais para pizzas, se houver
-        let itemDetails = '';
+        let itemDetailsHtml = '';
         if (item.pizzaSize) {
-            itemDetails += `<p class="text-xs text-gray-500">Tamanho: ${item.pizzaSize}</p>`;
+            itemDetailsHtml += `<p class="text-xs text-gray-500">Tamanho: ${item.pizzaSize}</p>`;
         }
-        if (item.name.includes('+ Borda de')) {
-            // Já está no nome, não precisa adicionar aqui
+        if (item.selectedAddons && item.selectedAddons.length > 0) {
+            const addonNames = item.selectedAddons.map(addon => addon.name).join(', ');
+            itemDetailsHtml += `<p class="text-xs text-gray-500">Adicionais: ${addonNames}</p>`;
         }
 
+
         cartItemElement.innerHTML = `
-                <div class="bg-gray-100 p-4 rounded-xl shadow flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div class="flex-1">
-                        <p class="font-semibold text-base text-gray-900">${item.name}</p>
-                        ${itemDetails}
-                        <div class="flex items-center gap-3 mt-2">
-                            <button class="quantity-btn bg-red-500 text-white w-9 h-9 rounded-full text-lg hover:bg-red-600" data-name="${item.name}" data-action="decrease">
-                                <i class="fa-solid fa-minus"></i>
-                            </button>
-                            <span class="text-lg font-bold">${item.quantity}</span>
-                            <button class="quantity-btn bg-green-500 text-white w-9 h-9 rounded-full text-lg hover:bg-green-600" data-name="${item.name}" data-action="increase">
-                                <i class="fa-solid fa-plus"></i>
-                            </button>
-                        </div>
-                        <p class="text-sm text-gray-700 mt-2">Preço: R$ ${item.price.toFixed(2).replace('.', ',')}</p>
+            <div class="bg-gray-100 p-4 rounded-xl shadow flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex-1">
+                    <p class="font-semibold text-base text-gray-900">${item.name}</p>
+                    ${itemDetailsHtml}
+                    <div class="flex items-center gap-3 mt-2">
+                        <button class="quantity-btn bg-red-500 text-white w-9 h-9 rounded-full text-lg hover:bg-red-600" data-name="${item.name}" data-action="decrease">
+                            <i class="fa-solid fa-minus"></i>
+                        </button>
+                        <span class="text-lg font-bold">${item.quantity}</span>
+                        <button class="quantity-btn bg-green-500 text-white w-9 h-9 rounded-full text-lg hover:bg-green-600" data-name="${item.name}" data-action="increase">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
                     </div>
+                    <p class="text-sm text-gray-700 mt-2">Preço: R$ ${item.price.toFixed(2).replace('.', ',')}</p>
                 </div>
-            `;
+            </div>
+        `;
         total += item.price * item.quantity;
-        cartItemsContainer.appendChild(cartItemElement);
+        fragment.appendChild(cartItemElement);
     });
+
+    cartItemsContainer.innerHTML = ''; // Limpa o container
+    cartItemsContainer.appendChild(fragment); // Adiciona todos os itens de uma vez
 
     let finalTotal = total;
     let discountAmount = 0;
@@ -429,7 +372,7 @@ function updateCartModal() {
         } else if (cupomAplicado.tipo === "fixo") {
             discountAmount = cupomAplicado.valor;
         }
-        finalTotal = Math.max(0, total - discountAmount); // Garante que o total não seja negativo
+        finalTotal = Math.max(0, total - discountAmount);
     }
 
     cartTotal.textContent = finalTotal.toLocaleString("pt-BR", {
@@ -453,15 +396,19 @@ cartItemsContainer.addEventListener("click", function(event) {
         const name = button.getAttribute('data-name');
         const action = button.getAttribute('data-action');
 
-        const item = cart.find(i => i.name === name); // Encontra o item pelo nome
+        // Note: Se você tiver nomes de itens no carrinho que são dinâmicos (ex: "Pizza de Calabresa (Grande) + Borda"),
+        // a busca por `item.name === name` pode se tornar problemática para gerenciar IDs únicos de itens customizados.
+        // Uma abordagem mais robusta seria adicionar um `cartItemId` único a cada item quando ele é adicionado ao carrinho.
+        const item = cart.find(i => i.name === name);
 
         if (item) {
             if (action === "increase") {
                 item.quantity += 1;
-            } else if (action === "decrease" && item.quantity > 1) {
+            } else if (action === "decrease") {
                 item.quantity -= 1;
-            } else if (action === "decrease" && item.quantity === 1) {
-                cart.splice(cart.indexOf(item), 1); // Remove o item se a quantidade chegar a 0
+                if (item.quantity <= 0) {
+                    cart.splice(cart.indexOf(item), 1); // Remove o item se a quantidade chegar a 0
+                }
             }
         }
         updateCartModal();
@@ -470,21 +417,20 @@ cartItemsContainer.addEventListener("click", function(event) {
 
 
 // --- Status de Abertura da Loja ---
-
 function timeStringToMinutes(timeInput) {
     if (typeof timeInput === 'string' && timeInput.includes(':')) {
         const [hours, minutes] = timeInput.split(':').map(Number);
         return (hours || 0) * 60 + (minutes || 0);
     }
     if (typeof timeInput === 'number') {
-        return timeInput * 60;
+        return timeInput * 60; // Converte horas para minutos se for um número
     }
     return 0;
 }
 
 function getStatusMessage(horarios) {
     const agora = new Date();
-    const diaSemana = agora.getDay();
+    const diaSemana = agora.getDay(); // 0 para Domingo, 6 para Sábado
     const minutosAtuais = agora.getHours() * 60 + agora.getMinutes();
 
     const configDia = horarios[diaSemana];
@@ -497,11 +443,12 @@ function getStatusMessage(horarios) {
     const minutosFim = timeStringToMinutes(configDia.fim);
     let estaAberto = false;
 
+    // Lógica para horário que vira o dia (ex: 22:00 às 02:00)
     if (minutosInicio > minutosFim) {
         if (minutosAtuais >= minutosInicio || minutosAtuais < minutosFim) {
             estaAberto = true;
         }
-    } else {
+    } else { // Horário normal (ex: 18:00 às 23:00)
         if (minutosAtuais >= minutosInicio && minutosAtuais < minutosFim) {
             estaAberto = true;
         }
@@ -517,7 +464,7 @@ function getStatusMessage(horarios) {
 function atualizarStatusVisual() {
     const spanItem = document.getElementById("date-span");
 
-    firebase.database().ref("config/horarios").once("value")
+    database.ref("config/horarios").once("value")
         .then(snapshot => {
             if (snapshot.exists()) {
                 const horarios = snapshot.val();
@@ -530,14 +477,18 @@ function atualizarStatusVisual() {
                     spanItem.classList.remove("bg-green-600");
                     spanItem.classList.add("bg-red-600");
                 }
-                spanItem.textContent = status.mensagem;
+                spanItem.querySelector('span').textContent = status.mensagem; // Atualiza o texto dentro do span
             } else {
-                spanItem.textContent = "Horários não configurados.";
+                spanItem.querySelector('span').textContent = "Horários não configurados.";
+                spanItem.classList.remove("bg-green-600");
+                spanItem.classList.add("bg-gray-500"); // Cor neutra se não houver config
             }
         })
         .catch(error => {
             console.error("Erro ao buscar horários:", error);
-            spanItem.textContent = "Erro ao carregar status.";
+            spanItem.querySelector('span').textContent = "Erro ao carregar status.";
+            spanItem.classList.remove("bg-green-600");
+            spanItem.classList.add("bg-gray-500");
         });
 }
 
@@ -547,20 +498,9 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // --- Modal de Confirmação de Pedido ---
-
 checkoutBtn.addEventListener("click", function() {
     if (cart.length === 0) {
-        Toastify({
-            text: "Seu carrinho está vazio!",
-            duration: 3000,
-            close: true,
-            gravity: "top",
-            position: "left",
-            stopOnFocus: true,
-            style: {
-                background: "#ef4444",
-            },
-        }).showToast();
+        Toastify({ text: "Seu carrinho está vazio!", duration: 3000, close: true, gravity: "top", position: "left", style: { background: "#ef4444" } }).showToast();
         return;
     }
     atualizarConfirmacao();
@@ -575,14 +515,12 @@ function atualizarEntrega() {
     const retiradaSection = document.getElementById("retirada-section");
 
     if (retirada.checked) {
-        entrega.checked = false;
-        retiradaSection.classList.remove("hidden");
         enderecoSection.classList.add("hidden");
+        retiradaSection.classList.remove("hidden");
     } else if (entrega.checked) {
-        retirada.checked = false;
-        enderecoSection.classList.remove("hidden");
         retiradaSection.classList.add("hidden");
-    } else {
+        enderecoSection.classList.remove("hidden");
+    } else { // Nenhum selecionado, esconde ambos
         retiradaSection.classList.add("hidden");
         enderecoSection.classList.add("hidden");
     }
@@ -596,23 +534,13 @@ function atualizarPagamento() {
     const trocoSection = document.getElementById("trocoSection");
     const pixSection = document.getElementById("PixSection");
 
-    const pagamentos = [pagPix, pagCartao, pagDinheiro];
-    const ativo = pagamentos.find(p => p.checked);
-
-    pagamentos.forEach(p => {
-        if (p !== ativo) p.checked = false;
-    });
+    trocoSection.classList.add("hidden"); // Esconde por padrão
+    pixSection.classList.add("hidden");   // Esconde por padrão
 
     if (pagDinheiro.checked) {
-        trocoSection?.classList.remove("hidden");
-    } else {
-        trocoSection?.classList.add("hidden");
-    }
-
-    if (pagPix.checked) {
-        pixSection?.classList.remove("hidden");
-    } else {
-        pixSection?.classList.add("hidden");
+        trocoSection.classList.remove("hidden");
+    } else if (pagPix.checked) {
+        pixSection.classList.remove("hidden");
     }
     atualizarConfirmacao();
 }
@@ -627,13 +555,7 @@ document.addEventListener('DOMContentLoaded', () => {
         copyPixBtn.addEventListener('click', function() {
             const pixKey = pixKeySpan.innerText;
             navigator.clipboard.writeText(pixKey).then(() => {
-                Toastify({
-                    text: "Chave Pix copiada!",
-                    duration: 3000,
-                    gravity: "top",
-                    position: "right",
-                    style: { background: "#22c55e" }
-                }).showToast();
+                Toastify({ text: "Chave Pix copiada!", duration: 3000, gravity: "top", position: "right", style: { background: "#22c55e" } }).showToast();
             }).catch(err => {
                 console.error('Erro ao copiar a chave Pix: ', err);
                 Toastify({ text: "Erro ao copiar a chave Pix.", duration: 3000, style: { background: "#ef4444" } }).showToast();
@@ -643,7 +565,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (whatsappBtn) {
         whatsappBtn.addEventListener('click', function() {
-            const phoneNumber = "5514998165756"; // << Trocar para o número real
+            const phoneNumber = "5514998165756"; // << TROCAR PARA O NÚMERO REAL DO ESTABELECIMENTO
             const message = "Olá! Segue o comprovante de pagamento do meu pedido.";
             const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
             window.open(whatsappUrl, '_blank');
@@ -660,7 +582,12 @@ document.getElementById('pagDinheiro').addEventListener('change', atualizarPagam
 
 // --- Validação e Envio do Pedido ---
 
-// Função de validação de campo com feedback visual e foco
+/**
+ * Valida um campo de input e aplica estilos de feedback visual.
+ * @param {HTMLInputElement} campo - O elemento input a ser validado.
+ * @param {HTMLElement} warnElement - O elemento onde a mensagem de erro será exibida.
+ * @returns {boolean} True se o campo for válido, false caso contrário.
+ */
 function validarCampoEAvancar(campo, warnElement) {
     const isValid = campo.value.trim() !== "";
     if (isValid) {
@@ -679,7 +606,6 @@ function validarCampoEAvancar(campo, warnElement) {
 // Event Listeners para validação de input
 nomeInput.addEventListener("input", () => validarCampoEAvancar(nomeInput, nomeWarn));
 telefoneInput.addEventListener("input", (event) => {
-    // Máscara de telefone
     let value = event.target.value.replace(/\D/g, ''); // Remove tudo que não é dígito
     if (value.length > 0) {
         value = value.replace(/^(\d{2})(\d)/g, "($1) $2");
@@ -693,29 +619,24 @@ bairro.addEventListener("input", () => validarCampoEAvancar(bairro, bairroWarn))
 numero.addEventListener("input", () => validarCampoEAvancar(numero, numeroWarn));
 document.getElementById('troco').addEventListener("input", () => validarCampoEAvancar(document.getElementById('troco'), document.getElementById('troco-aste')));
 
-
+/**
+ * Valida todos os campos do formulário de pedido antes do envio.
+ * @returns {Promise<boolean>} True se o formulário for válido, false caso contrário.
+ */
 async function validarFormularioPedido() {
     let isValid = true;
 
     // Resetar estilos de erro antes de validar
-    nomeInput.classList.remove("border-red-500", "input-ok", "input-error");
-    telefoneInput.classList.remove("border-red-500", "input-ok", "input-error");
-    rua.classList.remove("border-red-500", "input-ok", "input-error");
-    bairro.classList.remove("border-red-500", "input-ok", "input-error");
-    numero.classList.remove("border-red-500", "input-ok", "input-error");
-    document.getElementById('troco').classList.remove("border-red-500", "input-ok", "input-error");
-
-    nomeWarn.classList.add("hidden");
-    telefoneWarn.classList.add("hidden");
-    ruaWarn.classList.add("hidden");
-    bairroWarn.classList.add("hidden");
-    numeroWarn.classList.add("hidden");
-    document.getElementById('troco-aste').classList.add("hidden");
+    [nomeInput, telefoneInput, rua, bairro, numero, document.getElementById('troco')].forEach(input => {
+        input.classList.remove("border-red-500", "input-ok", "input-error");
+    });
+    [nomeWarn, telefoneWarn, ruaWarn, bairroWarn, numeroWarn, document.getElementById('troco-aste')].forEach(warn => {
+        warn.classList.add("hidden");
+    });
 
     // Validação de Nome e Telefone
     if (!validarCampoEAvancar(nomeInput, nomeWarn)) isValid = false;
     if (!validarCampoEAvancar(telefoneInput, telefoneWarn)) isValid = false;
-
 
     // Validação do tipo de entrega
     const retiradaChecked = document.getElementById("retirada").checked;
@@ -751,58 +672,40 @@ backBtn.addEventListener("click", function() {
 });
 
 submitBtn.addEventListener("click", async function() {
-    // 1. Desabilita o botão imediatamente para evitar cliques múltiplos
     submitBtn.disabled = true;
-    submitBtn.textContent = "Enviando Pedido..."; // Feedback visual para o usuário
+    submitBtn.textContent = "Enviando Pedido...";
 
     try {
-        // 2. Valida o formulário
         if (!await validarFormularioPedido()) {
-            // Se a validação falhar, reabilita o botão e interrompe a execução
             submitBtn.disabled = false;
-            submitBtn.textContent = "Finalizar Pedido"; // Volta o texto original
+            submitBtn.textContent = "Enviar Pedido";
             return;
         }
 
-        // 3. Monta e envia o pedido
         const pedidoFormatado = montarPedido();
         await enviarPedidoParaPainel(pedidoFormatado);
 
-        // 4. Limpa o carrinho e fecha o modal (isso já acontece na sua função)
-        zerarCarrinho();
-
-        // Nenhuma reabilitação explícita do botão é necessária aqui,
-        // pois a página será redirecionada após o sucesso.
+        zerarCarrinho(); // Limpa o carrinho e campos do formulário
 
     } catch (error) {
         console.error("Erro ao enviar pedido:", error);
-        // 5. Em caso de erro, reabilita o botão para que o usuário possa tentar novamente
         submitBtn.disabled = false;
-        submitBtn.textContent = "Finalizar Pedido"; // Volta o texto original
-        Toastify({
-            text: "Erro ao finalizar pedido. Por favor, tente novamente.",
-            duration: 3000,
-            close: true,
-            gravity: "top",
-            position: "center",
-            style: {
-                background: "#ef4444",
-            },
-        }).showToast();
+        submitBtn.textContent = "Enviar Pedido";
+        Toastify({ text: "Erro ao finalizar pedido. Por favor, tente novamente.", duration: 3000, close: true, gravity: "top", position: "center", style: { background: "#ef4444" } }).showToast();
     }
 });
-
 
 function zerarCarrinho() {
     cart = [];
     document.getElementById('confirm-modal').classList.add("hidden");
     cartModal.style.display = "none";
     updateCartModal();
-    cupomAplicado = null; // Resetar o cupom aplicado
-    if (cupomInput) cupomInput.disabled = false; // Reabilitar input
-    if (applycupom) applycupom.disabled = false; // Reabilitar botão
-    if (cupomInput) cupomInput.value = ""; // Limpar campo do cupom
-    // Limpar campos do formulário de confirmação
+    cupomAplicado = null;
+    if (cupomInput) cupomInput.disabled = false;
+    if (applycupom) applycupom.disabled = false;
+    if (cupomInput) cupomInput.value = "";
+
+    // Limpar campos do formulário de confirmação e resetar estilos
     nomeInput.value = "";
     telefoneInput.value = "";
     rua.value = "";
@@ -810,35 +713,27 @@ function zerarCarrinho() {
     numero.value = "";
     document.getElementById('referencia').value = "";
     document.getElementById('troco').value = "";
-    // Desmarcar radios
+
+    // Desmarcar radios e ocultar seções
     document.getElementById('retirada').checked = false;
     document.getElementById('entrega').checked = false;
     document.getElementById('pagPix').checked = false;
     document.getElementById('pagCartao').checked = false;
     document.getElementById('pagDinheiro').checked = false;
-    // Ocultar seções condicionais
+
     document.getElementById("address-section").classList.add("hidden");
     document.getElementById("retirada-section").classList.add("hidden");
     document.getElementById("PixSection").classList.add("hidden");
     document.getElementById("trocoSection").classList.add("hidden");
 
     // Resetar avisos de erro e classes de input
-    nomeInput.classList.remove("border-red-500", "input-ok", "input-error");
-    telefoneInput.classList.remove("border-red-500", "input-ok", "input-error");
-    rua.classList.remove("border-red-500", "input-ok", "input-error");
-    bairro.classList.remove("border-red-500", "input-ok", "input-error");
-    numero.classList.remove("border-red-500", "input-ok", "input-error");
-    document.getElementById('troco').classList.remove("border-red-500", "input-ok", "input-error");
-
-    nomeWarn.classList.add("hidden");
-    telefoneWarn.classList.add("hidden");
-    ruaWarn.classList.add("hidden");
-    bairroWarn.classList.add("hidden");
-    numeroWarn.classList.add("hidden");
-    document.getElementById('troco-aste').classList.add("hidden");
+    [nomeInput, telefoneInput, rua, bairro, numero, document.getElementById('troco')].forEach(input => {
+        input.classList.remove("border-red-500", "input-ok", "input-error");
+    });
+    [nomeWarn, telefoneWarn, ruaWarn, bairroWarn, numeroWarn, document.getElementById('troco-aste')].forEach(warn => {
+        warn.classList.add("hidden");
+    });
 }
-
-let telefone = "" // Mantém a variável global, embora seja atualizada localmente na função montarPedido
 
 function setCookie(name, value, days) {
     let expires = "";
@@ -851,20 +746,15 @@ function setCookie(name, value, days) {
 }
 
 async function enviarPedidoParaPainel(pedido) {
-    const pedidosRef = database.ref('pedidos');
-    const configRef = database.ref('config/ultimoPedidoId');
-
     try {
         const result = await configRef.transaction((current) => {
-            // Incrementa o último ID do pedido ou começa de 1001 se não existir
-            return (current || 1000) + 1;
+            return (current || 1000) + 1; // Começa de 1001 se não existir
         });
 
-        const novoId = result.snapshot.val(); // Pega o novo ID do pedido
-        pedido.status = 'Aguardando'; // Define o status inicial
-        pedido.timestamp = Date.now(); // Grava o timestamp
+        const novoId = result.snapshot.val();
+        pedido.status = 'Aguardando';
+        pedido.timestamp = Date.now();
 
-        // Define os dados do pedido sob o novo ID
         await pedidosRef.child(novoId).set(pedido);
         console.log('Pedido enviado com sucesso!', novoId);
 
@@ -872,32 +762,28 @@ async function enviarPedidoParaPainel(pedido) {
         for (const item of pedido.cart) {
             await deduzirEstoqueDoItem(item);
         }
-        // --- FIM DA DEDUÇÃO DE ESTOQUE ---
 
-        const phoneNumber = telefoneInput.value.replace(/\D/g, ''); // Limpa o número de telefone para o localStorage/cookies
+        const phoneNumber = telefoneInput.value.replace(/\D/g, '');
         localStorage.setItem('clienteId', phoneNumber);
         setCookie('clienteId', phoneNumber, 60);
 
         if (cupomAplicado) {
             const cupomCode = cupomAplicado.codigo;
-            const cupomAdminUsageRef = database.ref(`cupons/${cupomCode}`);
-
-            // 1. Incrementa a contagem de uso global do cupom (para a visão do admin)
-            await cupomAdminUsageRef.transaction((currentUsage) => {
+            // 1. Incrementa a contagem de uso global do cupom
+            await cuponsRef.child(cupomCode).transaction((currentUsage) => {
                 if (currentUsage === null) {
-                    return { usos: 1, lastUsed: Date.now() };
+                    return { usos: 1, lastUsed: firebase.database.ServerValue.TIMESTAMP };
                 } else {
                     currentUsage.usos = (currentUsage.usos || 0) + 1;
-                    currentUsage.lastUsed = Date.now();
+                    currentUsage.lastUsed = firebase.database.ServerValue.TIMESTAMP;
                     return currentUsage;
                 }
             });
-            console.log(`Contagem de uso do cupom ${cupomCode} atualizada para o admin.`);
+            console.log(`Contagem de uso do cupom ${cupomCode} atualizada.`);
 
             // 2. Marca este cupom como usado por este cliente específico
-            const clienteIdLimpo = phoneNumber; // Já está limpo
-            const cupomClienteUsageRef = database.ref(`cupons_usados/${clienteIdLimpo}/${cupomCode}`);
-            await cupomClienteUsageRef.set({
+            const clienteIdLimpo = phoneNumber;
+            await cuponsUsadosRef.child(clienteIdLimpo).child(cupomCode).set({
                 usedAt: firebase.database.ServerValue.TIMESTAMP,
                 orderId: novoId
             });
@@ -905,30 +791,19 @@ async function enviarPedidoParaPainel(pedido) {
         }
 
         mostrarPedidoSucessoComLogo();
-        // Redireciona para a página de status com o ID do pedido
-        setTimeout(() => { // Pequeno delay para o toast aparecer
+        setTimeout(() => {
             window.location.href = `status.html?pedidoId=${novoId}`;
         }, 1000);
 
-
     } catch (error) {
         console.error('Erro ao enviar pedido ou processar cupom: ', error);
-        Toastify({
-            text: "Erro ao finalizar pedido. Por favor, tente novamente.",
-            duration: 3000,
-            close: true,
-            gravity: "top",
-            position: "center",
-            style: {
-                background: "#ef4444",
-            },
-        }).showToast();
+        throw error; // Re-lança o erro para o catch do submitBtn
     }
 }
 
 
 function montarPedido() {
-    let tipoEntrega = document.getElementById("retirada").checked ? "Retirada" : "Entrega";
+    const tipoEntrega = document.getElementById("retirada").checked ? "Retirada" : "Entrega";
 
     let endereco = {};
     if (tipoEntrega === "Entrega") {
@@ -936,22 +811,20 @@ function montarPedido() {
             rua: rua.value,
             bairro: bairro.value,
             numero: numero.value,
-            referencia: document.getElementById('referencia').value // Adiciona referência ao objeto endereço
+            referencia: document.getElementById('referencia').value
         };
     }
 
-    telefone = telefoneInput.value; // Pega o telefone formatado
-    let nomeCliente = nomeInput.value;
-
+    const telefone = telefoneInput.value.replace(/\D/g, ''); // Telefone sem formatação
+    const nomeCliente = nomeInput.value;
 
     let pagamento = "";
     if (document.getElementById("pagPix").checked) pagamento = "Pix";
-    if (document.getElementById("pagCartao").checked) pagamento = "Cartão";
-    if (document.getElementById("pagDinheiro").checked) pagamento = "Dinheiro";
+    else if (document.getElementById("pagCartao").checked) pagamento = "Cartão";
+    else if (document.getElementById("pagDinheiro").checked) pagamento = "Dinheiro";
 
-    let dinheiroTroco = pagamento === "Dinheiro" ? parseFloat(document.getElementById("troco").value) || 0 : null; // Converte para número
-
-    let observacao = observationInput.value;
+    const dinheiroTroco = pagamento === "Dinheiro" ? parseFloat(document.getElementById("troco").value) || 0 : null;
+    const observacao = observationInput.value;
 
     let subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     let totalPedido = subtotal;
@@ -976,11 +849,10 @@ function montarPedido() {
         observacao,
         tipoEntrega,
         pagamento,
-        dinheiroTotal: dinheiroTroco,
-        totalPedido: parseFloat(totalPedido.toFixed(2)), // Garante que o total final esteja formatado como número com 2 casas decimais
-        telefone: telefone.replace(/\D/g, ''), // Salva o telefone sem formatação para o DB
+        dinheiroTroco, // Nome alterado para refletir melhor o uso
+        totalPedido: parseFloat(totalPedido.toFixed(2)),
+        telefone,
         nomeCliente,
-        // referencia: referencia, // Já está em endereco.referencia se for entrega
         cupomAplicado: cupomAplicado ? {
             codigo: cupomAplicado.codigo,
             valor: cupomAplicado.valor,
@@ -995,7 +867,7 @@ function mostrarPedidoSucessoComLogo() {
     Toastify({
         text: `
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
-              <img src="assets/bonanza.png" alt="Logo" style="width: 200px; height: 200px; margin-bottom: 20px; border-radius: 10px;" />
+              <img src="assets/sua-logo.png" alt="Logo" style="width: 200px; height: 200px; margin-bottom: 20px; border-radius: 10px;" />
               <span style="font-size: 20px; font-weight: bold; color: #ffffff;">Pedido realizado com sucesso!</span>
             </div>
           `,
@@ -1018,33 +890,36 @@ function mostrarPedidoSucessoComLogo() {
 
 // --- Funções do Modal de Pizza ---
 
-function resetSelections() {
+function resetPizzaModalSelections() {
+    // Resetar estilos dos botões
     document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
     document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
     document.querySelectorAll('.crust-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
     document.querySelectorAll('.crust-flavor-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
-    document.getElementById('crust-flavor-section').classList.add('hidden');
 
-    // Define o estado selecionado padrão
+    // Selecionar opções padrão
     document.querySelector('.size-btn[data-size="Grande"]').classList.add('bg-green-500', 'text-white');
     document.querySelector('.half-btn[data-half=""]').classList.add('bg-green-500', 'text-white'); // "Não" para meia-meia
     document.querySelector('.crust-btn[data-crust="Não"]').classList.add('bg-green-500', 'text-white'); // "Não" para borda
 
-    document.getElementById('crust-flavor-section').classList.add('hidden');
-
-    selectedAddons = [];
-    renderAddonOptions();
+    crustFlavorSection.classList.add('hidden'); // Esconde a seção de sabor da borda
+    // renderAddonOptions() já é chamado em handleOpenPizzaModal e gerencia os addons
 }
 
+/**
+ * Atualiza o preço exibido no modal de personalização da pizza.
+ */
 function updatePizzaPricePreview() {
     if (!selectedPizza) return;
 
     let basePrice = selectedPizza.price;
 
+    // Calcula preço para meia-meia
     if (selectedHalf && selectedHalf !== selectedPizza.name) {
         basePrice = (selectedPizza.price + selectedHalfPrice) / 2; // MÉDIA dos preços
     }
 
+    // Ajusta preço para tamanho Broto
     if (selectedSize === "Broto") {
         const nomePizzaLower = selectedPizza.name.toLowerCase();
         const nomeMetadeLower = selectedHalf ? selectedHalf.toLowerCase() : "";
@@ -1055,24 +930,28 @@ function updatePizzaPricePreview() {
             nomeMetadeLower.includes("costela") ||
             nomeMetadeLower.includes("morango com chocolate");
 
-        if (temSaborEspecial) {
-            basePrice = 35;
-        } else {
-            basePrice = 30;
-        }
+        basePrice = temSaborEspecial ? 35 : 30;
     }
+
     let finalPrice = basePrice;
 
+    // Adiciona custo da borda
     if (wantsCrust === "Sim" && crustFlavor) {
         finalPrice += selectedSize === "Broto" ? 10 : 12;
     }
 
-    // New: Add price of selected add-ons
+    // Adiciona custo dos adicionais selecionados
     const addonsTotal = selectedAddons.reduce((sum, addon) => sum + addon.precoAdicional, 0);
     finalPrice += addonsTotal;
 
-    const preview = document.getElementById('pizza-price-preview');
-    preview.textContent = `Valor: R$ ${finalPrice.toFixed(2).replace('.', ',')}`;
+    pizzaPricePreview.textContent = `Valor: R$ ${finalPrice.toFixed(2).replace('.', ',')}`;
+
+    // Atualiza o texto dos botões de sabor de borda
+    document.querySelectorAll('.crust-flavor-btn').forEach(btn => {
+        const flavor = btn.dataset.flavor;
+        const priceSuffix = selectedSize === "Broto" ? "(+R$10)" : "(+R$12)";
+        btn.textContent = `${flavor} ${priceSuffix}`;
+    });
 }
 
 // Cancelar modal de pizza
@@ -1080,10 +959,13 @@ document.getElementById('cancel-pizza').addEventListener('click', () => {
     document.getElementById('pizza-modal').style.display = 'none';
 });
 
+/**
+ * Renderiza as opções de adicionais no modal da pizza.
+ */
 function renderAddonOptions() {
     if (!additionalIngredientsContainer) return;
 
-    additionalIngredientsContainer.innerHTML = '';
+    const fragment = document.createDocumentFragment(); // Otimiza o DOM
     if (availableAddons.length === 0) {
         additionalIngredientsContainer.innerHTML = '<p class="text-gray-500 text-sm">Nenhum adicional disponível no momento.</p>';
         return;
@@ -1094,15 +976,15 @@ function renderAddonOptions() {
         checkboxContainer.className = 'flex items-center space-x-2 p-2 bg-gray-100 rounded-md cursor-pointer hover:bg-gray-200 transition-colors';
         checkboxContainer.innerHTML = `
             <input type="checkbox" class="addon-checkbox form-checkbox h-5 w-5 text-green-600 rounded"
-                   data-id="${addon.id}"
-                   data-name="${addon.nome}"
-                   data-price="${addon.precoAdicional}">
+                           data-id="${addon.id}"
+                           data-name="${addon.nome}"
+                           data-price="${addon.precoAdicional}">
             <span class="text-gray-800 flex-1">${addon.nome}</span>
             <span class="text-sm font-medium text-gray-700">R$ ${addon.precoAdicional.toFixed(2).replace('.', ',')}</span>
         `;
-        additionalIngredientsContainer.appendChild(checkboxContainer);
+        fragment.appendChild(checkboxContainer);
 
-        // Check if this addon was previously selected
+        // Marca o checkbox se o adicional já estiver selecionado
         const checkbox = checkboxContainer.querySelector('.addon-checkbox');
         if (selectedAddons.some(sA => sA.id === addon.id)) {
             checkbox.checked = true;
@@ -1121,6 +1003,80 @@ function renderAddonOptions() {
             updatePizzaPricePreview();
         });
     });
+    additionalIngredientsContainer.innerHTML = ''; // Limpa antes de adicionar
+    additionalIngredientsContainer.appendChild(fragment);
+}
+
+/**
+ * Atualiza as opções de pizza para o recurso meia-meia, filtrando por termo de busca.
+ * @param {string} [searchTerm=''] - Opcional. Termo para filtrar as pizzas.
+ */
+function atualizarOpcoesMeiaMeia(searchTerm = '') {
+    if (!halfPizzaOptionsContainer) return;
+
+    // Sempre inclui o botão "Não"
+    halfPizzaOptionsContainer.innerHTML = `<button class="half-btn bg-gray-200 text-gray-700 px-3 py-2 sm:py-3 rounded-md text-left" data-half="" data-price="0">Não</button>`;
+    const noHalfButton = halfPizzaOptionsContainer.querySelector('.half-btn[data-half=""]');
+    noHalfButton.addEventListener('click', function() {
+        document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+        this.classList.add('bg-green-500', 'text-white');
+        selectedHalf = this.getAttribute('data-half');
+        selectedHalfPrice = parseFloat(this.getAttribute('data-price'));
+        updatePizzaPricePreview();
+    });
+
+    if (!allPizzasSnapshot) {
+        console.warn("Snapshot de todas as pizzas não disponível para opções de meia-meia.");
+        return;
+    }
+
+    const lowerCaseSearchTerm = searchTerm.toLowerCase();
+    const fragment = document.createDocumentFragment();
+
+    allPizzasSnapshot.forEach((pizzaSnap) => {
+        const pizza = pizzaSnap.val();
+        const pizzaId = pizzaSnap.key;
+        if (pizza.ativo && pizza.nome.toLowerCase().includes(lowerCaseSearchTerm)) {
+            const botaoMeiaMeia = document.createElement('button');
+            botaoMeiaMeia.className = 'half-btn bg-gray-200 text-gray-700 px-4 py-3 rounded-md text-left';
+            botaoMeiaMeia.setAttribute('data-half', pizza.nome);
+            botaoMeiaMeia.setAttribute('data-price', pizza.preco);
+            botaoMeiaMeia.setAttribute('data-id', pizzaId);
+            botaoMeiaMeia.setAttribute('data-category', 'pizzas');
+            botaoMeiaMeia.textContent = pizza.nome;
+
+            botaoMeiaMeia.addEventListener('click', function() {
+                document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+                this.classList.add('bg-green-500', 'text-white');
+                selectedHalf = this.getAttribute('data-half');
+                selectedHalfPrice = parseFloat(this.getAttribute('data-price'));
+                updatePizzaPricePreview();
+            });
+            fragment.appendChild(botaoMeiaMeia);
+        }
+    });
+    halfPizzaOptionsContainer.appendChild(fragment);
+
+    // Garante que a opção atualmente selecionada permaneça marcada após a filtragem
+    if (selectedHalf) {
+        const currentSelectedHalfBtn = halfPizzaOptionsContainer.querySelector(`.half-btn[data-half="${selectedHalf}"]`);
+        if (currentSelectedHalfBtn) {
+            currentSelectedHalfBtn.classList.add('bg-green-500', 'text-white');
+        } else if (selectedHalf === "") {
+            noHalfButton.classList.add('bg-green-500', 'text-white');
+        }
+    } else {
+        noHalfButton.classList.add('bg-green-500', 'text-white');
+    }
+}
+
+if (halfPizzaSearchInput) {
+    halfPizzaSearchInput.addEventListener('input', function() {
+        clearTimeout(this.searchTimeout);
+        this.searchTimeout = setTimeout(() => {
+            atualizarOpcoesMeiaMeia(this.value);
+        }, 300);
+    });
 }
 
 // Tamanho da pizza
@@ -1133,18 +1089,8 @@ document.querySelectorAll('.size-btn').forEach(button => {
     });
 });
 
-// Meia-Meia da pizza
-document.querySelectorAll('.half-btn').forEach(button => {
-    button.addEventListener('click', () => {
-        selectedHalf = button.dataset.half;
-        selectedHalfPrice = parseFloat(button.dataset.price) || 0;
-
-        document.querySelectorAll('.half-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
-        button.classList.add('bg-green-500', 'text-white');
-
-        updatePizzaPricePreview();
-    });
-});
+// Meia-Meia da pizza (event listeners anexados em atualizarOpcoesMeiaMeia)
+// Não é necessário adicionar listeners globais aqui se eles já são adicionados na função de renderização.
 
 // Borda da pizza
 document.querySelectorAll('.crust-btn').forEach(button => {
@@ -1154,11 +1100,10 @@ document.querySelectorAll('.crust-btn').forEach(button => {
         document.querySelectorAll('.crust-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
         button.classList.add('bg-green-500', 'text-white');
 
-        const section = document.getElementById('crust-flavor-section');
         if (wantsCrust === "Sim") {
-            section.classList.remove('hidden');
+            crustFlavorSection.classList.remove('hidden');
         } else {
-            section.classList.add('hidden');
+            crustFlavorSection.classList.add('hidden');
             document.querySelectorAll('.crust-flavor-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white')); // Remove seleção de sabor
         }
         updatePizzaPricePreview();
@@ -1176,16 +1121,15 @@ document.querySelectorAll('.crust-flavor-btn').forEach(button => {
 
 // Confirmar adição de pizza personalizada ao carrinho
 document.getElementById('confirm-pizza').addEventListener('click', () => {
-    let nameFinal = selectedPizza.name;
+    let finalName = selectedPizza.name;
     let basePrice = selectedPizza.price;
-
     let itemOriginalProductId = selectedPizza.id;
     let itemProductCategory = selectedPizza.category;
     let itemHalfProductId = null;
     let itemHalfProductCategory = null;
 
     if (selectedHalf && selectedHalf !== selectedPizza.name) {
-        nameFinal = `${selectedPizza.name} / ${selectedHalf}`;
+        finalName = `${selectedPizza.name} / ${selectedHalf}`;
         basePrice = (selectedPizza.price + selectedHalfPrice) / 2;
 
         const halfButton = document.querySelector(`.half-btn[data-half="${selectedHalf}"]`);
@@ -1197,7 +1141,7 @@ document.getElementById('confirm-pizza').addEventListener('click', () => {
         }
     }
 
-    nameFinal += ` (${selectedSize})`;
+    finalName += ` (${selectedSize})`;
 
     if (selectedSize === "Broto") {
         const nomePizzaLower = selectedPizza.name.toLowerCase();
@@ -1209,23 +1153,19 @@ document.getElementById('confirm-pizza').addEventListener('click', () => {
             nomeMetadeLower.includes("costela") ||
             nomeMetadeLower.includes("morango com chocolate");
 
-        if (temSaborEspecial) {
-            basePrice = 35;
-        } else {
-            basePrice = 30;
-        }
+        basePrice = temSaborEspecial ? 35 : 30;
     }
+
     let finalPrice = basePrice;
 
     if (wantsCrust === "Sim" && crustFlavor) {
-        nameFinal += ` + Borda de ${crustFlavor}`;
+        finalName += ` + Borda de ${crustFlavor}`;
         finalPrice += selectedSize === "Broto" ? 10 : 12;
     }
 
-    // New: Add selected add-ons to the item name and price
     let addonsDescription = [];
     let addonsCost = 0;
-    const selectedAddonData = []; // New array to store detailed addon info for the cart
+    const selectedAddonData = [];
 
     selectedAddons.forEach(addon => {
         addonsDescription.push(addon.nome);
@@ -1234,50 +1174,31 @@ document.getElementById('confirm-pizza').addEventListener('click', () => {
             id: addon.id,
             name: addon.nome,
             price: addon.precoAdicional,
-            category: 'ingredientes' // Indicate this is an ingredient from the DB
+            category: 'ingredientes'
         });
     });
 
     if (addonsDescription.length > 0) {
-        nameFinal += ` + Adicionais: ${addonsDescription.join(', ')}`;
+        finalName += ` + Adicionais: ${addonsDescription.join(', ')}`;
         finalPrice += addonsCost;
     }
 
-    const item = {
-        name: nameFinal,
-        price: finalPrice,
-        quantity: 1,
-        originalProductId: itemOriginalProductId,
-        productCategory: itemProductCategory,
+    const itemOptions = {
         pizzaSize: selectedSize,
         halfProductId: itemHalfProductId,
         halfProductCategory: itemHalfProductCategory,
-        selectedAddons: selectedAddonData // New: Store detailed add-on info
+        selectedAddons: selectedAddonData
     };
 
-    cart.push(item);
-    updateCartModal();
-
-    Toastify({
-        text: "Item adicionado ao carrinho!",
-        duration: 3000,
-        close: true,
-        gravity: "top",
-        position: "right",
-        stopOnFocus: true,
-        style: {
-            background: "#22c55e",
-        },
-    }).showToast();
-
+    addToCart(finalName, finalPrice, itemOriginalProductId, itemProductCategory, itemOptions);
     document.getElementById('pizza-modal').style.display = 'none';
 });
 
 // --- Resumo do Pedido na Confirmação ---
-
 function atualizarConfirmacao() {
     confirmCartItems.innerHTML = "";
     let subtotal = 0;
+    const fragment = document.createDocumentFragment();
 
     cart.forEach(item => {
         const itemContainer = document.createElement('div');
@@ -1301,10 +1222,11 @@ function atualizarConfirmacao() {
         bottomBorder.classList.add('h-[1px]', 'bg-gray-300', 'mt-2');
         itemContainer.appendChild(bottomBorder);
 
-        confirmCartItems.appendChild(itemContainer);
-
+        fragment.appendChild(itemContainer);
         subtotal += item.price * item.quantity;
     });
+
+    confirmCartItems.appendChild(fragment);
 
     let totalComFrete = subtotal;
     const entregaSelecionada = document.getElementById("entrega").checked;
@@ -1345,13 +1267,11 @@ scrollIndicator.addEventListener('click', () => {
 });
 
 function checkScrollEnd() {
-    // Usar offsetWidth para evitar problemas com arredondamento em clientWidth/scrollWidth
     const scrollLeft = scrollContainer.scrollLeft;
     const scrollWidth = scrollContainer.scrollWidth;
-    const clientWidth = scrollContainer.offsetWidth; // Use offsetWidth para o elemento visível
+    const clientWidth = scrollContainer.offsetWidth;
 
-    // A tolerância de 10px é boa para cobrir pequenas diferenças de arredondamento
-    const chegouNoFim = (scrollLeft + clientWidth) >= (scrollWidth - 10);
+    const chegouNoFim = (scrollLeft + clientWidth) >= (scrollWidth - 10); // Tolerância de 10px
 
     scrollIndicator.style.opacity = chegouNoFim ? '0' : '1';
     scrollIndicator.style.pointerEvents = chegouNoFim ? 'none' : 'auto';
@@ -1359,7 +1279,7 @@ function checkScrollEnd() {
 
 scrollContainer.addEventListener('scroll', checkScrollEnd);
 window.addEventListener('resize', checkScrollEnd);
-document.addEventListener('DOMContentLoaded', checkScrollEnd); // Executa ao carregar
+document.addEventListener('DOMContentLoaded', checkScrollEnd);
 
 // --- Sidebar ---
 menuButton.addEventListener('click', () => {
@@ -1378,7 +1298,6 @@ document.getElementById('close-sidebar-button').addEventListener('click', () => 
 });
 
 // --- Cupons ---
-
 if (cupomInput) {
     cupomInput.addEventListener('input', function() {
         this.value = this.value.toUpperCase();
@@ -1387,7 +1306,7 @@ if (cupomInput) {
 
 applycupom.addEventListener('click', () => {
     const codigoDigitado = cupomInput.value.trim();
-    const clienteId = telefoneInput.value.trim().replace(/\D/g, ''); // Limpa o telefone para usar como ID
+    const clienteId = telefoneInput.value.trim().replace(/\D/g, '');
 
     if (codigoDigitado === '') {
         Toastify({ text: "Por favor, insira um código de cupom.", duration: 3000, close: true, gravity: "top", position: "right", style: { background: "#ffc107" } }).showToast();
@@ -1406,7 +1325,7 @@ applycupom.addEventListener('click', () => {
         return;
     }
 
-    database.ref(`cupons/${codigoDigitado}`).once('value', (snapshot) => {
+    cuponsRef.child(codigoDigitado).once('value', (snapshot) => {
         if (!snapshot.exists()) {
             Toastify({ text: "CUPOM INVÁLIDO!", duration: 3000, close: true, gravity: "top", position: "right", style: { background: "#ef4444" } }).showToast();
             cupomInput.value = "";
@@ -1427,7 +1346,7 @@ applycupom.addEventListener('click', () => {
             return;
         }
 
-        if (cupom.validade && hoje.getTime() > cupom.validade) { // Adicionado verificação se validade existe
+        if (cupom.validade && hoje.getTime() > cupom.validade) {
             Toastify({ text: "Este cupom expirou!", duration: 3000, close: true, gravity: "top", position: "right", style: { background: "#ef4444" } }).showToast();
             return;
         }
@@ -1438,7 +1357,7 @@ applycupom.addEventListener('click', () => {
             return;
         }
 
-        database.ref(`cupons_usados/${clienteId}/${codigoDigitado}`).once('value', (snapshotUso) => {
+        cuponsUsadosRef.child(clienteId).child(codigoDigitado).once('value', (snapshotUso) => {
             if (snapshotUso.exists()) {
                 Toastify({ text: "Você já utilizou este cupom!", duration: 3000, close: true, gravity: "top", position: "right", style: { background: "#ef4444" } }).showToast();
             } else {
@@ -1532,8 +1451,8 @@ function preencherCamposComCEP(data) {
     bairro.value = data.bairro;
     cepModal.style.display = 'none';
 
-    validarCampoEAvancar(rua, ruaWarn); // Valida e atualiza visualmente
-    validarCampoEAvancar(bairro, bairroWarn); // Valida e atualiza visualmente
+    validarCampoEAvancar(rua, ruaWarn);
+    validarCampoEAvancar(bairro, bairroWarn);
 
     Toastify({
         text: "Endereço preenchido com sucesso!",
@@ -1556,13 +1475,13 @@ async function deduzirEstoqueDoItem(item) {
         return;
     }
 
-    let receitaParaDeduzir = {};
+    let recipeToDeduct = {};
 
     try {
         if (item.productCategory === 'pizzas' && item.pizzaSize) {
             if (item.halfProductId && item.halfProductId !== item.originalProductId) {
                 console.log('Detectada pizza meia a meia. Combinando receitas...');
-                receitaParaDeduzir = await combinarReceitasMeiaMeia(
+                recipeToDeduct = await combineHalfAndHalfRecipes(
                     item.originalProductId,
                     item.productCategory,
                     item.pizzaSize,
@@ -1571,44 +1490,33 @@ async function deduzirEstoqueDoItem(item) {
                 );
             } else {
                 console.log('Detectada pizza de sabor único.');
-                const produtoSnapshot = await produtosRef.child(item.productCategory).child(item.originalProductId).once('value');
-                const produtoData = produtoSnapshot.val();
-                if (produtoData && produtoData.receita && produtoData.receita[item.pizzaSize]) {
-                    receitaParaDeduzir = produtoData.receita[item.pizzaSize];
+                const productSnapshot = await produtosRef.child(item.productCategory).child(item.originalProductId).once('value');
+                const productData = productSnapshot.val();
+                if (productData && productData.receita && productData.receita[item.pizzaSize]) {
+                    recipeToDeduct = productData.receita[item.pizzaSize];
                 } else {
                     console.warn(`Receita para pizza única "${item.name}" (${item.pizzaSize}) não encontrada.`);
                 }
             }
-        } else if (item.productCategory === 'ingredientes' && item.precoAdicional) { // New: Handle direct ingredient add-ons if they have a recipe
-            console.log('Detectado adicional de ingrediente. Buscando receita...');
-            const ingredienteSnapshot = await ingredientesRef.child(item.originalProductId).once('value');
-            const ingredienteData = ingredienteSnapshot.val();
-            if (ingredienteData && ingredienteData.receita) {
-                receitaParaDeduzir = ingredienteData.receita;
-            } else {
-                console.warn(`Receita para adicional "${item.name}" não encontrada. Nenhuma dedução será feita.`);
-            }
-        }
-        else {
+        } else { // Itens não-pizza ou sem tamanho específico (bebidas, lanches, etc.)
             console.log('Detectado item não-pizza.');
-            const produtoSnapshot = await produtosRef.child(item.productCategory).child(item.originalProductId).once('value');
-            const produtoData = produtoSnapshot.val();
-            if (produtoData && produtoData.receita) {
-                receitaParaDeduzir = produtoData.receita;
+            const productSnapshot = await produtosRef.child(item.productCategory).child(item.originalProductId).once('value');
+            const productData = productSnapshot.val();
+            if (productData && productData.receita) {
+                recipeToDeduct = productData.receita;
             } else {
                 console.warn(`Receita para produto "${item.name}" não-pizza não encontrada.`);
             }
         }
 
-        // New: Process selected add-ons if they exist for this pizza item
+        // Processa adicionais selecionados para este item, se houver
         if (item.selectedAddons && item.selectedAddons.length > 0) {
             for (const addon of item.selectedAddons) {
                 const addonIngredient = allIngredients[addon.id];
-                if (addonIngredient && addonIngredient.receitaAdicional) { // <--- MUDANÇA AQUI
-                    // Combine addon's recipe with the main item's recipe
-                    for (const ingId in addonIngredient.receitaAdicional) { // <--- MUDANÇA AQUI
-                        const qty = addonIngredient.receitaAdicional[ingId]; // <--- MUDANÇA AQUI
-                        receitaParaDeduzir[ingId] = (receitaParaDeduzir[ingId] || 0) + qty;
+                if (addonIngredient && addonIngredient.receitaAdicional) {
+                    for (const ingId in addonIngredient.receitaAdicional) {
+                        const qty = addonIngredient.receitaAdicional[ingId];
+                        recipeToDeduct[ingId] = (recipeToDeduct[ingId] || 0) + qty;
                     }
                     console.log(`Receita do adicional "${addon.name}" combinada.`);
                 } else {
@@ -1617,20 +1525,19 @@ async function deduzirEstoqueDoItem(item) {
             }
         }
 
-
-        if (!receitaParaDeduzir || Object.keys(receitaParaDeduzir).length === 0) {
+        if (!recipeToDeduct || Object.keys(recipeToDeduct).length === 0) {
             console.warn(`Receita final para o produto "${item.name}" está vazia. Nenhuma dedução será feita.`);
             return;
         }
 
         const now = firebase.database.ServerValue.TIMESTAMP;
 
-        for (const ingredienteId in receitaParaDeduzir) {
-            const quantidadeReceitaPorUnidade = receitaParaDeduzir[ingredienteId];
-            const quantidadeTotalDedução = quantidadeReceitaPorUnidade * item.quantity;
-            const ingredienteAtualRef = ingredientesRef.child(ingredienteId);
+        for (const ingredientId in recipeToDeduct) {
+            const recipeQuantityPerUnit = recipeToDeduct[ingredientId];
+            const totalDeductionQuantity = recipeQuantityPerUnit * item.quantity;
+            const currentIngredientRef = ingredientesRef.child(ingredientId);
 
-            await ingredienteAtualRef.transaction(currentData => {
+            await currentIngredientRef.transaction(currentData => {
                 if (currentData) {
                     const oldQuantity = currentData.quantidadeAtual || 0;
                     const oldCostUnitarioMedio = currentData.custoUnitarioMedio || 0;
@@ -1639,13 +1546,13 @@ async function deduzirEstoqueDoItem(item) {
                     const oldQtdUsadaMensal = currentData.quantidadeUsadaMensal || 0;
                     const oldCustoUsadoMensal = currentData.custoUsadoMensal || 0;
 
-                    const custoDesteUso = quantidadeTotalDedução * oldCostUnitarioMedio;
+                    const costOfThisUse = totalDeductionQuantity * oldCostUnitarioMedio;
 
-                    currentData.quantidadeAtual = Math.max(0, oldQuantity - quantidadeTotalDedução);
-                    currentData.quantidadeUsadaDiaria = oldQtdUsadaDiaria + quantidadeTotalDedução;
-                    currentData.custoUsadaDiaria = oldCustoUsadaDiaria + custoDesteUso;
-                    currentData.quantidadeUsadaMensal = oldQtdUsadaMensal + quantidadeTotalDedução;
-                    currentData.custoUsadoMensal = oldCustoUsadoMensal + custoDesteUso;
+                    currentData.quantidadeAtual = Math.max(0, oldQuantity - totalDeductionQuantity);
+                    currentData.quantidadeUsadaDiaria = oldQtdUsadaDiaria + totalDeductionQuantity;
+                    currentData.custoUsadaDiaria = oldCustoUsadaDiaria + costOfThisUse;
+                    currentData.quantidadeUsadaMensal = oldQtdUsadaMensal + totalDeductionQuantity;
+                    currentData.custoUsadoMensal = oldCustoUsadoMensal + costOfThisUse;
                     currentData.ultimaAtualizacaoConsumo = now;
 
                     return currentData;
@@ -1661,34 +1568,50 @@ async function deduzirEstoqueDoItem(item) {
     console.log('----------------------------------------------------');
 }
 
-async function combinarReceitasMeiaMeia(productId1, category1, size, productId2, category2) {
-    let receitaCombinada = {};
+/**
+ * Combina as receitas de duas metades de pizza para calcular a dedução de estoque.
+ * @param {string} productId1 - ID do primeiro sabor da pizza.
+ * @param {string} category1 - Categoria do primeiro sabor.
+ * @param {string} size - Tamanho da pizza ('Broto' ou 'Grande').
+ * @param {string} productId2 - ID do segundo sabor da pizza.
+ * @param {string} category2 - Categoria do segundo sabor.
+ * @returns {Promise<object>} Objeto contendo a receita combinada.
+ */
+async function combineHalfAndHalfRecipes(productId1, category1, size, productId2, category2) {
+    let combinedRecipe = {};
 
-    const produto1Snapshot = await produtosRef.child(category1).child(productId1).once('value');
-    const produto1Data = produto1Snapshot.val();
-    let receita1 = {};
-    if (produto1Data && produto1Data.receita && produto1Data.receita[size]) {
-        receita1 = produto1Data.receita[size];
+    const [product1Snapshot, product2Snapshot] = await Promise.all([
+        produtosRef.child(category1).child(productId1).once('value'),
+        produtosRef.child(category2).child(productId2).once('value')
+    ]);
+
+    const product1Data = product1Snapshot.val();
+    const product2Data = product2Snapshot.val();
+
+    let recipe1 = {};
+    if (product1Data && product1Data.receita && product1Data.receita[size]) {
+        recipe1 = product1Data.receita[size];
     } else {
         console.warn(`Receita para o lado 1 (${productId1}, ${size}) não encontrada.`);
     }
 
-    const produto2Snapshot = await produtosRef.child(category2).child(productId2).once('value');
-    const produto2Data = produto2Snapshot.val();
-    let receita2 = {};
-    if (produto2Data && produto2Data.receita && produto2Data.receita[size]) {
-        receita2 = produto2Data.receita[size];
+    let recipe2 = {};
+    if (product2Data && product2Data.receita && product2Data.receita[size]) {
+        recipe2 = product2Data.receita[size];
     } else {
         console.warn(`Receita para o lado 2 (${productId2}, ${size}) não encontrada.`);
     }
 
-    const allIngredientIds = new Set([...Object.keys(receita1), ...Object.keys(receita2)]);
+    const allIngredientIds = new Set([...Object.keys(recipe1), ...Object.keys(recipe2)]);
 
-    allIngredientIds.forEach(ingredienteId => {
-        const qtd1 = receita1[ingredienteId] || 0;
-        const qtd2 = receita2[ingredienteId] || 0;
-        receitaCombinada[ingredienteId] = (qtd1 + qtd2) / 2;
+    allIngredientIds.forEach(ingredientId => {
+        const qty1 = recipe1[ingredientId] || 0;
+        const qty2 = recipe2[ingredientId] || 0;
+        combinedRecipe[ingredientId] = (qty1 + qty2) / 2; // Média das quantidades
     });
 
-    return receitaCombinada;
+    return combinedRecipe;
 }
+
+// Inicializa o carregamento de todas as categorias ao carregar o DOM
+document.addEventListener('DOMContentLoaded', carregarTodasCategorias);
