@@ -299,6 +299,37 @@ async function addMesaPayment() {
     }
 }
 
+async function removePayment(paymentIndex) {
+    const pagamentoParaRemover = currentMesaDataForCheckout.pagamentosRegistrados[paymentIndex];
+    if (!pagamentoParaRemover) return;
+
+    if (confirm(`Tem certeza que deseja remover o pagamento de R$ ${pagamentoParaRemover.valorPago.toFixed(2)} (${pagamentoParaRemover.metodo})?`)) {
+        try {
+            // Remove o pagamento do array local que está sendo usado no modal
+            currentMesaDataForCheckout.pagamentosRegistrados.splice(paymentIndex, 1);
+
+            // Envia o array atualizado (sem o item removido) para o Firebase
+            await mesasRef.child(currentMesaIdForCheckout).child('pagamentosRegistrados').set(currentMesaDataForCheckout.pagamentosRegistrados);
+
+            alert('Pagamento removido com sucesso!');
+
+            // Recarrega os dados da mesa para garantir que a UI esteja 100% sincronizada
+            const snapshot = await mesasRef.child(currentMesaIdForCheckout).once('value');
+            currentMesaDataForCheckout = snapshot.val();
+            
+            // Atualiza a tela com os novos dados
+            renderPagamentoHistory();
+            updateCheckoutStatus();
+
+        } catch (error) {
+            console.error("Erro ao remover pagamento:", error);
+            alert("Ocorreu um erro ao tentar remover o pagamento. A tela será atualizada para segurança.");
+            // Em caso de erro, recarrega o modal para evitar inconsistências
+            openMesaDetalhesModal(currentMesaIdForCheckout);
+        }
+    }
+}
+
 function renderPagamentoHistory() {
     DOM_TABLE_MGMT.historicoPagamentosContainer.innerHTML = '';
     const pagamentos = currentMesaDataForCheckout.pagamentosRegistrados || [];
@@ -317,8 +348,14 @@ function renderPagamentoHistory() {
             <span>${index + 1}. ${p.metodo} - R$ ${p.valorPago.toFixed(2)}${trocoInfo}</span>
             <button class="text-red-500 hover:text-red-700 remove-payment-btn" data-index="${index}"><i class="fas fa-trash-alt"></i></button>
         `;
-        // Adicionar listener para remover pagamento (funcionalidade avançada)
         DOM_TABLE_MGMT.historicoPagamentosContainer.appendChild(paymentDiv);
+    });
+    DOM_TABLE_MGMT.historicoPagamentosContainer.querySelectorAll('.remove-payment-btn').forEach(button => {
+        button.addEventListener('click', (event) => {
+            // Pega o 'index' do pagamento a ser removido a partir do atributo 'data-index' do botão
+            const paymentIndex = parseInt(event.currentTarget.dataset.index, 10);
+            removePayment(paymentIndex);
+        });
     });
 }
 
