@@ -5424,7 +5424,7 @@ async function saveManualOrder() {
         };
 
         // Salva o novo pedido com o ID incrementado
-        await firebase.database().ref('pedidos/' + newOrderId).set(novoPedido);
+        await firebase.database().ref('central/pedidos/' + newOrderId).set(novoPedido);
 
         // Deduce ingredientes após o pedido ser salvo com sucesso
         await deductIngredientsFromStock(manualOrderCart);
