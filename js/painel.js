@@ -39,6 +39,8 @@ const ingredientesRef = database.ref('central/ingredientes');
 const comprasRef = database.ref('central/compras');
 const garconsInfoRef = database.ref('central/garcons_info');
 
+const CLOUD_RUN_WHATSAPP_API_URL = 'http://seunegocio.dyndns.net:8080';
+
 const DOM = {}; // Objeto DOM será preenchido em DOMContentLoaded
 
 let allIngredients = {};
@@ -65,6 +67,8 @@ let menuLink = '';
 
 let allProducts = {};
 let manualOrderCart = [];
+
+let currentRestId = '';
 
 let currentAddonRecipe = null;
 let currentAddonRecipeId = null;
@@ -434,6 +438,18 @@ document.addEventListener('DOMContentLoaded', () => {
         manualTipoEntregaSelect: document.getElementById('manual-tipo-entrega'),
 
         listaAdicionaisConfiguracao: document.getElementById('lista-adicionais-configuracao'),
+
+        whatsappSettingsSection: document.getElementById('whatsapp-settings-section'),
+        currentRestaurantIdDisplay: document.getElementById('current-restaurant-id-display'),
+        hiddenCurrentRestaurantId: document.getElementById('hidden-current-restaurant-id'),
+        whatsappSessionStatus: document.getElementById('whatsapp-session-status'),
+        whatsappPhoneNumber: document.getElementById('whatsapp-phone-number'),
+        whatsappLastUpdate: document.getElementById('whatsapp-last-update'),
+        qrCodeDisplay: document.getElementById('qr-code-display'),
+        btnConnectWhatsapp: document.getElementById('btn-connect-whatsapp'),
+        manualMessagePhone: document.getElementById('manual-message-phone'),
+        manualMessageText: document.getElementById('manual-message-text'),
+        btnSendManualMessage: document.getElementById('btn-send-manual-message')
 
     });
 
@@ -5503,3 +5519,168 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+
+
+//zpppppppppppppppppasdpppppppppppp
+
+async function getCurrentRestaurantId() {
+    const user = firebase.auth().currentUser;
+    if (user) {
+        // Opção A: ID do restaurante hardcoded para teste (REMOVA EM PRODUÇÃO)
+        // return 'restaurante_teste_01'; 
+        
+        // Opção B: Buscar de um nó específico no Firebase que mapeia UID do usuário para restauranteId
+        const userRestaurantMapRef = database.ref(`users/${user.uid}/restauranteId`); // Exemplo de caminho
+        const snapshot = await userRestaurantMapRef.once('value');
+        const restaurantIdFromFirebase = snapshot.val();
+
+        if (restaurantIdFromFirebase) {
+            return restaurantIdFromFirebase;
+        } else {
+            console.warn("Nenhum restauranteId encontrado para o usuário logado. Defina um padrão ou redirecione.");
+            alert("Erro: ID do restaurante não configurado para seu usuário. Entre em contato com o suporte.");
+            return null;
+        }
+    }
+    console.warn("Nenhum usuário autenticado para obter o ID do restaurante.");
+    return null; 
+}
+
+async function checkWhatsappSessionStatus(restauranteId) {
+    if (!restauranteId) return;
+
+    try {
+        const response = await fetch(`${CLOUD_RUN_WHATSAPP_API_URL}/api/whatsapp/status/${restauranteId}`);
+        const data = await response.json();
+
+        if (response.ok) {
+            DOM.whatsappSessionStatus.textContent = `Status: ${data.status}`;
+            DOM.whatsappPhoneNumber.textContent = `Número conectado: ${data.phoneNumber || 'N/A'}`;
+            DOM.whatsappLastUpdate.textContent = `Última atualização: ${new Date(data.timestamp || Date.now()).toLocaleTimeString('pt-BR')}`;
+
+            if (data.status === 'QR_RECEIVED' && data.qrCode) {
+                DOM.qrCodeDisplay.src = `data:image/png;base64,${data.qrCode}`;
+                DOM.qrCodeDisplay.classList.remove('hidden');
+                DOM.whatsappSessionStatus.textContent = `Status: ${data.status} (Escaneie o QR Code)`;
+            } else {
+                DOM.qrCodeDisplay.classList.add('hidden');
+            }
+            DOM.btnSendManualMessage.disabled = !(data.status === 'CONNECTED'); // Habilita enviar se estiver conectado
+        } else {
+            DOM.whatsappSessionStatus.textContent = `Erro ao carregar status: ${data.message || 'Serviço indisponível'}`;
+            DOM.whatsappPhoneNumber.textContent = 'Número conectado: N/A';
+            DOM.qrCodeDisplay.classList.add('hidden');
+            DOM.btnSendManualMessage.disabled = true;
+        }
+    } catch (error) {
+        DOM.whatsappSessionStatus.textContent = `Erro de conexão com o backend: ${error.message}`;
+        DOM.whatsappPhoneNumber.textContent = 'Número conectado: N/A';
+        DOM.qrCodeDisplay.classList.add('hidden');
+        DOM.btnSendManualMessage.disabled = true;
+        console.error('Erro de rede/servidor do WhatsApp:', error);
+    }
+}
+
+// Função para conectar/verificar a sessão WhatsApp (acionada pelo botão)
+async function connectOrCheckWhatsapp(restauranteId) {
+    if (!restauranteId) {
+        alert('Nenhum restaurante selecionado para conectar o WhatsApp.');
+        return;
+    }
+
+    DOM.whatsappSessionStatus.textContent = 'Solicitando QR Code / Verificando conexão...';
+    DOM.qrCodeDisplay.src = '';
+    DOM.qrCodeDisplay.classList.add('hidden');
+    DOM.btnConnectWhatsapp.disabled = true; // Desabilita para evitar cliques múltiplos
+
+    try {
+        const response = await fetch(`${CLOUD_RUN_WHATSAPP_API_URL}/api/whatsapp/start-session`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ restauranteId: restauranteId })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            if (data.status === 'Aguardando QR Code' && data.qrCode) {
+                DOM.qrCodeDisplay.src = `data:image/png;base64,${data.qrCode}`;
+                DOM.qrCodeDisplay.classList.remove('hidden');
+                DOM.whatsappSessionStatus.textContent = `Status: ${data.status} (Escaneie o QR Code)`;
+                alert('Por favor, escaneie o QR Code que apareceu na tela com seu WhatsApp Business.');
+            } else if (data.status === 'Conectado') {
+                DOM.qrCodeDisplay.classList.add('hidden');
+                DOM.whatsappSessionStatus.textContent = `Status: ${data.status}`;
+                DOM.whatsappPhoneNumber.textContent = `Número conectado: ${data.phoneNumber}.`;
+                alert('Sessão WhatsApp já está conectada!');
+            } else { // Outros status como 'Inicializando', 'Desconectado', 'Falha na Autenticação'
+                DOM.whatsappSessionStatus.textContent = `Status: ${data.status} (Mensagem: ${data.message || 'N/A'})`;
+                alert(`Status da sessão: ${data.status}. Por favor, verifique os detalhes.`);
+            }
+        } else {
+            DOM.whatsappSessionStatus.textContent = `Erro: ${data.message || 'Erro desconhecido'}`;
+            console.error('Erro na API de WhatsApp:', data);
+            alert(`Erro ao conectar WhatsApp: ${data.message}. Verifique os logs do Cloud Run.`);
+        }
+    } catch (error) {
+        DOM.whatsappSessionStatus.textContent = `Erro de conexão com o servidor.`;
+        console.error('Erro de rede ou servidor WhatsApp:', error);
+        alert('Não foi possível conectar ao servidor WhatsApp. Verifique sua conexão ou o status do serviço Cloud Run.');
+    } finally {
+        DOM.btnConnectWhatsapp.disabled = false; // Reabilita o botão
+        // Sempre verifique o status final após a tentativa
+        checkWhatsappSessionStatus(restauranteId);
+    }
+}
+
+// 5. Função para enviar mensagem manual (você já tem uma base, vamos adaptar)
+async function sendManualWhatsappMessage(restauranteId) {
+    if (!restauranteId) {
+        alert('Nenhum restaurante selecionado para enviar a mensagem.');
+        return;
+    }
+    const phone = DOM.manualMessagePhone.value.trim();
+    const messageContent = DOM.manualMessageText.value.trim();
+
+    if (!phone || !messageContent) {
+        alert('Por favor, preencha o número do cliente e a mensagem.');
+        return;
+    }
+    const cleanedPhone = phone.replace(/\D/g, ''); 
+
+    if (cleanedPhone.length < 10) { // Mínimo para um número de telefone com DDD
+        alert('Por favor, insira um número de telefone válido (com DDD e código do país, ex: 55119...).');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${CLOUD_RUN_WHATSAPP_API_URL}/api/whatsapp/send-message`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                restauranteId: restauranteId,
+                to: cleanedPhone,
+                message: messageContent
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            alert('Mensagem enviada com sucesso!');
+            DOM.manualMessagePhone.value = '';
+            DOM.manualMessageText.value = '';
+        } else {
+            alert(`Erro ao enviar mensagem: ${data.message || 'Erro desconhecido'}`);
+            console.error('Erro ao enviar mensagem manual:', data);
+        }
+    } catch (error) {
+        alert('Não foi possível enviar a mensagem. Verifique a conexão com o servidor WhatsApp.');
+        console.error('Erro de rede ou servidor ao enviar mensagem manual:', error);
+    }
+}

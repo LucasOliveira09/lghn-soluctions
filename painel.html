@@ -569,6 +569,47 @@
                         </button>
                     </form>
                 </div>
+                
+                <div id="whatsapp-settings-section" class="p-6 bg-white rounded-lg shadow-md mt-6">
+    <h3 class="text-2xl font-semibold mb-4 text-gray-800">Gerenciamento de WhatsApp</h3>
+    
+    <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700">Restaurante Atual:</label>
+        <span id="current-restaurant-id-display" class="text-lg font-bold text-blue-700">Carregando...</span>
+        <input type="hidden" id="hidden-current-restaurant-id" value="">
+    </div>
+
+    <hr class="my-6 border-t border-gray-200">
+
+    <div class="flex flex-col md:flex-row items-center justify-around gap-8 mb-8 p-6 border rounded-lg bg-indigo-50">
+        <div class="flex-1 text-center min-w-0">
+            <h4 class="text-xl font-medium mb-3 text-indigo-800">Status da Conexão WhatsApp</h4>
+            <p id="whatsapp-session-status" class="text-lg font-bold text-indigo-700">Carregando status...</p>
+            <p id="whatsapp-phone-number" class="text-gray-700 text-sm mt-1">Número Conectado: N/A</p>
+            <p id="whatsapp-last-update" class="text-gray-600 text-xs mt-2">Última atualização: N/A</p>
+        </div>
+        <div class="flex-1 text-center flex flex-col items-center justify-center min-w-0">
+            <h4 class="text-xl font-medium mb-3 text-indigo-800">QR Code para Conexão</h4>
+            <img id="qr-code-display" src="" alt="QR Code WhatsApp" class="w-56 h-56 mx-auto border-4 border-gray-300 rounded-lg p-2 bg-white hidden">
+            <button id="btn-connect-whatsapp" class="mt-5 bg-indigo-600 text-white px-8 py-3 rounded-full shadow-lg hover:bg-indigo-700 transition duration-200 text-base font-semibold">
+                Conectar/Verificar WhatsApp
+            </button>
+            <p class="text-sm text-gray-500 mt-2">Escaneie com o app WhatsApp Business do celular.</p>
+        </div>
+    </div>
+
+    <hr class="my-6 border-t border-gray-200">
+
+    <h4 class="text-2xl font-semibold mb-4 text-gray-800">Enviar Mensagem Manual (Teste)</h4>
+    <div class="flex flex-col gap-5 p-6 border rounded-lg bg-blue-50">
+        <input type="text" id="manual-message-phone" placeholder="Número do Cliente (ex: 5511987654321)" class="p-3 border border-blue-300 rounded-md text-gray-800 focus:ring-blue-500 focus:border-blue-500">
+        <textarea id="manual-message-text" rows="4" placeholder="Digite a mensagem aqui... (Suporta *negrito*, _itálico_, ~riscado~)" class="p-3 border border-blue-300 rounded-md text-gray-800 focus:ring-blue-500 focus:border-blue-500"></textarea>
+        <button id="btn-send-manual-message" class="bg-blue-600 text-white px-8 py-3 rounded-full shadow-lg hover:bg-blue-700 transition duration-200 text-base font-semibold">
+            Enviar Mensagem
+        </button>
+        <p class="text-sm text-gray-600">Use este campo para testes ou mensagens avulsas.</p>
+    </div>
+</div>
             </div>
 
             <div id="aba-gerenciar-mesas" class="hidden">
