@@ -39,7 +39,7 @@ const ingredientesRef = database.ref('central/ingredientes');
 const comprasRef = database.ref('central/compras');
 const garconsInfoRef = database.ref('central/garcons_info');
 
-const CLOUD_RUN_WHATSAPP_API_URL = 'http://seunegocio.dyndns.net:8080';
+const CLOUD_RUN_WHATSAPP_API_URL = 'http://lghnsoluction.dyndns.net:8080';
 
 const DOM = {}; // Objeto DOM será preenchido em DOMContentLoaded
 
