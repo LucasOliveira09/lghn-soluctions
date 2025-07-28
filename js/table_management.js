@@ -393,13 +393,22 @@ async function finalizeMesaAccount() {
     const mesa = currentMesaDataForCheckout;
     if (confirm(`Confirmar FINALIZAÇÃO da conta da Mesa ${mesa.numero}?`)) {
         try {
-            // 1. Dar baixa no estoque
             if (mesa.pedido && Array.isArray(mesa.pedido)) {
                 await deductIngredientsFromStock(mesa.pedido);
             }
 
-            // 2. Criar registro em 'pedidos'
-            const novoPedidoId = pedidosRef.push().key;
+            const configRef = database.ref('central/config/ultimoPedidoId');
+            const transactionResult = await configRef.transaction(currentId => {
+                return (currentId || 1000) + 1;
+            });
+
+            if (!transactionResult.committed || !transactionResult.snapshot.exists()) {
+                 alert("Falha ao gerar um ID de pedido sequencial. Tente novamente.");
+                 console.error("Transação de ID de pedido falhou ou snapshot nulo.");
+                 return;
+            }
+            
+            const novoPedidoId = transactionResult.snapshot.val();
             const totalPago = (mesa.pagamentosRegistrados || []).reduce((sum, p) => sum + p.valorPago, 0);
             const pedidoFinalizado = {
                 tipoAtendimento: 'Presencial',
@@ -413,19 +422,21 @@ async function finalizeMesaAccount() {
                 totalPago: totalPago,
                 pagamentosRegistrados: mesa.pagamentosRegistrados,
                 status: 'Finalizado',
-                timestamp: firebase.database.ServerValue.TIMESTAMP
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                id: novoPedidoId 
             };
             await pedidosRef.child(novoPedidoId).set(pedidoFinalizado);
 
-            // 3. Resetar a mesa
+            // 4. Resetar a mesa
             await mesasRef.child(currentMesaIdForCheckout).update({
                 status: 'Livre', cliente: '', garcom: '', observacoes: '',
                 pedido: null, total: 0, pagamentosRegistrados: null,
                 lastUpdate: firebase.database.ServerValue.TIMESTAMP
             });
 
-            alert(`Conta da Mesa ${mesa.numero} finalizada e mesa liberada!`);
+            alert(`Conta da Mesa ${mesa.numero} finalizada com sucesso (Pedido #${novoPedidoId}) e mesa liberada!`);
             closeMesaDetalhesModal();
+
         } catch (error) {
             console.error("Erro ao finalizar conta da mesa:", error);
             alert("Erro ao finalizar conta. Verifique o console.");
