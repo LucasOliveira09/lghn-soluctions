@@ -45,7 +45,7 @@ let allProducts = {};           // Todos os produtos ativos carregados do Fireba
 let currentOrderCart = [];      // Carrinho local para o pedido da mesa (array de {nome, preco, quantidade})
 let selectedOrderItemIndex = -1; // Índice do item selecionado no currentOrderCart para ações de quantidade/remover
 
-const WAITER_NAME_STORAGE_KEY = 'garcomName';
+/*const WAITER_NAME_STORAGE_KEY = 'garcomName';
 
 auth.onAuthStateChanged(user => {
     if (user) {
@@ -71,6 +71,15 @@ auth.onAuthStateChanged(user => {
         window.location.replace('logingarcom.html');
     }
 });
+*/
+currentWaiterName = "Garçom Teste"; // Define um nome de garçom falso
+
+document.body.style.display = 'flex'; // Exibe a página
+if (waiterNameDisplay) {
+    waiterNameDisplay.value = currentWaiterName; // Coloca o nome no campo
+}
+loadAllProducts();
+
 // --- Monitoramento de Mesas em Tempo Real ---
 mesasRef.on('value', (snapshot) => {
     const mesasData = snapshot.val() || {};
