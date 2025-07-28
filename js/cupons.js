@@ -230,7 +230,7 @@ document.addEventListener("DOMContentLoaded", () => {
         progressContainer.classList.add('hidden'); // Oculta o progresso enquanto busca os dados
 
         try {
-            const pedidosSnapshot = await database.ref('pedidos')
+            const pedidosSnapshot = await database.ref('central/pedidos')
                 .orderByChild('telefone')
                 .equalTo(clienteTelefone)
                 .once('value');
@@ -260,7 +260,7 @@ document.addEventListener("DOMContentLoaded", () => {
             console.log(`Cupons que deveriam ser emitidos com base na contagem (${completedOrdersCount} pedidos finalizados / ${threshold}): ${couponsToIssue}`);
 
             // Buscando cupons que já foram gerados para este cliente
-            const issuedCouponsSnapshot = await database.ref(`cupons_emitidos/${clienteTelefone}`).once('value');
+            const issuedCouponsSnapshot = await database.ref(`central/cupons_emitidos/${clienteTelefone}`).once('value');
             const issuedCoupons = issuedCouponsSnapshot.val() || {}; // Objeto de cupons gerados por milestone
 
             let foundActiveUnusedCoupon = false;
@@ -272,12 +272,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 const generatedCouponCode = issuedCoupons[milestoneKey];
 
                 if (generatedCouponCode) { // Se um cupom foi gerado para este marco
-                    const couponDetailsSnapshot = await database.ref(`cupons/${generatedCouponCode}`).once('value');
+                    const couponDetailsSnapshot = await database.ref(`central/cupons/${generatedCouponCode}`).once('value');
                     const couponDetails = couponDetailsSnapshot.val();
 
                     if (couponDetails && couponDetails.ativo && Date.now() < couponDetails.validade) {
                         // Verifica se este CÓDIGO de cupom específico foi marcado como usado por este cliente
-                        const usedSnapshot = await database.ref(`cupons_usados/${clienteTelefone}/${generatedCouponCode}`).once('value');
+                        const usedSnapshot = await database.ref(`central/cupons_usados/${clienteTelefone}/${generatedCouponCode}`).once('value');
                         if (!usedSnapshot.exists()) { // Se o cupom NÃO FOI usado
                             foundActiveUnusedCoupon = true;
                             displayedCouponCode = generatedCouponCode;
@@ -322,8 +322,8 @@ document.addEventListener("DOMContentLoaded", () => {
                             milestone: milestoneKey // Salva o marco associado ao cupom
                         };
 
-                        await database.ref(`cupons/${newCouponCode}`).set(couponData); // Salva o cupom no nó 'cupons'
-                        await database.ref(`cupons_emitidos/${clienteTelefone}/${milestoneKey}`).set(newCouponCode); // Marca o marco como emitido com o código do cupom
+                        await database.ref(`central/cupons/${newCouponCode}`).set(couponData); // Salva o cupom no nó 'cupons'
+                        await database.ref(`central/cupons_emitidos/${clienteTelefone}/${milestoneKey}`).set(newCouponCode); // Marca o marco como emitido com o código do cupom
 
                         couponCodeSpan.textContent = newCouponCode;
                         couponDisplayArea.classList.remove('hidden');

@@ -14,10 +14,10 @@ firebase.initializeApp(firebaseConfig);
 // --- INICIALIZAÇÃO DOS SERVIÇOS DO FIREBASE ---
 const auth = firebase.auth();
 const database = firebase.database();
-const mesasRef = database.ref('mesas');
-const pedidosRef = database.ref('pedidos');
-const ingredientesRef = database.ref('ingredientes');
-const produtosRef = database.ref('produtos');
+const mesasRef = database.ref('central/mesas');
+const pedidosRef = database.ref('central/pedidos');
+const ingredientesRef = database.ref('central/ingredientes');
+const produtosRef = database.ref('central/produtos');
 
 // --- VARIÁVEIS GLOBAIS ---
 let currentMesaIdForCheckout = null;

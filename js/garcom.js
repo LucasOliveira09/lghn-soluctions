@@ -15,8 +15,8 @@ firebase.initializeApp(firebaseConfig);
 
 const database = firebase.database();
 const auth = firebase.auth();
-const mesasRef = database.ref('mesas');
-const produtosRef = database.ref('produtos');
+const mesasRef = database.ref('central/mesas');
+const produtosRef = database.ref('central/produtos');
 
 // Elementos HTML
 const waiterNameDisplay = document.getElementById('waiter-name-display');
@@ -51,7 +51,7 @@ auth.onAuthStateChanged(user => {
     if (user) {
         console.log("Garçom autenticado com UID:", user.uid);
         
-        database.ref('garcons_info/' + user.uid).once('value').then((snapshot) => {
+        database.ref('central/garcons_info/' + user.uid).once('value').then((snapshot) => {
             if (snapshot.exists()) {
                 const waiterData = snapshot.val();
                 currentWaiterName = waiterData.nome;

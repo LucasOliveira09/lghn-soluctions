@@ -14,7 +14,7 @@ if (!firebase.apps.length) {
 }
 
 const database = firebase.database();
-const horariosRef = database.ref('config/horarios');
+const horariosRef = database.ref('central/config/horarios');
 
 /**
  * NOVA FUNÇÃO: Formata uma string de hora para HH:mm.

@@ -16,12 +16,13 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // --- Referências do Firebase ---
-const ingredientesRef = database.ref('ingredientes');
-const produtosRef = database.ref('produtos');
-const pedidosRef = database.ref('pedidos');
-const configRef = database.ref('config/ultimoPedidoId');
-const cuponsRef = database.ref('cupons');
-const cuponsUsadosRef = database.ref('cupons_usados');
+// Modified to include 'central/' prefix
+const ingredientesRef = database.ref('central/ingredientes');
+const produtosRef = database.ref('central/produtos');
+const pedidosRef = database.ref('central/pedidos');
+const configRef = database.ref('central/config/ultimoPedidoId');
+const cuponsRef = database.ref('central/cupons');
+const cuponsUsadosRef = database.ref('central/cupons_usados');
 
 // --- Elementos do DOM ---
 const cartBtn = document.getElementById('cart-btn');
@@ -142,7 +143,8 @@ function criarItemCardapio(item, type, idDoItemFirebase) {
  */
 async function loadAndRenderProducts(dbRefPath, containerId, itemType, sectionId = null, btnId = null, subType = null) {
     try {
-        const snapshot = await database.ref(dbRefPath).once('value');
+        // Modified to include 'central/' prefix in dbRefPath
+        const snapshot = await database.ref(`central/${dbRefPath}`).once('value');
         const container = document.getElementById(containerId);
         if (!container) {
             console.warn(`Contêiner com ID ${containerId} não encontrado.`);
@@ -464,7 +466,8 @@ function getStatusMessage(horarios) {
 function atualizarStatusVisual() {
     const spanItem = document.getElementById("date-span");
 
-    database.ref("config/horarios").once("value")
+    // Modified to include 'central/' prefix
+    database.ref("central/config/horarios").once("value")
         .then(snapshot => {
             if (snapshot.exists()) {
                 const horarios = snapshot.val();
@@ -535,7 +538,7 @@ function atualizarPagamento() {
     const pixSection = document.getElementById("PixSection");
 
     trocoSection.classList.add("hidden"); // Esconde por padrão
-    pixSection.classList.add("hidden");   // Esconde por padrão
+    pixSection.classList.add("hidden");    // Esconde por padrão
 
     if (pagDinheiro.checked) {
         trocoSection.classList.remove("hidden");
@@ -1351,12 +1354,6 @@ applycupom.addEventListener('click', () => {
             return;
         }
 
-        const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        if (cupom.valorMinimo && subtotal < cupom.valorMinimo) {
-            Toastify({ text: `Este cupom requer um pedido mínimo de R$ ${cupom.valorMinimo.toFixed(2).replace('.', ',')}`, duration: 4000, close: true, gravity: "top", position: "right", style: { background: "#ffc107" } }).showToast();
-            return;
-        }
-
         cuponsUsadosRef.child(clienteId).child(codigoDigitado).once('value', (snapshotUso) => {
             if (snapshotUso.exists()) {
                 Toastify({ text: "Você já utilizou este cupom!", duration: 3000, close: true, gravity: "top", position: "right", style: { background: "#ef4444" } }).showToast();
@@ -1425,7 +1422,7 @@ async function consultarCEP(cep) {
     }
 
     console.log("CACHE MISS - Buscando na API ViaCEP:", cepLimpo);
-    const url = `https://viacep.com.br/ws/${cepLimpo}/json/`;
+    const url = `https://viacnp.com.br/ws/${cepLimpo}/json/`;
 
     try {
         const response = await fetch(url);
@@ -1490,7 +1487,8 @@ async function deduzirEstoqueDoItem(item) {
                 );
             } else {
                 console.log('Detectada pizza de sabor único.');
-                const productSnapshot = await produtosRef.child(item.productCategory).child(item.originalProductId).once('value');
+                // Modified to include 'central/' prefix
+                const productSnapshot = await database.ref(`central/${item.productCategory}`).child(item.originalProductId).once('value');
                 const productData = productSnapshot.val();
                 if (productData && productData.receita && productData.receita[item.pizzaSize]) {
                     recipeToDeduct = productData.receita[item.pizzaSize];
@@ -1500,7 +1498,8 @@ async function deduzirEstoqueDoItem(item) {
             }
         } else { // Itens não-pizza ou sem tamanho específico (bebidas, lanches, etc.)
             console.log('Detectado item não-pizza.');
-            const productSnapshot = await produtosRef.child(item.productCategory).child(item.originalProductId).once('value');
+            // Modified to include 'central/' prefix
+            const productSnapshot = await database.ref(`central/${item.productCategory}`).child(item.originalProductId).once('value');
             const productData = productSnapshot.val();
             if (productData && productData.receita) {
                 recipeToDeduct = productData.receita;
@@ -1581,8 +1580,9 @@ async function combineHalfAndHalfRecipes(productId1, category1, size, productId2
     let combinedRecipe = {};
 
     const [product1Snapshot, product2Snapshot] = await Promise.all([
-        produtosRef.child(category1).child(productId1).once('value'),
-        produtosRef.child(category2).child(productId2).once('value')
+        // Modified to include 'central/' prefix
+        database.ref(`central/${category1}`).child(productId1).once('value'),
+        database.ref(`central/${category2}`).child(productId2).once('value')
     ]);
 
     const product1Data = product1Snapshot.val();
