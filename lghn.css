@@ -189,9 +189,9 @@ h3 {
 
 .hero-image img {
     max-width: 100%;
-    height: auto;
+    height: 50vh;
     border-radius: var(--border-radius-main); /* Arredondamento sutil */
-    box-shadow: var(--shadow-medium); /* Sombra visível na imagem como no exemplo */
+    margin-bottom: -5px;
 }
 
 .hero-callout {
