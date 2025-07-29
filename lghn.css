@@ -3,8 +3,8 @@
 
 /* Variáveis de Cores (Baseado na imagem cardapio.ai) */
 :root {
-    --primary-red: #1700e7; /* Vermelho para botões principais */
-    --secondary-blue-purple: #06007e; /* Azul/Roxo para links e ícones */
+    --primary-red: #0A1426; /* Vermelho para botões principais */
+    --secondary-blue-purple: #2173A6; /* Azul/Roxo para links e ícones */
     --text-dark: #333;
     --text-light-grey: #777;
     --background-light: #FFFFFF; /* Fundo principal branco puro */
