@@ -35,14 +35,36 @@
             <div class="hero-image">
                 <img src="assets/teste.png" alt="Sistema de Cardápio Digital em diversos dispositivos">
             </div>
-            <p class="hero-callout">Sistema usado por milhares de lojas em todo o Brasil</p>
-            <h1>Sistema de delivery e cardápio digital para seu negócio!</h1>
+            <p class="hero-callout">Sistema muito aclamado por onde passa!</p>
+            <h1>Sistema e automação do seu negócio!</h1>
             <p class="hero-description">Tenha seu site próprio sem taxas, automatize suas vendas, imprima pedidos e fidelize seus clientes.</p>
             <a href="#planos" class="btn btn-primary-red cta-hero-btn">Criar cardápio digital</a>
             <p class="hero-small-text">Acesso grátis a todas funções por 7 dias, sem compromisso.</p>
         </div>
     </section>
 
+    <section id="carousel-sistema" class="section light-bg">
+        <div class="container">
+            <h2>Veja o sistema em ação!</h2>
+            <p class="description">Explore as telas intuitivas e o design moderno do nosso sistema. Uma experiência fluida para você e seus clientes.</p>
+
+            <div class="carousel-container">
+                <div class="carousel-track">
+                    <img src="assets/1 (1).png" alt="Tela 1 do Sistema" class="carousel-slide">
+                    <img src="assets/1 (2).png" alt="Tela 2 do Sistema" class="carousel-slide">
+                    <img src="assets/1 (3).png" alt="Tela 3 do Sistema" class="carousel-slide">
+                    <img src="assets/1 (4).png" alt="Tela 4 do Sistema" class="carousel-slide">
+                    <img src="assets/1 (5).png" alt="Tela 5 do Sistema" class="carousel-slide">
+                    <img src="assets/1 (6).png" alt="Tela 6 do Sistema" class="carousel-slide">
+                    <img src="assets/1 (7).png" alt="Tela 7 do Sistema" class="carousel-slide">
+                    <img src="assets/1 (8).png" alt="Tela 8 do Sistema" class="carousel-slide">
+                    </div>
+                <button class="carousel-button prev"><i class="fas fa-chevron-left"></i></button>
+                <button class="carousel-button next"><i class="fas fa-chevron-right"></i></button>
+                <div class="carousel-dots"></div>
+            </div>
+        </div>
+    </section>
     <main>
         <section id="problema-solucao" class="section">
             <div class="container">
@@ -97,7 +119,7 @@
                         <h3>3. Use e aproveite!</h3>
                         <p>Após ter seu sistema entregue ele estará pronto pra uso, faltando apenas configurações pessoais do seu restaurante como horário, cadastro de estoque e ajustes gerais!</p>
                     </div>
-                     <div class="step-item">
+                    <div class="step-item">
                         <img src="https://via.placeholder.com/300x200/F0F0F0/333?text=Passo+4" alt="Cardápio finalizado em smartphone com QR Code">
                         <h3>4. Compartilhe e venda!</h3>
                         <p>Após a configurar é só compartilhar o link, que terá o nome da sua empresa ao contrário dos cardápios mais conhecidos!</p>
@@ -271,5 +293,98 @@
         </div>
     </footer>
 
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const carouselTrack = document.querySelector('.carousel-track');
+            const slides = document.querySelectorAll('.carousel-slide');
+            const prevButton = document.querySelector('.carousel-button.prev');
+            const nextButton = document.querySelector('.carousel-button.next');
+            const dotsContainer = document.querySelector('.carousel-dots');
+
+            let currentIndex = 0;
+            // Recalcula a largura do slide dinamicamente, especialmente importante no redimensionamento
+            let slideWidth = slides[0].offsetWidth; 
+            let autoSlideInterval;
+
+            // Função para mover o carrossel
+            function moveToSlide(index) {
+                if (index < 0) {
+                    currentIndex = slides.length - 1; // Volta para o último
+                } else if (index >= slides.length) {
+                    currentIndex = 0; // Volta para o primeiro
+                } else {
+                    currentIndex = index;
+                }
+                carouselTrack.style.transform = `translateX(-${currentIndex * slideWidth}px)`;
+                updateDots();
+            }
+
+            // Cria os pontos de navegação
+            function createDots() {
+                dotsContainer.innerHTML = ''; // Limpa antes de criar
+                slides.forEach((_, index) => {
+                    const dot = document.createElement('span');
+                    dot.classList.add('dot');
+                    if (index === currentIndex) {
+                        dot.classList.add('active');
+                    }
+                    dot.addEventListener('click', () => {
+                        moveToSlide(index);
+                        resetAutoSlide();
+                    });
+                    dotsContainer.appendChild(dot);
+                });
+            }
+
+            // Atualiza o estado dos pontos de navegação
+            function updateDots() {
+                const dots = document.querySelectorAll('.carousel-dots .dot');
+                dots.forEach((dot, index) => {
+                    dot.classList.toggle('active', index === currentIndex);
+                });
+            }
+
+            // Avança para o próximo slide
+            function nextSlide() {
+                moveToSlide(currentIndex + 1);
+            }
+
+            // Retrocede para o slide anterior
+            function prevSlide() {
+                moveToSlide(currentIndex - 1);
+            }
+
+            // Reseta o temporizador do auto-slide
+            function resetAutoSlide() {
+                clearInterval(autoSlideInterval);
+                autoSlideInterval = setInterval(nextSlide, 5000); // Avança a cada 5 segundos
+            }
+
+            // Event Listeners para botões
+            nextButton.addEventListener('click', () => {
+                nextSlide();
+                resetAutoSlide();
+            });
+
+            prevButton.addEventListener('click', () => {
+                prevSlide();
+                resetAutoSlide();
+            });
+
+            // Inicializa o carrossel
+            createDots();
+            resetAutoSlide(); // Inicia o auto-slide
+
+            // Ajusta a largura do slide em caso de redimensionamento da janela
+            window.addEventListener('resize', () => {
+                slideWidth = slides[0].offsetWidth; // Recalcula a largura
+                carouselTrack.style.transition = 'none'; // Desativa transição para ajuste imediato
+                carouselTrack.style.transform = `translateX(-${currentIndex * slideWidth}px)`;
+                setTimeout(() => {
+                    carouselTrack.style.transition = 'transform 0.5s ease-in-out'; // Reativa transição
+                }, 0);
+            });
+        });
+    </script>
 </body>
 </html>
