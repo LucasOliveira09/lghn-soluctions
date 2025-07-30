@@ -7,7 +7,7 @@ const firebaseConfig = {
     messagingSenderId: "110849299422",
     appId: "1:110849299422:web:44083feefdd967f4f9434f",
     measurementId: "G-Y4KFGTHFP1"
-};
+  };
 
 // Inicializar Firebase
 firebase.initializeApp(firebaseConfig);
@@ -16,7 +16,6 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // --- Referências do Firebase ---
-// Modified to include 'central/' prefix
 const ingredientesRef = database.ref('central/ingredientes');
 const produtosRef = database.ref('central/produtos');
 const pedidosRef = database.ref('central/pedidos');
@@ -143,8 +142,7 @@ function criarItemCardapio(item, type, idDoItemFirebase) {
  */
 async function loadAndRenderProducts(dbRefPath, containerId, itemType, sectionId = null, btnId = null, subType = null) {
     try {
-        // Modified to include 'central/' prefix in dbRefPath
-        const snapshot = await database.ref(`central/${dbRefPath}`).once('value');
+        const snapshot = await database.ref(dbRefPath).once('value');
         const container = document.getElementById(containerId);
         if (!container) {
             console.warn(`Contêiner com ID ${containerId} não encontrado.`);
@@ -203,15 +201,15 @@ async function loadAndRenderProducts(dbRefPath, containerId, itemType, sectionId
  * Carrega todas as categorias de produtos.
  */
 async function carregarTodasCategorias() {
-    await loadAndRenderProducts('produtos/pizzas', 'lista-pizzas-salgadas', 'pizza', null, null, 'Salgado');
-    await loadAndRenderProducts('produtos/pizzas', 'lista-pizzas-doces', 'pizza', null, null, 'Doce');
-    await loadAndRenderProducts('produtos/esfirras', 'lista-esfirras-salgadas', 'esfirra', null, null, 'Salgado');
-    await loadAndRenderProducts('produtos/esfirras', 'lista-esfirras-doces', 'esfirra', null, null, 'Doce');
-    await loadAndRenderProducts('produtos/calzone', 'lista-lanches-salgados', 'lanche', null, null, 'Salgado');
-    await loadAndRenderProducts('produtos/calzone', 'lista-lanches-doces', 'lanche', null, null, 'Doce');
-    await loadAndRenderProducts('produtos/bebidas', 'lista-bebidas', 'bebida');
-    await loadAndRenderProducts('produtos/promocoes', 'lista-promocoes', 'promocao', 'show-promocoes', 'btn-promocoes');
-    await loadAndRenderProducts('produtos/novidades', 'lista-novidades', 'novidade', 'show-novidades', 'btn-novidades');
+    await loadAndRenderProducts('central/produtos/pizzas', 'lista-pizzas-salgadas', 'pizza', null, null, 'Salgado');
+    await loadAndRenderProducts('central/produtos/pizzas', 'lista-pizzas-doces', 'pizza', null, null, 'Doce');
+    await loadAndRenderProducts('central/produtos/esfirras', 'lista-esfirras-salgadas', 'esfirra', null, null, 'Salgado');
+    await loadAndRenderProducts('central/produtos/esfirras', 'lista-esfirras-doces', 'esfirra', null, null, 'Doce');
+    await loadAndRenderProducts('central/produtos/calzone', 'lista-lanches-salgados', 'lanche', null, null, 'Salgado');
+    await loadAndRenderProducts('central/produtos/calzone', 'lista-lanches-doces', 'lanche', null, null, 'Doce');
+    await loadAndRenderProducts('central/produtos/bebidas', 'lista-bebidas', 'bebida');
+    await loadAndRenderProducts('central/produtos/promocoes', 'lista-promocoes', 'promocao', 'show-promocoes', 'btn-promocoes');
+    await loadAndRenderProducts('central/produtos/novidades', 'lista-novidades', 'novidade', 'show-novidades', 'btn-novidades');
 }
 
 // --- Delegação de Eventos para botões de adicionar ao carrinho e abrir modal ---
@@ -466,7 +464,6 @@ function getStatusMessage(horarios) {
 function atualizarStatusVisual() {
     const spanItem = document.getElementById("date-span");
 
-    // Modified to include 'central/' prefix
     database.ref("central/config/horarios").once("value")
         .then(snapshot => {
             if (snapshot.exists()) {
@@ -538,7 +535,7 @@ function atualizarPagamento() {
     const pixSection = document.getElementById("PixSection");
 
     trocoSection.classList.add("hidden"); // Esconde por padrão
-    pixSection.classList.add("hidden");    // Esconde por padrão
+    pixSection.classList.add("hidden");   // Esconde por padrão
 
     if (pagDinheiro.checked) {
         trocoSection.classList.remove("hidden");
@@ -1354,6 +1351,12 @@ applycupom.addEventListener('click', () => {
             return;
         }
 
+        const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        if (cupom.valorMinimo && subtotal < cupom.valorMinimo) {
+            Toastify({ text: `Este cupom requer um pedido mínimo de R$ ${cupom.valorMinimo.toFixed(2).replace('.', ',')}`, duration: 4000, close: true, gravity: "top", position: "right", style: { background: "#ffc107" } }).showToast();
+            return;
+        }
+
         cuponsUsadosRef.child(clienteId).child(codigoDigitado).once('value', (snapshotUso) => {
             if (snapshotUso.exists()) {
                 Toastify({ text: "Você já utilizou este cupom!", duration: 3000, close: true, gravity: "top", position: "right", style: { background: "#ef4444" } }).showToast();
@@ -1422,7 +1425,7 @@ async function consultarCEP(cep) {
     }
 
     console.log("CACHE MISS - Buscando na API ViaCEP:", cepLimpo);
-    const url = `https://viacnp.com.br/ws/${cepLimpo}/json/`;
+    const url = `https://viacep.com.br/ws/${cepLimpo}/json/`;
 
     try {
         const response = await fetch(url);
@@ -1487,8 +1490,7 @@ async function deduzirEstoqueDoItem(item) {
                 );
             } else {
                 console.log('Detectada pizza de sabor único.');
-                // Modified to include 'central/' prefix
-                const productSnapshot = await database.ref(`central/${item.productCategory}`).child(item.originalProductId).once('value');
+                const productSnapshot = await produtosRef.child(item.productCategory).child(item.originalProductId).once('value');
                 const productData = productSnapshot.val();
                 if (productData && productData.receita && productData.receita[item.pizzaSize]) {
                     recipeToDeduct = productData.receita[item.pizzaSize];
@@ -1498,8 +1500,7 @@ async function deduzirEstoqueDoItem(item) {
             }
         } else { // Itens não-pizza ou sem tamanho específico (bebidas, lanches, etc.)
             console.log('Detectado item não-pizza.');
-            // Modified to include 'central/' prefix
-            const productSnapshot = await database.ref(`central/${item.productCategory}`).child(item.originalProductId).once('value');
+            const productSnapshot = await produtosRef.child(item.productCategory).child(item.originalProductId).once('value');
             const productData = productSnapshot.val();
             if (productData && productData.receita) {
                 recipeToDeduct = productData.receita;
@@ -1580,9 +1581,8 @@ async function combineHalfAndHalfRecipes(productId1, category1, size, productId2
     let combinedRecipe = {};
 
     const [product1Snapshot, product2Snapshot] = await Promise.all([
-        // Modified to include 'central/' prefix
-        database.ref(`central/${category1}`).child(productId1).once('value'),
-        database.ref(`central/${category2}`).child(productId2).once('value')
+        produtosRef.child(category1).child(productId1).once('value'),
+        produtosRef.child(category2).child(productId2).once('value')
     ]);
 
     const product1Data = product1Snapshot.val();
