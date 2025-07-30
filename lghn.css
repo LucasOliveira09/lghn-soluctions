@@ -241,13 +241,13 @@ h3 {
     border-radius: var(--border-radius-main);
     box-shadow: 0 -10px 20px rgba(0, 0, 0, 0.15), var(--shadow-medium); /* Sombra superior mais forte */
     background-color: var(--white-color); /* Fundo branco para os slides */
-    max-height: 600px; /* Altura máxima do carrossel para deixá-lo "deitado" */
+    /* REMOVIDO: max-height para permitir que o carrossel se ajuste à altura da imagem */
 }
 
 .carousel-track {
     display: flex;
     transition: transform 0.5s ease-in-out; /* Transição suave entre os slides */
-    height: 100%; /* Garante que o track ocupe toda a altura do container */
+    height: auto; /* Permite que a altura do track se ajuste ao conteúdo */
 }
 
 .carousel-track img {
@@ -261,7 +261,7 @@ h3 {
     justify-content: center;
     align-items: center;
     overflow: hidden; /* Garante que a imagem não vaze */
-    height: 100%; /* Garante que o slide ocupe a altura do container */
+    height: auto; /* Permite que a altura do slide se ajuste à imagem */
 }
 
 .carousel-slide img {
@@ -768,16 +768,37 @@ footer p {
         margin-left: 0;
         margin-right: 0;
         border-radius: 0; /* Remove arredondamento em telas muito pequenas */
+        padding: 0 10px; /* Adiciona um padding interno para a imagem não colar nas bordas */
+        box-shadow: none; /* Remove sombra para um visual mais limpo em mobile */
+    }
+
+    .carousel-slide img {
+        max-width: 100%; /* Permite que a imagem preencha a largura disponível */
+        max-height: 400px; /* Limita a altura para evitar imagens muito grandes */
+        object-fit: contain; /* Garante que a imagem se ajuste sem cortar */
+        border-radius: var(--border-radius-main); /* Mantém o arredondamento */
     }
 
     .carousel-button {
         font-size: 1.5em; /* Reduz tamanho do botão */
         padding: 10px 8px;
+        background-color: rgba(0, 0, 0, 0.6); /* Torna o fundo um pouco mais opaco para melhor visibilidade */
+    }
+
+    .carousel-dots {
+        bottom: 15px; /* Aproxima os pontos da borda */
+        background-color: rgba(0, 0, 0, 0.3); /* Fundo sutil para os pontos */
+        border-radius: 20px;
+        padding: 5px 15px;
     }
 
     .carousel-dots .dot {
         width: 10px;
         height: 10px;
+        background-color: rgba(255, 255, 255, 0.8); /* Cor dos pontos */
+    }
+    .carousel-dots .dot.active {
+        background-color: var(--primary-red); /* Cor do ponto ativo mais visível */
     }
 }
 
@@ -831,12 +852,16 @@ footer p {
         height: 60px;
     }
 
-    /* Carrossel Responsivo */
+    /* Carrossel Responsivo para telas muito pequenas */
+    .carousel-container {
+        padding: 0 5px; /* Reduz ainda mais o padding para telas muito estreitas */
+    }
     .carousel-button {
-        padding: 8px 6px; /* Mais ajuste no padding */
-        font-size: 1.2em;
+        padding: 6px 4px; /* Mais ajuste no padding */
+        font-size: 1em;
     }
     .carousel-dots {
-        bottom: 10px; /* Aproxima os pontos da borda */
+        bottom: 8px; /* Mais perto da borda */
+        padding: 3px 10px;
     }
 }
