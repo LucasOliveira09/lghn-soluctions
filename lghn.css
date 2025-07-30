@@ -174,6 +174,7 @@ h3 {
     padding: 80px 0 100px 0; /* Mais padding bottom para a imagem */
     text-align: center;
     overflow: hidden;
+    padding-top: 120px;
 }
 
 .hero-container-content {
@@ -677,6 +678,16 @@ footer p {
     color: var(--secondary-blue-purple); /* Ícones sociais no hover azul/roxo */
 }
 
+.menu-toggle {
+    display: none; /* Escondido por padrão em telas grandes */
+    background: none;
+    border: none;
+    font-size: 2em;
+    color: var(--text-dark);
+    cursor: pointer;
+    z-index: 1001; /* Garante que fique acima de outros elementos */
+}
+
 /* Responsividade */
 @media (max-width: 992px) {
     .section {
@@ -689,45 +700,45 @@ footer p {
         font-size: 2em;
     }
 
-    /* Header Responsivo */
-    .header-container {
-        flex-direction: column;
-        gap: 20px;
-    }
-    .main-nav ul {
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 20px;
-    }
-    .header-actions {
-        width: 100%;
-        justify-content: center;
-    }
-    .btn-secondary-outline, .btn-primary-red {
-        flex-grow: 1; /* Faz os botões ocuparem mais espaço */
+    /* --- Header Responsivo (MODIFICADO) --- */
+    .menu-toggle {
+    display: block; /* Mostra o botão hambúrguer */
     }
 
-    /* Hero Responsivo */
-    .hero {
-        padding: 60px 0 80px 0;
+    .header-container {
+        position: relative;
+        flex-wrap: wrap;
     }
-    .hero-container-content {
-        max-width: 90%;
+
+    .main-nav, .header-actions {
+        display: none; 
+        flex-direction: column;
+        flex-basis: 100%;
+        text-align: center;
+        background-color: var(--white-color);
+        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        padding: 20px 0;
     }
-    .hero h1 {
-        font-size: 2.5em;
+
+    /* Classe que será adicionada via JS para mostrar o menu */
+    .nav-active .main-nav,
+    .nav-active .header-actions {
+        display: flex;
     }
-    .hero-description {
-        font-size: 1.1em;
+
+    .main-nav ul {
+        flex-direction: column; /* Itens do menu em coluna */
+        gap: 20px;
+        width: 100%;
+        margin-bottom: 20px;
     }
-    .cta-hero-btn {
-        font-size: 1.1em;
-        padding: 16px 32px;
+
+    .header-actions {
+        flex-direction: column;
+        gap: 15px;
+        padding-left: 20px;
+        padding-right: 20px;
     }
-    .problemas-list, .steps-grid, .features-grid, .testimonials-grid, .plans-grid {
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    }
-}
 
 @media (max-width: 768px) {
     .section {
@@ -863,5 +874,10 @@ footer p {
     .carousel-dots {
         bottom: 8px; /* Mais perto da borda */
         padding: 3px 10px;
+    }
+
+    footer .container p a {
+        display: block; /* Faz cada link ocupar uma linha */
+        margin: 5px 0;  /* Adiciona um pequeno espaçamento vertical */
     }
 }
