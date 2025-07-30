@@ -739,6 +739,7 @@ footer p {
         padding-left: 20px;
         padding-right: 20px;
     }
+}
 
 @media (max-width: 768px) {
     .section {
