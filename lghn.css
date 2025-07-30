@@ -235,19 +235,23 @@ h3 {
 /* --- Carrossel de Imagens (MODIFICADO E NOVO) --- */
 .carousel-container {
     position: relative;
-    max-width: 900px; /* Limita a largura do carrossel */
+    max-width: 920px; /* Limita a largura do carrossel */
     margin: 30px auto 60px auto; /* Adicionada margem vertical */
     overflow: hidden; /* Esconde slides extras */
     border-radius: var(--border-radius-main);
     box-shadow: 0 -10px 20px rgba(0, 0, 0, 0.15), var(--shadow-medium); /* Sombra superior mais forte */
     background-color: var(--white-color); /* Fundo branco para os slides */
-    max-height: 500px; /* Altura máxima do carrossel para deixá-lo "deitado" */
+    max-height: 600px; /* Altura máxima do carrossel para deixá-lo "deitado" */
 }
 
 .carousel-track {
     display: flex;
     transition: transform 0.5s ease-in-out; /* Transição suave entre os slides */
     height: 100%; /* Garante que o track ocupe toda a altura do container */
+}
+
+.carousel-track img {
+    background-size: cover;
 }
 
 .carousel-slide {
@@ -261,7 +265,7 @@ h3 {
 }
 
 .carousel-slide img {
-    max-width: 100%;
+    max-width: 90%;
     max-height: 100%; /* Limita a altura da imagem à altura do slide */
     display: block;
     border-radius: var(--border-radius-main);
