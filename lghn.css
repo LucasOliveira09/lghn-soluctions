@@ -184,8 +184,10 @@ h3 {
     max-width: 900px; /* Limita a largura do conteúdo central */
 }
 
-.hero-image {
+@media (min-width: 500px){
+    .hero-image {
     margin-top: -170px;
+}
 }
 
 .hero-image img {
