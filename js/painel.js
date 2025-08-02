@@ -63,6 +63,7 @@ let menuLink = '';
 
 let allProducts = {};
 let manualOrderCart = [];
+let selectedItemsForBulkAction = [];
 
 let currentAddonRecipe = null;
 let currentAddonRecipeId = null;
@@ -434,6 +435,8 @@ document.addEventListener('DOMContentLoaded', () => {
         listaAdicionaisConfiguracao: document.getElementById('lista-adicionais-configuracao'),
 
     });
+
+    setupBulkActions();
 
     Object.assign(DOM_ADDON_RECIPE_MODAL, {
         modal: document.getElementById('addon-recipe-modal'),
@@ -1613,6 +1616,7 @@ function limparFormularioNovoItem() {
 }
 
 function carregarItensCardapio(categoria, searchQuery = '') {
+    resetBulkSelection();
     const container = DOM.itensCardapioContainer;
     if (!container) {
         console.error("Container de itens do cardápio não encontrado.");
@@ -1661,16 +1665,20 @@ function criarCardItem(item, key, categoriaAtual) {
         "border-yellow-500 border-2 shadow-lg" :
         "border";
 
-    card.className = `bg-white p-4 rounded ${destaquePromocao} flex flex-col gap-2`;
-
+    // Adicionado 'relative' para o posicionamento do checkbox
+    card.className = `bg-white px-4 pb-4 pt-10 rounded ${destaquePromocao} flex flex-col gap-2 relative`;
     const itemName = item.nome || item.titulo || '';
     const itemDescription = item.descricao || '';
     const itemPrice = item.preco || 0;
     const itemImage = item.imagem || '';
-    const itemActive = item.ativo ? 'checked' : '';
+    const itemActive = item.ativo !== false ? 'checked' : ''; // Garante que itens sem a propriedade 'ativo' sejam checados
     const itemType = item.tipo || "salgado";
 
     card.innerHTML = `
+        <div class="absolute top-2 right-2 z-10">
+            <input type="checkbox" class="bulk-item-checkbox form-checkbox h-5 w-5 text-blue-600 rounded cursor-pointer" data-key="${key}" data-category="${categoriaAtual}">
+        </div>
+
         ${categoriaAtual === "promocoes" ? '<span class="text-yellow-600 font-bold text-sm">🔥 Promoção</span>' : ''}
         <input type="text" value="${itemName}" placeholder="Nome" class="p-2 border rounded nome">
         <textarea placeholder="Descrição" class="p-2 border rounded descricao">${itemDescription}</textarea>
@@ -1767,7 +1775,6 @@ function criarCardItem(item, key, categoriaAtual) {
         database.ref(`produtos/${categoriaAtual}/${key}`).update(updates, function(error) {
             if (error) {
                 alert("Erro ao salvar! " + error.message);
-                console.error("Erro ao salvar item:", error);
             } else {
                 alert("Item atualizado com sucesso!");
             }
@@ -1780,7 +1787,6 @@ function criarCardItem(item, key, categoriaAtual) {
                 card.remove();
                 alert("Item excluído com sucesso!");
             }).catch(error => {
-                console.error("Erro ao excluir item:", error);
                 alert("Erro ao excluir item: " + error.message);
             });
         }
@@ -1824,7 +1830,6 @@ function criarCardItem(item, key, categoriaAtual) {
                     carregarItensCardapio(categoriaAtual, DOM.searchInput.value);
                 })
                 .catch(error => {
-                    console.error("Erro ao mover item:", error);
                     alert("Erro ao mover item: " + error.message);
                 });
         }
@@ -5515,3 +5520,132 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// --- SEÇÃO: LÓGICA DE EDIÇÃO EM MASSA LGHN ---
+
+function setupBulkActions() {
+    Object.assign(DOM, {
+        bulkActionsPanel: document.getElementById('bulk-actions-panel'),
+        selectedItemsCount: document.getElementById('selected-items-count'),
+        selectAllCheckbox: document.getElementById('select-all-checkbox'),
+        bulkPriceInput: document.getElementById('bulk-price-input'),
+        btnBulkUpdatePrice: document.getElementById('btn-bulk-update-price'),
+        bulkMoveCategorySelect: document.getElementById('bulk-move-category-select'),
+        btnBulkMoveCategory: document.getElementById('btn-bulk-move-category'),
+    });
+
+    if (DOM.itensCardapioContainer) {
+        DOM.itensCardapioContainer.addEventListener('change', (e) => {
+            if (e.target.classList.contains('bulk-item-checkbox')) {
+                handleBulkItemSelect(e);
+            }
+        });
+    }
+
+    DOM.selectAllCheckbox.addEventListener('change', handleSelectAll);
+    DOM.btnBulkUpdatePrice.addEventListener('click', handleBulkPriceChange);
+    DOM.btnBulkMoveCategory.addEventListener('click', handleBulkMove);
+}
+
+function resetBulkSelection() {
+    selectedItemsForBulkAction = [];
+    if (DOM.bulkActionsPanel) {
+        updateBulkActionsPanel();
+    }
+}
+
+function handleBulkItemSelect(event) {
+    const checkbox = event.target;
+    const key = checkbox.dataset.key;
+    const category = checkbox.dataset.category;
+
+    if (checkbox.checked) {
+        if (!selectedItemsForBulkAction.some(item => item.key === key)) {
+            selectedItemsForBulkAction.push({ key, category });
+        }
+    } else {
+        selectedItemsForBulkAction = selectedItemsForBulkAction.filter(item => item.key !== key);
+    }
+    updateBulkActionsPanel();
+}
+
+function updateBulkActionsPanel() {
+    const numSelected = selectedItemsForBulkAction.length;
+    DOM.selectedItemsCount.textContent = numSelected;
+
+    if (numSelected > 0) {
+        DOM.bulkActionsPanel.classList.remove('hidden');
+    } else {
+        DOM.bulkActionsPanel.classList.add('hidden');
+    }
+
+    const totalCheckboxes = DOM.itensCardapioContainer.querySelectorAll('.bulk-item-checkbox').length;
+    DOM.selectAllCheckbox.checked = numSelected > 0 && numSelected === totalCheckboxes;
+}
+
+function handleSelectAll(event) {
+    const isChecked = event.target.checked;
+    const checkboxes = DOM.itensCardapioContainer.querySelectorAll('.bulk-item-checkbox');
+    selectedItemsForBulkAction = [];
+
+    checkboxes.forEach(cb => {
+        cb.checked = isChecked;
+        if (isChecked) {
+            selectedItemsForBulkAction.push({ key: cb.dataset.key, category: cb.dataset.category });
+        }
+    });
+    updateBulkActionsPanel();
+}
+
+async function handleBulkPriceChange() {
+    const newPriceStr = DOM.bulkPriceInput.value;
+    if (!newPriceStr) return alert("Por favor, insira um novo preço.");
+    const newPrice = parseFloat(newPriceStr);
+    if (isNaN(newPrice) || newPrice < 0) return alert("O preço inserido é inválido.");
+
+    if (confirm(`Alterar o preço de ${selectedItemsForBulkAction.length} itens para R$ ${newPrice.toFixed(2)}?`)) {
+        const updates = {};
+        selectedItemsForBulkAction.forEach(item => {
+            updates[`/produtos/${item.category}/${item.key}/preco`] = newPrice;
+        });
+        try {
+            await database.ref().update(updates);
+            alert("Preços atualizados!");
+            DOM.bulkPriceInput.value = '';
+            carregarItensCardapio(DOM.categoriaSelect.value, DOM.searchInput.value);
+        } catch (error) {
+            alert("Ocorreu um erro ao atualizar.");
+            console.error("Erro na alteração de preço em massa:", error);
+        }
+    }
+}
+
+async function handleBulkMove() {
+    const targetCategory = DOM.bulkMoveCategorySelect.value;
+    if (!targetCategory) return alert("Selecione uma categoria de destino.");
+
+    if (confirm(`Mover ${selectedItemsForBulkAction.length} itens para "${targetCategory}"?`)) {
+        const updates = {};
+        const itemsToMove = selectedItemsForBulkAction.filter(item => item.category !== targetCategory);
+
+        for (const item of itemsToMove) {
+            const itemSnapshot = await database.ref(`/produtos/${item.category}/${item.key}`).once('value');
+            const itemData = itemSnapshot.val();
+            if (itemData) {
+                if (item.category === 'promocoes') delete itemData.titulo;
+                if (targetCategory === 'promocoes') itemData.titulo = itemData.nome;
+                updates[`/produtos/${targetCategory}/${item.key}`] = itemData;
+                updates[`/produtos/${item.category}/${item.key}`] = null;
+            }
+        }
+        
+        try {
+            await database.ref().update(updates);
+            alert("Itens movidos com sucesso!");
+            carregarItensCardapio(DOM.categoriaSelect.value, DOM.searchInput.value);
+        } catch (error) {
+            alert("Ocorreu um erro ao mover.");
+            console.error("Erro na movimentação em massa:", error);
+        }
+    }
+}
