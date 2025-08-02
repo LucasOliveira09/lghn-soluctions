@@ -111,7 +111,7 @@ function criarItemCardapio(item, type, idDoItemFirebase) {
     const image = item.imagem || 'assets/default.png';
 
     return `
-    <div class="flex gap-4 p-3 border border-[#3a3a3a] rounded-xl shadow bg-[#111] hover:shadow-md transition-shadow text-[#f5f0e6] font-[Cinzel]">
+    <div class="flex gap-4 p-3 border border-[#3a3a3a] rounded-xl shadow bg-[#111] hover:shadow-md transition-shadow text-[#f5f0e6] font-[Cinzel] product-item mb-4">
       <img src="${image}" alt="${name}" loading="lazy" class="w-20 h-20 rounded-lg object-cover hover:scale-105 hover:rotate-1 transition-transform duration-300" />
       <div class="flex-1">
         <p class="font-bold text-lg">${name}</p>
@@ -1612,6 +1612,73 @@ async function combineHalfAndHalfRecipes(productId1, category1, size, productId2
 
     return combinedRecipe;
 }
+
+// --- Modal de Busca ---
+
+document.addEventListener('DOMContentLoaded', () => {
+    const openSearchBtn = document.getElementById('open-search-modal-btn');
+    const closeSearchBtn = document.getElementById('close-search-modal-btn');
+    const searchModal = document.getElementById('search-modal');
+    const searchInput = document.getElementById('search-input-modal');
+    const resultsContainer = document.getElementById('search-results-container');
+
+    // Abre o modal
+    openSearchBtn.addEventListener('click', () => {
+        searchModal.classList.remove('hidden');
+        searchInput.focus();
+    });
+
+    // Fecha o modal
+    closeSearchBtn.addEventListener('click', () => {
+        searchModal.classList.add('hidden');
+        searchInput.value = ''; // Limpa a busca ao fechar
+        resultsContainer.innerHTML = ''; // Limpa os resultados
+    });
+
+    // Lógica da busca dentro do modal
+    searchInput.addEventListener('input', () => {
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        resultsContainer.innerHTML = ''; // Limpa resultados anteriores
+
+        if (searchTerm.length < 2) {
+            return; // Não busca com menos de 2 caracteres
+        }
+
+        const allProductElements = document.querySelectorAll('.product-item');
+        let hasResults = false;
+
+        allProductElements.forEach(product => {
+            const name = product.querySelector('.font-bold').textContent.toLowerCase();
+            const description = product.querySelector('.text-sm.text-gray-400').textContent.toLowerCase();
+
+            if (name.includes(searchTerm) || description.includes(searchTerm)) {
+                // Clona o item encontrado e adiciona ao modal
+                const clonedItem = product.cloneNode(true);
+                // Adiciona um evento de clique para fechar o modal e ir para o item
+                clonedItem.addEventListener('click', () => {
+                    // Fecha o modal e limpa os campos
+                    searchModal.classList.add('hidden');
+                    searchInput.value = '';
+                    resultsContainer.innerHTML = '';
+
+                    // Rola a tela e destaca o item, NÃO IMPORTA A CATEGORIA
+                    product.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                    product.classList.add('highlight-search');
+                    setTimeout(() => {
+                        product.classList.remove('highlight-search');
+                    }, 2000);
+                });
+                resultsContainer.appendChild(clonedItem);
+                hasResults = true;
+            }
+        });
+
+        if (!hasResults) {
+            resultsContainer.innerHTML = '<p class="text-gray-400">Nenhum produto encontrado.</p>';
+        }
+    });
+});
 
 // Inicializa o carregamento de todas as categorias ao carregar o DOM
 document.addEventListener('DOMContentLoaded', carregarTodasCategorias);

@@ -172,6 +172,14 @@
     .overlay.active {
         display: block;
     }
+    @keyframes highlight {
+        from { background-color: #22c55e; }
+        to { background-color: #111; }
+    }
+
+    .highlight-search {
+        animation: highlight 2s ease-out;
+    }
 </style>
 <body class="bg-[#0E0C0A] font-serif">
 
@@ -254,6 +262,26 @@
                     <a href="#show-bebida" class="min-w-max px-3 text-white border-[2px] border-gray-700 rounded-full font-medium shadow-sm hover:scale-110 active:bg-gray-200 transition-all">
                         🥤 Bebidas
                     </a>
+                </div>
+
+                <button id="open-search-modal-btn" class="text-white text-2xl">
+                    <i class="fas fa-search"></i>
+                </button>
+                <div id="search-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-start pt-20">
+                    <div class="bg-[#1e1e1e] rounded-xl p-6 w-11/12 max-w-2xl relative">
+                        <button id="close-search-modal-btn" class="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl">
+                            <i class="fas fa-times"></i>
+                        </button>
+                        <h2 class="text-white text-2xl font-bold mb-4">Busque no Cardápio</h2>
+                        <input
+                            type="text"
+                            id="search-input-modal"
+                            placeholder="Digite o nome do produto..."
+                            class="w-full bg-[#111] border border-[#3a3a3a] rounded-lg py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                        <div id="search-results-container" class="mt-4 max-h-80 overflow-y-auto">
+                            </div>
+                    </div>
                 </div>
             </div>
         </div>
