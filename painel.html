@@ -469,6 +469,35 @@
                     </div>
                 </div>
 
+                <div id="bulk-actions-panel" class="hidden bg-blue-100 p-4 rounded-lg shadow-md my-4 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-semibold text-blue-800"><span id="selected-items-count">0</span> itens selecionados</h3>
+                        <div>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="select-all-checkbox" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                                <span>Selecionar Todos</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="bulk-price-input" placeholder="Novo Preço (ex: 15.50)" class="p-2 border rounded w-full">
+                            <button id="btn-bulk-update-price" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 whitespace-nowrap">Alterar Preço</button>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <select id="bulk-move-category-select" class="p-2 border rounded w-full">
+                                <option value="">Mover para...</option>
+                                <option value="pizzas">Pizzas</option>
+                                <option value="bebidas">Bebidas</option>
+                                <option value="esfirras">Esfirras</option>
+                                <option value="calzone">Calzones</option>
+                                <option value="promocoes">🔥 Promoções</option>
+                                <option value="novidades">✨ Novidades</option>
+                            </select>
+                            <button id="btn-bulk-move-category" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 whitespace-nowrap">Mover Itens</button>
+                        </div>
+                    </div>
+                </div>
                 <div id="modal-novo-item"
                     class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
                     <div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-md mx-4">
