@@ -1,4 +1,3 @@
-// Configuração do Firebase (SUBSTITUA PELAS SUAS CREDENCIAIS REAIS)
 const firebaseConfig = {
     apiKey: "AIzaSyCtz28du4JtLnPi-MlOgsiXRlb8k02Jwgc",
     authDomain: "cardapioweb-99e7b.firebaseapp.com",
@@ -9,7 +8,6 @@ const firebaseConfig = {
     appId: "1:110849299422:web:44083feefdd967f4f9434f",
     measurementId: "G-Y4KFGTHFP1"
   };
-
 
 firebase.initializeApp(firebaseConfig);
 
@@ -31,15 +29,13 @@ auth.onAuthStateChanged(user => {
 });
 
 const database = firebase.database();
-const pedidosRef = database.ref('central/pedidos');
-const mesasRef = database.ref('central/mesas');
-const cuponsRef = database.ref('central/cupons');
-const produtosRef = database.ref('central/produtos');
-const ingredientesRef = database.ref('central/ingredientes');
-const comprasRef = database.ref('central/compras');
-const garconsInfoRef = database.ref('central/garcons_info');
-
-const CLOUD_RUN_WHATSAPP_API_URL = 'http://lghnsoluction.dyndns.net:8080';
+const pedidosRef = database.ref('pedidos');
+const mesasRef = database.ref('mesas');
+const cuponsRef = database.ref('cupons');
+const produtosRef = database.ref('produtos');
+const ingredientesRef = database.ref('ingredientes');
+const comprasRef = database.ref('compras');
+const garconsInfoRef = database.ref('garcons_info');
 
 const DOM = {}; // Objeto DOM será preenchido em DOMContentLoaded
 
@@ -67,8 +63,6 @@ let menuLink = '';
 
 let allProducts = {};
 let manualOrderCart = [];
-
-let currentRestId = '';
 
 let currentAddonRecipe = null;
 let currentAddonRecipeId = null;
@@ -439,18 +433,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         listaAdicionaisConfiguracao: document.getElementById('lista-adicionais-configuracao'),
 
-        whatsappSettingsSection: document.getElementById('whatsapp-settings-section'),
-        currentRestaurantIdDisplay: document.getElementById('current-restaurant-id-display'),
-        hiddenCurrentRestaurantId: document.getElementById('hidden-current-restaurant-id'),
-        whatsappSessionStatus: document.getElementById('whatsapp-session-status'),
-        whatsappPhoneNumber: document.getElementById('whatsapp-phone-number'),
-        whatsappLastUpdate: document.getElementById('whatsapp-last-update'),
-        qrCodeDisplay: document.getElementById('qr-code-display'),
-        btnConnectWhatsapp: document.getElementById('btn-connect-whatsapp'),
-        manualMessagePhone: document.getElementById('manual-message-phone'),
-        manualMessageText: document.getElementById('manual-message-text'),
-        btnSendManualMessage: document.getElementById('btn-send-manual-message')
-
     });
 
     Object.assign(DOM_ADDON_RECIPE_MODAL, {
@@ -700,7 +682,7 @@ DOM.btnGerenciarAdicionais.addEventListener('click', () => {
                 });
 
                 if (Object.keys(consumoHistoricoMensal).length > 0) {
-                    await database.ref(`central/historicoConsumo/${yearMonth}`).set(consumoHistoricoMensal);
+                    await database.ref(`historicoConsumo/${yearMonth}`).set(consumoHistoricoMensal);
                     console.log(`Consumo de ${yearMonth} salvo em histórico.`);
                 }
 
@@ -953,7 +935,7 @@ function setFiltroDatas(tipo) {
 }
 
 function aceitarPedido(pedidoId) {
-    database.ref('central/pedidos/' + pedidoId).once('value')
+    database.ref('pedidos/' + pedidoId).once('value')
         .then(snapshot => {
             const pedido = snapshot.val();
             if (!pedido.telefone) {
@@ -961,7 +943,7 @@ function aceitarPedido(pedidoId) {
                 console.error('Erro: Telefone do cliente não encontrado no pedido.');
                 return;
             }
-            database.ref('central/pedidos/' + pedidoId).update({ status: 'Aceito' });
+            database.ref('pedidos/' + pedidoId).update({ status: 'Aceito' });
             const itensPedido = pedido.cart.map(item => `${item.quantity}x ${item.name} - R$ ${(item.price * item.quantity).toFixed(2)}`).join('\n');
             const enderecoTexto = pedido.tipoEntrega === 'Entrega' ? `${pedido.endereco.rua}, ${pedido.endereco.numero} - ${pedido.endereco.bairro}` : 'Retirada no local';
             const trocoPara = pedido.dinheiroTotal ? parseFloat(pedido.dinheiroTotal) : 0;
@@ -990,14 +972,14 @@ Aguarde que logo estará a caminho! 🍽️`;
 } //asdasdqdw
 
 function saiuParaEntrega(pedidoId) {
-    database.ref('central/pedidos/' + pedidoId).once('value').then(snapshot => {
+    database.ref('pedidos/' + pedidoId).once('value').then(snapshot => {
         const pedido = snapshot.val();
         if (!pedido.telefone) {
             alert('Não foi possível encontrar o telefone do cliente.');
             return;
         }
 
-        database.ref('central/pedidos/' + pedidoId).update({
+        database.ref('pedidos/' + pedidoId).update({
             status: pedido.tipoEntrega === 'Retirada' ? 'Pronto para Retirada' : 'Saiu para Entrega'
         });
 
@@ -1066,7 +1048,7 @@ Esperamos vê-lo novamente em breve! 🍽️🍕`;
 
 function recusarPedido(pedidoId) {
     if (confirm('Deseja realmente recusar o pedido?')) {
-        database.ref('central/pedidos/' + pedidoId).update({ status: 'Recusado' });
+        database.ref('pedidos/' + pedidoId).update({ status: 'Recusado' });
     }
 }
 
@@ -1114,19 +1096,23 @@ function gerarHtmlPedido(pedido, pedidoId) {
         }
     }
 
-    let pagamentoTexto = pedido.pagamento; // Define o valor padrão (ex: "Cartão", "Pix")
+    let pagamentoTexto = pedido.pagamento;
 
-    if (pedido.pagamento === 'Dinheiro' && pedido.dinheiroTotal && pedido.dinheiroTotal > 0) {
+if (pedido.pagamento === 'Dinheiro') {
+    // Verifica se existe o valor do troco no JSON
+    if (pedido.dinheiroTroco) {
+        pagamentoTexto = `Dinheiro (Troco para: R$ ${parseFloat(pedido.dinheiroTroco).toFixed(2)})`;
+    } else if (pedido.dinheiroTotal) {
         const valorPago = parseFloat(pedido.dinheiroTotal);
         const valorPedido = parseFloat(pedido.totalPedido);
         const troco = valorPago - valorPedido;
-
-        if (troco >= 0.01) { // Usa uma pequena margem para evitar erros de ponto flutuante
+        if (troco >= 0.01) {
             pagamentoTexto = `Dinheiro: R$ ${valorPago.toFixed(2)} (Troco: R$ ${troco.toFixed(2)})`;
         } else {
             pagamentoTexto = `Dinheiro: R$ ${valorPago.toFixed(2)} (Sem troco)`;
         }
     }
+}
 
     return `
     <div class="flex flex-col justify-between h-full">
@@ -1202,7 +1188,7 @@ function getStatusColor(status) {
 }
 
 function imprimirPedido(pedidoId) {
-    database.ref('central/pedidos/' + pedidoId).once('value').then(snapshot => {
+    database.ref('pedidos/' + pedidoId).once('value').then(snapshot => {
         const pedido = snapshot.val();
         if (pedido) {
             gerarNota(pedido, pedidoId); // Pass pedidoId to gerarNota for completeness, though not strictly used in current note format
@@ -1453,7 +1439,7 @@ function gerarNota(pedido, pedidoId) { // Added pedidoId parameter
 function editarPedido(pedidoId) {
     pedidoEmEdicao = pedidoId;
 
-    database.ref('central/pedidos/' + pedidoId).once('value').then(snapshot => {
+    database.ref('pedidos/' + pedidoId).once('value').then(snapshot => {
         pedidoOriginal = snapshot.val() || {};
         renderizarItensModal(pedidoOriginal.cart || []);
         document.getElementById('modal-pedido-id').textContent = pedidoId;
@@ -1545,7 +1531,7 @@ function salvarPedidoEditado() {
 
     const novoTotalPedido = novosItens.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-    database.ref('central/pedidos/' + pedidoEmEdicao).update({ cart: novosItens, totalPedido: novoTotalPedido })
+    database.ref('pedidos/' + pedidoEmEdicao).update({ cart: novosItens, totalPedido: novoTotalPedido })
         .then(() => {
             alert('Pedido atualizado com sucesso!');
             fecharModalEditarPedido();
@@ -1601,7 +1587,7 @@ function handleSalvarNovoItem() {
     const novoItem = { nome, descricao, preco, imagem, ativo, tipo: tipoDoItem, receita: {} };
 
     // Salva na CATEGORIA PRINCIPAL correta
-    database.ref(`central/produtos/${categoriaPrincipal}`).push(novoItem, (error) => {
+    database.ref(`produtos/${categoriaPrincipal}`).push(novoItem, (error) => {
         if (error) {
             alert("Erro ao adicionar item!");
             console.error("Erro ao adicionar item:", error);
@@ -1634,7 +1620,7 @@ function carregarItensCardapio(categoria, searchQuery = '') {
     }
     container.innerHTML = "Carregando...";
 
-    const ref = database.ref(`central/produtos/${categoria}`);
+    const ref = database.ref(`produtos/${categoria}`);
 
     ref.once("value", function(snapshot) {
         container.innerHTML = "";
@@ -1778,7 +1764,7 @@ function criarCardItem(item, key, categoriaAtual) {
             updates.titulo = nome;
         }
 
-        database.ref(`central/produtos/${categoriaAtual}/${key}`).update(updates, function(error) {
+        database.ref(`produtos/${categoriaAtual}/${key}`).update(updates, function(error) {
             if (error) {
                 alert("Erro ao salvar! " + error.message);
                 console.error("Erro ao salvar item:", error);
@@ -1790,7 +1776,7 @@ function criarCardItem(item, key, categoriaAtual) {
 
     card.querySelector(".excluir").addEventListener("click", function() {
         if (confirm("Tem certeza que deseja excluir este item?")) {
-            database.ref(`central/produtos/${categoriaAtual}/${key}`).remove(() => {
+            database.ref(`produtos/${categoriaAtual}/${key}`).remove(() => {
                 card.remove();
                 alert("Item excluído com sucesso!");
             }).catch(error => {
@@ -1829,9 +1815,9 @@ function criarCardItem(item, key, categoriaAtual) {
                 delete updatedItemData.titulo;
             }
 
-            database.ref(`central/produtos/${targetCategory}`).push(updatedItemData)
+            database.ref(`produtos/${targetCategory}`).push(updatedItemData)
                 .then(() => {
-                    return database.ref(`central/produtos/${categoriaAtual}/${key}`).remove();
+                    return database.ref(`produtos/${categoriaAtual}/${key}`).remove();
                 })
                 .then(() => {
                     alert(`Item movido de "${categoriaAtual}" para "${targetCategory}" com sucesso!`);
@@ -1852,7 +1838,7 @@ function criarCardItem(item, key, categoriaAtual) {
 
 
 function salvarHorariosNoFirebase(horarios) {
-    database.ref('central/config/horarios')
+    database.ref('config/horarios')
         .set(horarios)
         .then(() => alert("Horários salvos com sucesso!"))
         .catch((error) => console.error("Erro ao salvar horários:", error));
@@ -1922,7 +1908,7 @@ function inicializarEditorHorario() {
         containerHorario.appendChild(linha);
     });
 
-    database.ref('central/config/horarios').once('value')
+    database.ref('config/horarios').once('value')
         .then(snapshot => {
             if (snapshot.exists()) {
                 const horariosSalvos = snapshot.val();
@@ -1958,7 +1944,7 @@ function inicializarEditorHorario() {
         salvarHorariosNoFirebase(horarios);
     });
 
-    database.ref('central/config/horarios').on('value', snapshot => {
+    database.ref('config/horarios').on('value', snapshot => {
         if (snapshot.exists()) {
             const horarios = snapshot.val();
             const isOpen = checkRestaurantOpen(horarios);
@@ -3411,7 +3397,7 @@ function carregarCupons(snapshot) {
     const fetchUsagePromises = Object.keys(cupons).map(async (codigo) => {
         const cupom = cupons[codigo];
         // Caminho crucial: 'cupons_usados_admin_view' implica um nó separado para rastreamento de uso
-        const usageSnapshot = await database.ref(`central/cupons/${codigo}/usos`).once('value');
+        const usageSnapshot = await database.ref(`cupons/${codigo}/usos`).once('value');
         const totalUsos = usageSnapshot.val() || 0;
         cuponsArray.push({ ...cupom, usos: totalUsos }); // Adiciona os dados do cupom com a contagem de usos
     });
@@ -4700,7 +4686,7 @@ async function handleExcluirGarcom(uid, nome) {
 
 // SEÇÂO CLIENTES INATIVOS lghn ------------------------------------------------------------------------------------------------
 
-database.ref('central/config/menuLink').on('value', (snapshot) => {
+database.ref('config/menuLink').on('value', (snapshot) => {
     menuLink = snapshot.val() || '';
     if (DOM.menuLinkInput) {
         DOM.menuLinkInput.value = menuLink;
@@ -4966,7 +4952,7 @@ async function salvarMenuLink() {
     }
 
     try {
-        await database.ref('central/config/menuLink').set(newMenuLink);
+        await database.ref('config/menuLink').set(newMenuLink);
         menuLink = newMenuLink; // Update global variable
         alert('Link do cardápio salvo com sucesso!');
         fecharModalMenuLink();
@@ -4988,6 +4974,16 @@ function openManualOrderModal() {
         modal.classList.remove('hidden');
         modal.classList.add('flex');
     }
+    const paymentSelect = document.getElementById('manual-pagamento');
+const trocoContainer = document.getElementById('container-troco');
+
+paymentSelect.addEventListener('change', (event) => {
+    if (event.target.value === 'Dinheiro') {
+        trocoContainer.classList.remove('hidden');
+    } else {
+        trocoContainer.classList.add('hidden');
+    }
+});
 }
 
 /**
@@ -5440,7 +5436,7 @@ async function saveManualOrder() {
         };
 
         // Salva o novo pedido com o ID incrementado
-        await firebase.database().ref('central/pedidos/' + newOrderId).set(novoPedido);
+        await firebase.database().ref('pedidos/' + newOrderId).set(novoPedido);
 
         // Deduce ingredientes após o pedido ser salvo com sucesso
         await deductIngredientsFromStock(manualOrderCart);
