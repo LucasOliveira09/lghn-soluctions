@@ -5241,8 +5241,11 @@ function buildGenericItem(categoria) {
 function updateManualCartView() {
     const lista = document.getElementById('manual-itens-lista');
     const totalEl = document.getElementById('manual-total-pedido');
+    const tipoEntrega = document.getElementById('manual-tipo-entrega').value;
+    const taxaEntrega = 4.00; // <<< AQUI DEFINIMOS O VALOR DO FRETE
+
     lista.innerHTML = '';
-    let totalPedido = 0;
+    let subtotal = 0;
 
     if (manualOrderCart.length === 0) {
         lista.innerHTML = '<p class="text-gray-500">Nenhum item adicionado.</p>';
@@ -5257,9 +5260,25 @@ function updateManualCartView() {
                     <button class="text-red-500 hover:text-red-700 font-bold text-lg" onclick="removeManualItem(${index})">&times;</button>
                 </div>`;
             lista.appendChild(itemDiv);
-            totalPedido += item.totalPrice;
+            subtotal += item.totalPrice;
         });
     }
+
+    let totalPedido = subtotal;
+
+    // Se a entrega for selecionada e houver itens no carrinho, adiciona a taxa
+    if (tipoEntrega === 'Entrega' && subtotal > 0) {
+         const taxaDiv = document.createElement('div');
+         taxaDiv.className = 'flex justify-between items-center bg-gray-100 p-2 rounded text-blue-600';
+         taxaDiv.innerHTML = `
+            <div><span class="font-semibold"></span>Taxa de Entrega</div>
+            <div class="flex items-center gap-3">
+                <span class="font-bold">R$ ${taxaEntrega.toFixed(2)}</span>
+            </div>`;
+        lista.appendChild(taxaDiv);
+        totalPedido += taxaEntrega; // Soma a taxa ao total
+    }
+
     totalEl.textContent = `R$ ${totalPedido.toFixed(2)}`;
 }
 
@@ -5278,13 +5297,11 @@ function handleDeliveryTypeChange() {
     const tipoEntrega = document.getElementById('manual-tipo-entrega').value;
     const containerEndereco = document.getElementById('container-endereco');
 
-    if (containerEndereco) { // Adicionado verificação para garantir que o container existe
+    if (containerEndereco) {
         if (tipoEntrega === 'Entrega') {
             containerEndereco.classList.remove('hidden');
         } else {
             containerEndereco.classList.add('hidden');
-            // Opcional: Limpar os campos de endereço quando escondidos
-            // Isso evita que dados antigos fiquem "escondidos"
             const ruaEl = document.getElementById('manual-input-rua');
             const numeroEl = document.getElementById('manual-input-numero');
             const bairroEl = document.getElementById('manual-input-bairro');
@@ -5293,6 +5310,7 @@ function handleDeliveryTypeChange() {
             if(bairroEl) bairroEl.value = '';
         }
     }
+    updateManualCartView();
 }
 
 /**
@@ -5416,10 +5434,13 @@ async function saveManualOrder() {
         endereco = { rua, numero, bairro };
     }
 
-    const totalPedido = manualOrderCart.reduce((acc, item) => acc + item.totalPrice, 0);
+    // --- LÓGICA DO FRETE ---
+    const subtotal = manualOrderCart.reduce((acc, item) => acc + item.totalPrice, 0);
+    const taxaEntrega = 4.00;
+    const totalPedido = tipoEntrega === 'Entrega' ? subtotal + taxaEntrega : subtotal;
+    // --- FIM DA LÓGICA ---
 
     try {
-        // 1. Obter ultimoPedidoId
         const configRef = firebase.database().ref('config/ultimoPedidoId');
         const snapshot = await configRef.transaction(currentId => {
             return (currentId || 1000) + 1;
@@ -5434,21 +5455,20 @@ async function saveManualOrder() {
             pagamento: document.getElementById('manual-pagamento').value,
             tipoEntrega: tipoEntrega,
             status: 'Aceito',
-            totalPedido: totalPedido,
+            subtotal: subtotal,
+            taxaEntrega: tipoEntrega === 'Entrega' ? taxaEntrega : 0,
+            totalPedido: totalPedido, // Salva o total final correto
             timestamp: firebase.database.ServerValue.TIMESTAMP,
             observacao: "Pedido adicionado manualmente pelo painel.",
             endereco: endereco
         };
 
-        // Salva o novo pedido com o ID incrementado
         await firebase.database().ref('pedidos/' + newOrderId).set(novoPedido);
-
-        // Deduce ingredientes após o pedido ser salvo com sucesso
         await deductIngredientsFromStock(manualOrderCart);
         
         alert("Pedido manual salvo com sucesso com ID: " + newOrderId);
         document.getElementById('modal-pedido-manual').classList.add('hidden');
-        resetManualOrderModal(); // Chame para limpar o formulário e o carrinho após o sucesso
+        resetManualOrderModal();
     } catch (error) {
         console.error("Erro ao salvar pedido manual:", error);
         alert("Ocorreu um erro ao salvar o pedido.");
