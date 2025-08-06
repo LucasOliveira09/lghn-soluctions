@@ -9,8 +9,7 @@ const firebaseConfig = {
     messagingSenderId: "110849299422",
     appId: "1:110849299422:web:44083feefdd967f4f9434f",
     measurementId: "G-Y4KFGTHFP1"
-  };
-
+};
 
 // Inicializa o Firebase com a configuração fornecida
 firebase.initializeApp(firebaseConfig);
@@ -180,7 +179,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Carrega e monitora o status do pedido atual em tempo real
 function carregarStatusPedido(pedidoId) {
-    const pedidoRef = database.ref(`central/pedidos/${pedidoId}`);
+    const pedidoRef = database.ref(`pedidos/${pedidoId}`);
     console.log(`[Status Pedido] Carregando status para o pedido ID: ${pedidoId}`);
 
     pedidoRef.on('value', (snapshot) => {
@@ -204,7 +203,7 @@ function carregarStatusPedido(pedidoId) {
 // Carrega todos os pedidos do banco de dados e filtra localmente
 function carregarHistorico(clienteId, currentPedidoId) {
     console.log(`[Histórico] Carregando TODOS os pedidos do banco para filtrar histórico para cliente ID: ${clienteId}`);
-    const pedidosRef = database.ref('central/pedidos');
+    const pedidosRef = database.ref('pedidos');
 
     pedidosRef.once('value', (snapshot) => {
         historyLoading.style.display = 'none'; 

@@ -9,6 +9,7 @@ const firebaseConfig = {
     measurementId: "G-Y4KFGTHFP1"
   };
 
+
 // Inicializar Firebase
 firebase.initializeApp(firebaseConfig);
 
@@ -16,12 +17,12 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // --- Referências do Firebase ---
-const ingredientesRef = database.ref('central/ingredientes');
-const produtosRef = database.ref('central/produtos');
-const pedidosRef = database.ref('central/pedidos');
-const configRef = database.ref('central/config/ultimoPedidoId');
-const cuponsRef = database.ref('central/cupons');
-const cuponsUsadosRef = database.ref('central/cupons_usados');
+const ingredientesRef = database.ref('ingredientes');
+const produtosRef = database.ref('produtos');
+const pedidosRef = database.ref('pedidos');
+const configRef = database.ref('config/ultimoPedidoId');
+const cuponsRef = database.ref('cupons');
+const cuponsUsadosRef = database.ref('cupons_usados');
 
 // --- Elementos do DOM ---
 const cartBtn = document.getElementById('cart-btn');
@@ -63,6 +64,11 @@ const additionalIngredientsContainer = document.getElementById('additional-ingre
 const crustFlavorSection = document.getElementById('crust-flavor-section');
 const pizzaPricePreview = document.getElementById('pizza-price-preview');
 const pizzaModalTitle = document.getElementById('modal-title');
+const calzoneModal = document.getElementById('calzone-modal');
+const calzoneModalTitle = document.getElementById('calzone-modal-title');
+const calzonePricePreview = document.getElementById('calzone-price-preview');
+const cancelCalzoneBtn = document.getElementById('cancel-calzone');
+const confirmCalzoneBtn = document.getElementById('confirm-calzone');
 
 // --- Variáveis de Estado ---
 const FRETE_VALOR = 4.00;
@@ -75,6 +81,8 @@ let selectedHalfPrice = 0;
 let wantsCrust = "Não";
 let crustFlavor = "";
 let selectedAddons = []; // [{ id, nome, precoAdicional }]
+let selectedCalzone = null; // Objeto para armazenar o calzone selecionado
+let selectedCalzoneSize = "Grande"; // Tamanho padrão
 
 let allIngredients = {}; // Cache local de ingredientes
 let availableAddons = []; // Ingredientes ativos para adicionais
@@ -104,24 +112,47 @@ ingredientesRef.on('value', (snapshot) => {
  * @returns {string} O HTML do item.
  */
 function criarItemCardapio(item, type, idDoItemFirebase) {
-    const buttonClass = type === 'pizza' ? 'open-modal-btn' : 'add-to-cart-btn';
+    const buttonClass = (type === 'pizza' || type === 'lanche') ? 'open-modal-btn' : 'add-to-cart-btn';
     const name = item.nome || item.titulo;
     const description = item.descricao || '';
-    const price = item.preco.toFixed(2).replace('.', ',');
+    
+    // Lógica corrigida para exibir o preço corretamente
+    let displayPrice;
+    if (type === 'pizza' || type === 'lanche') {
+        // Se houver preços por tamanho, use o preço do tamanho Grande como padrão para exibição
+        if (item.precos && item.precos.Grande) {
+            displayPrice = item.precos.Grande.toFixed(2).replace('.', ',');
+        } 
+        // Senão, use o preço único (estrutura antiga)
+        else {
+            displayPrice = (item.preco || 0).toFixed(2).replace('.', ',');
+        }
+    } else {
+        displayPrice = (item.preco || 0).toFixed(2).replace('.', ',');
+    }
+
     const image = item.imagem || 'assets/default.png';
 
+    // Adiciona o atributo data-precos ao botão para as pizzas e calzones
+    const precosDataAttribute = (type === 'pizza' || type === 'lanche') && item.precos 
+        ? `data-precos='${JSON.stringify(item.precos)}'` 
+        : '';
+    const precoDataAttribute = item.preco ? `data-price='${item.preco}'` : '';
+    const priceAttributes = precosDataAttribute || precoDataAttribute;
+
+
     return `
-    <div class="flex gap-4 p-3 border border-[#3a3a3a] rounded-xl shadow bg-[#111] hover:shadow-md transition-shadow text-[#f5f0e6] font-[Cinzel] product-item mb-4">
+    <div class="flex gap-4 p-3 border border-[#3a3a3a] rounded-xl shadow bg-[#111] hover:shadow-md transition-shadow text-[#f5f0e6] font-[Cinzel]">
       <img src="${image}" alt="${name}" loading="lazy" class="w-20 h-20 rounded-lg object-cover hover:scale-105 hover:rotate-1 transition-transform duration-300" />
       <div class="flex-1">
         <p class="font-bold text-lg">${name}</p>
         <p class="text-sm text-gray-400">${description}</p>
         <div class="flex items-center justify-between mt-3">
-          <p class="text-lg font-bold text-[#f5f0e6]">R$ ${price}</p>
+          <p class="text-lg font-bold text-[#f5f0e6]">R$ ${displayPrice}</p>
           <button
             class="bg-green-700 hover:bg-green-600 transition-colors px-4 py-1 rounded-md ${buttonClass}"
             data-name="${name}"
-            data-price="${item.preco}"
+            ${priceAttributes}
             data-id="${idDoItemFirebase}"
             data-category="${type === 'pizza' ? 'pizzas' : type === 'bebida' ? 'bebidas' : type === 'esfirra' ? 'esfirras' : type === 'lanche' ? 'calzone' : type === 'promocao' ? 'promocoes' : 'novidades'}">
             <i class="fa fa-cart-plus text-white text-lg"></i>
@@ -201,25 +232,28 @@ async function loadAndRenderProducts(dbRefPath, containerId, itemType, sectionId
  * Carrega todas as categorias de produtos.
  */
 async function carregarTodasCategorias() {
-    await loadAndRenderProducts('central/produtos/pizzas', 'lista-pizzas-salgadas', 'pizza', null, null, 'Salgado');
-    await loadAndRenderProducts('central/produtos/pizzas', 'lista-pizzas-doces', 'pizza', null, null, 'Doce');
-    await loadAndRenderProducts('central/produtos/esfirras', 'lista-esfirras-salgadas', 'esfirra', null, null, 'Salgado');
-    await loadAndRenderProducts('central/produtos/esfirras', 'lista-esfirras-doces', 'esfirra', null, null, 'Doce');
-    await loadAndRenderProducts('central/produtos/calzone', 'lista-lanches-salgados', 'lanche', null, null, 'Salgado');
-    await loadAndRenderProducts('central/produtos/calzone', 'lista-lanches-doces', 'lanche', null, null, 'Doce');
-    await loadAndRenderProducts('central/produtos/bebidas', 'lista-bebidas', 'bebida');
-    await loadAndRenderProducts('central/produtos/promocoes', 'lista-promocoes', 'promocao', 'show-promocoes', 'btn-promocoes');
-    await loadAndRenderProducts('central/produtos/novidades', 'lista-novidades', 'novidade', 'show-novidades', 'btn-novidades');
+    await loadAndRenderProducts('produtos/pizzas', 'lista-pizzas-salgadas', 'pizza', null, null, 'Salgado');
+    await loadAndRenderProducts('produtos/pizzas', 'lista-pizzas-doces', 'pizza', null, null, 'Doce');
+    await loadAndRenderProducts('produtos/esfirras', 'lista-esfirras-salgadas', 'esfirra', null, null, 'Salgado');
+    await loadAndRenderProducts('produtos/esfirras', 'lista-esfirras-doces', 'esfirra', null, null, 'Doce');
+    await loadAndRenderProducts('produtos/calzone', 'lista-lanches-salgados', 'lanche', null, null, 'Salgado');
+    await loadAndRenderProducts('produtos/calzone', 'lista-lanches-doces', 'lanche', null, null, 'Doce');
+    await loadAndRenderProducts('produtos/bebidas', 'lista-bebidas', 'bebida');
+    await loadAndRenderProducts('produtos/promocoes', 'lista-promocoes', 'promocao', 'show-promocoes', 'btn-promocoes');
+    await loadAndRenderProducts('produtos/novidades', 'lista-novidades', 'novidade', 'show-novidades', 'btn-novidades');
 }
 
 // --- Delegação de Eventos para botões de adicionar ao carrinho e abrir modal ---
 document.body.addEventListener('click', function(event) {
     const targetButton = event.target.closest('.add-to-cart-btn, .open-modal-btn');
     if (targetButton) {
-        if (targetButton.classList.contains('add-to-cart-btn')) {
-            handleAddToCart.call(targetButton);
-        } else if (targetButton.classList.contains('open-modal-btn')) {
+        const itemCategory = targetButton.getAttribute('data-category');
+        if (itemCategory === 'pizzas') {
             handleOpenPizzaModal.call(targetButton);
+        } else if (itemCategory === 'calzone') {
+            handleOpenCalzoneModal.call(targetButton);
+        } else {
+            handleAddToCart.call(targetButton);
         }
     }
 });
@@ -233,11 +267,15 @@ function handleAddToCart() {
 }
 
 function handleOpenPizzaModal() {
+    const prices = this.dataset.precos ? JSON.parse(this.dataset.precos) : null;
+    let basePrice = prices?.Grande || prices?.grande || parseFloat(this.getAttribute('data-price'));
+
     selectedPizza = {
         name: this.getAttribute('data-name'),
-        price: parseFloat(this.getAttribute('data-price')),
+        price: basePrice,
         id: this.getAttribute('data-id'),
-        category: this.getAttribute('data-category')
+        category: this.getAttribute('data-category'),
+        prices: prices // Store the full prices object
     };
 
     // Reseta todas as seleções e estado do modal para uma nova pizza
@@ -256,6 +294,68 @@ function handleOpenPizzaModal() {
     atualizarOpcoesMeiaMeia(); // Recarrega opções de meia-meia
     renderAddonOptions(); // Recarrega opções de adicionais
 }
+
+/**
+ * Abre o modal de calzone, populando com os dados do item.
+ */
+function handleOpenCalzoneModal() {
+    const prices = this.dataset.precos ? JSON.parse(this.dataset.precos) : null;
+    let basePrice = prices?.Grande || prices?.grande || parseFloat(this.getAttribute('data-price'));
+
+    selectedCalzone = {
+        name: this.getAttribute('data-name'),
+        price: basePrice,
+        id: this.getAttribute('data-id'),
+        category: this.getAttribute('data-category'),
+        prices: prices // Store the full prices object
+    };
+
+    // Reseta as seleções e o estado do modal para um novo calzone
+    selectedCalzoneSize = "Grande";
+    document.querySelectorAll('.calzone-size-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+    document.querySelector('.calzone-size-btn[data-size="Grande"]').classList.add('bg-green-500', 'text-white');
+
+    calzoneModalTitle.textContent = selectedCalzone.name;
+    calzoneModal.style.display = 'flex';
+    updateCalzonePricePreview();
+}
+
+/**
+ * Atualiza o preço exibido no modal de calzone com base no tamanho.
+ */
+function updateCalzonePricePreview() {
+    if (!selectedCalzone) return;
+
+    let finalPrice = selectedCalzone.prices?.[selectedCalzoneSize] || selectedCalzone.prices?.[selectedCalzoneSize.toLowerCase()] || selectedCalzone.price;
+
+    calzonePricePreview.textContent = `Valor: R$ ${finalPrice.toFixed(2).replace('.', ',')}`;
+}
+
+// Event listeners for the new calzone modal buttons
+document.querySelectorAll('.calzone-size-btn').forEach(button => {
+    button.addEventListener('click', () => {
+        selectedCalzoneSize = button.dataset.size;
+        document.querySelectorAll('.calzone-size-btn').forEach(btn => btn.classList.remove('bg-green-500', 'text-white'));
+        button.classList.add('bg-green-500', 'text-white');
+        updateCalzonePricePreview();
+    });
+});
+
+cancelCalzoneBtn.addEventListener('click', () => {
+    calzoneModal.style.display = 'none';
+});
+
+confirmCalzoneBtn.addEventListener('click', () => {
+    let finalPrice = selectedCalzone.prices?.[selectedCalzoneSize] || selectedCalzone.prices?.[selectedCalzoneSize.toLowerCase()] || selectedCalzone.price;
+    let finalName = `${selectedCalzone.name} (${selectedCalzoneSize})`;
+
+    const itemOptions = {
+        calzoneSize: selectedCalzoneSize
+    };
+
+    addToCart(finalName, finalPrice, selectedCalzone.id, selectedCalzone.category, itemOptions);
+    calzoneModal.style.display = 'none';
+});
 
 // --- Funções do Carrinho ---
 cartBtn.addEventListener("click", function() {
@@ -279,7 +379,7 @@ cartModal.addEventListener("click", function(event) {
  * @param {number} price - Preço do item.
  * @param {string} productId - ID do produto no Firebase.
  * @param {string} productCategory - Categoria do produto no Firebase.
- * @param {object} [options] - Opções adicionais para itens complexos (ex: pizzaSize, halfProductId, selectedAddons).
+ * @param {object} [options] - Opções adicionais para itens complexos (ex: pizzaSize, calzoneSize, halfProductId, selectedAddons).
  */
 function addToCart(name, price, productId, productCategory, options = {}) {
     // Para itens simples, verifica se já existe uma entrada idêntica
@@ -287,7 +387,7 @@ function addToCart(name, price, productId, productCategory, options = {}) {
         item.name === name &&
         item.originalProductId === productId &&
         item.productCategory === productCategory &&
-        !item.pizzaSize // Garante que não misture pizzas personalizadas com itens simples
+        !item.pizzaSize && !item.calzoneSize // Garante que não misture pizzas/calzones personalizadas com itens simples
     );
 
     if (existingItem) {
@@ -299,7 +399,7 @@ function addToCart(name, price, productId, productCategory, options = {}) {
             quantity: 1,
             originalProductId: productId,
             productCategory,
-            ...options // Adiciona opções como pizzaSize, halfProductId, selectedAddons
+            ...options // Adiciona opções como pizzaSize, calzoneSize, halfProductId, selectedAddons
         });
     }
     updateCartModal();
@@ -327,10 +427,13 @@ function updateCartModal() {
         const cartItemElement = document.createElement("div");
         cartItemElement.classList.add("flex", "justify-between", "mb-4", "flex-col");
 
-        // Detalhes adicionais para pizzas, se houver
+        // Detalhes adicionais, se houver
         let itemDetailsHtml = '';
         if (item.pizzaSize) {
             itemDetailsHtml += `<p class="text-xs text-gray-500">Tamanho: ${item.pizzaSize}</p>`;
+        }
+        if (item.calzoneSize) {
+            itemDetailsHtml += `<p class="text-xs text-gray-500">Tamanho: ${item.calzoneSize}</p>`;
         }
         if (item.selectedAddons && item.selectedAddons.length > 0) {
             const addonNames = item.selectedAddons.map(addon => addon.name).join(', ');
@@ -464,7 +567,7 @@ function getStatusMessage(horarios) {
 function atualizarStatusVisual() {
     const spanItem = document.getElementById("date-span");
 
-    database.ref("central/config/horarios").once("value")
+    database.ref("config/horarios").once("value")
         .then(snapshot => {
             if (snapshot.exists()) {
                 const horarios = snapshot.val();
@@ -535,7 +638,7 @@ function atualizarPagamento() {
     const pixSection = document.getElementById("PixSection");
 
     trocoSection.classList.add("hidden"); // Esconde por padrão
-    pixSection.classList.add("hidden");   // Esconde por padrão
+    pixSection.classList.add("hidden");    // Esconde por padrão
 
     if (pagDinheiro.checked) {
         trocoSection.classList.remove("hidden");
@@ -635,8 +738,14 @@ async function validarFormularioPedido() {
     });
 
     // Validação de Nome e Telefone
-    if (!validarCampoEAvancar(nomeInput, nomeWarn)) isValid = false;
-    if (!validarCampoEAvancar(telefoneInput, telefoneWarn)) isValid = false;
+    if (!validarCampoEAvancar(nomeInput, nomeWarn)) {
+        Toastify({ text: "Por favor, preencha o seu Nome!", duration: 3000, close: true, gravity: "top", position: "left", style: { background: "#ef4444" } }).showToast();
+        isValid = false;
+    }
+    if (!validarCampoEAvancar(telefoneInput, telefoneWarn)) {
+        Toastify({ text: "Por favor, preencha o seu Telefone!", duration: 3000, close: true, gravity: "top", position: "left", style: { background: "#ef4444" } }).showToast();
+        isValid = false;
+    }
 
     // Validação do tipo de entrega
     const retiradaChecked = document.getElementById("retirada").checked;
@@ -660,7 +769,10 @@ async function validarFormularioPedido() {
         isValid = false;
     } else if (pagDinheiroChecked) {
         // Validação do troco se o pagamento for dinheiro
-        if (!validarCampoEAvancar(document.getElementById('troco'), document.getElementById('troco-aste'))) isValid = false;
+        if (!validarCampoEAvancar(document.getElementById('troco'), document.getElementById('troco-aste'))) {
+            Toastify({ text: "Por favor, informe para quanto precisa de troco.", duration: 3000, close: true, gravity: "top", position: "left", style: { background: "#ef4444" } }).showToast();
+            isValid = false;
+        }
     }
 
     return isValid;
@@ -912,14 +1024,30 @@ function resetPizzaModalSelections() {
 function updatePizzaPricePreview() {
     if (!selectedPizza) return;
 
-    let basePrice = selectedPizza.price;
-
-    // Calcula preço para meia-meia
-    if (selectedHalf && selectedHalf !== selectedPizza.name) {
-        basePrice = (selectedPizza.price + selectedHalfPrice) / 2; // MÉDIA dos preços
+    let basePrice = selectedPizza.prices?.[selectedSize] || selectedPizza.prices?.[selectedSize.toLowerCase()] || selectedPizza.price;
+    // Garante que o valor inicial é um número
+    if (typeof basePrice !== 'number') {
+        basePrice = 0;
     }
 
-    // Ajusta preço para tamanho Broto
+    // Calcula o preço para meia-meia
+    if (selectedHalf && selectedHalf !== selectedPizza.name) {
+        let halfPrice = 0;
+        const allPizzas = allPizzasSnapshot?.val() || {};
+        const halfPizzaKey = Object.keys(allPizzas).find(key => allPizzas[key].nome === selectedHalf);
+        if (halfPizzaKey) {
+            const halfPizzaData = allPizzas[halfPizzaKey];
+            const sizeKey = selectedSize.toLowerCase();
+            // Garante que o halfPrice é um número
+            const halfPriceFromData = halfPizzaData.precos?.[sizeKey] || halfPizzaData.precos?.[sizeKey.toLowerCase()] || halfPizzaData.preco;
+            if (typeof halfPriceFromData === 'number') {
+                halfPrice = halfPriceFromData;
+            }
+        }
+        basePrice = (basePrice + halfPrice) / 2; // MÉDIA dos preços
+    }
+
+    // Adjust price for the Broto size (with your specific logic)
     if (selectedSize === "Broto") {
         const nomePizzaLower = selectedPizza.name.toLowerCase();
         const nomeMetadeLower = selectedHalf ? selectedHalf.toLowerCase() : "";
@@ -930,23 +1058,27 @@ function updatePizzaPricePreview() {
             nomeMetadeLower.includes("costela") ||
             nomeMetadeLower.includes("morango com chocolate");
 
-        basePrice = temSaborEspecial ? 35 : 30;
+        if (temSaborEspecial) {
+            basePrice = 35;
+        } else {
+            basePrice = 30;
+        }
     }
 
     let finalPrice = basePrice;
 
-    // Adiciona custo da borda
+    // Adds crust cost
     if (wantsCrust === "Sim" && crustFlavor) {
         finalPrice += selectedSize === "Broto" ? 10 : 12;
     }
 
-    // Adiciona custo dos adicionais selecionados
+    // Adds cost of selected add-ons
     const addonsTotal = selectedAddons.reduce((sum, addon) => sum + addon.precoAdicional, 0);
     finalPrice += addonsTotal;
 
     pizzaPricePreview.textContent = `Valor: R$ ${finalPrice.toFixed(2).replace('.', ',')}`;
 
-    // Atualiza o texto dos botões de sabor de borda
+    // Updates the text of the crust flavor buttons
     document.querySelectorAll('.crust-flavor-btn').forEach(btn => {
         const flavor = btn.dataset.flavor;
         const priceSuffix = selectedSize === "Broto" ? "(+R$10)" : "(+R$12)";
@@ -1122,15 +1254,13 @@ document.querySelectorAll('.crust-flavor-btn').forEach(button => {
 // Confirmar adição de pizza personalizada ao carrinho
 document.getElementById('confirm-pizza').addEventListener('click', () => {
     let finalName = selectedPizza.name;
-    let basePrice = selectedPizza.price;
-    let itemOriginalProductId = selectedPizza.id;
-    let itemProductCategory = selectedPizza.category;
+    const itemOriginalProductId = selectedPizza.id;
+    const itemProductCategory = selectedPizza.category;
     let itemHalfProductId = null;
     let itemHalfProductCategory = null;
 
     if (selectedHalf && selectedHalf !== selectedPizza.name) {
         finalName = `${selectedPizza.name} / ${selectedHalf}`;
-        basePrice = (selectedPizza.price + selectedHalfPrice) / 2;
 
         const halfButton = document.querySelector(`.half-btn[data-half="${selectedHalf}"]`);
         if (halfButton) {
@@ -1143,44 +1273,30 @@ document.getElementById('confirm-pizza').addEventListener('click', () => {
 
     finalName += ` (${selectedSize})`;
 
-    if (selectedSize === "Broto") {
-        const nomePizzaLower = selectedPizza.name.toLowerCase();
-        const nomeMetadeLower = selectedHalf ? selectedHalf.toLowerCase() : "";
-
-        const temSaborEspecial =
-            nomePizzaLower.includes("costela") ||
-            nomePizzaLower.includes("morango com chocolate") ||
-            nomeMetadeLower.includes("costela") ||
-            nomeMetadeLower.includes("morango com chocolate");
-
-        basePrice = temSaborEspecial ? 35 : 30;
-    }
-
-    let finalPrice = basePrice;
-
     if (wantsCrust === "Sim" && crustFlavor) {
         finalName += ` + Borda de ${crustFlavor}`;
-        finalPrice += selectedSize === "Broto" ? 10 : 12;
     }
 
-    let addonsDescription = [];
-    let addonsCost = 0;
-    const selectedAddonData = [];
-
-    selectedAddons.forEach(addon => {
-        addonsDescription.push(addon.nome);
-        addonsCost += addon.precoAdicional;
-        selectedAddonData.push({
-            id: addon.id,
-            name: addon.nome,
-            price: addon.precoAdicional,
-            category: 'ingredientes'
-        });
-    });
+    const addonsDescription = selectedAddons.map(addon => addon.name);
+    const selectedAddonData = selectedAddons.map(addon => ({
+        id: addon.id,
+        name: addon.nome,
+        price: addon.precoAdicional,
+        category: 'ingredientes'
+    }));
 
     if (addonsDescription.length > 0) {
         finalName += ` + Adicionais: ${addonsDescription.join(', ')}`;
-        finalPrice += addonsCost;
+    }
+
+    // Pega o preço final diretamente do elemento de pré-visualização, que já foi calculado
+    const finalPriceText = pizzaPricePreview.textContent.replace('Valor: R$ ', '').replace(',', '.');
+    const finalPrice = parseFloat(finalPriceText);
+
+    if (isNaN(finalPrice)) {
+        console.error('Erro: Preço final da pizza não é um número válido.');
+        Toastify({ text: "Erro no cálculo do preço. Tente novamente.", duration: 3000, style: { background: "#ef4444" } }).showToast();
+        return; // Impede que um item inválido seja adicionado ao carrinho
     }
 
     const itemOptions = {
@@ -1613,72 +1729,41 @@ async function combineHalfAndHalfRecipes(productId1, category1, size, productId2
     return combinedRecipe;
 }
 
-// --- Modal de Busca ---
-
-document.addEventListener('DOMContentLoaded', () => {
-    const openSearchBtn = document.getElementById('open-search-modal-btn');
-    const closeSearchBtn = document.getElementById('close-search-modal-btn');
-    const searchModal = document.getElementById('search-modal');
-    const searchInput = document.getElementById('search-input-modal');
-    const resultsContainer = document.getElementById('search-results-container');
-
-    // Abre o modal
-    openSearchBtn.addEventListener('click', () => {
-        searchModal.classList.remove('hidden');
-        searchInput.focus();
-    });
-
-    // Fecha o modal
-    closeSearchBtn.addEventListener('click', () => {
-        searchModal.classList.add('hidden');
-        searchInput.value = ''; // Limpa a busca ao fechar
-        resultsContainer.innerHTML = ''; // Limpa os resultados
-    });
-
-    // Lógica da busca dentro do modal
-    searchInput.addEventListener('input', () => {
-        const searchTerm = searchInput.value.toLowerCase().trim();
-        resultsContainer.innerHTML = ''; // Limpa resultados anteriores
-
-        if (searchTerm.length < 2) {
-            return; // Não busca com menos de 2 caracteres
-        }
-
-        const allProductElements = document.querySelectorAll('.product-item');
-        let hasResults = false;
-
-        allProductElements.forEach(product => {
-            const name = product.querySelector('.font-bold').textContent.toLowerCase();
-            const description = product.querySelector('.text-sm.text-gray-400').textContent.toLowerCase();
-
-            if (name.includes(searchTerm) || description.includes(searchTerm)) {
-                // Clona o item encontrado e adiciona ao modal
-                const clonedItem = product.cloneNode(true);
-                // Adiciona um evento de clique para fechar o modal e ir para o item
-                clonedItem.addEventListener('click', () => {
-                    // Fecha o modal e limpa os campos
-                    searchModal.classList.add('hidden');
-                    searchInput.value = '';
-                    resultsContainer.innerHTML = '';
-
-                    // Rola a tela e destaca o item, NÃO IMPORTA A CATEGORIA
-                    product.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-                    product.classList.add('highlight-search');
-                    setTimeout(() => {
-                        product.classList.remove('highlight-search');
-                    }, 2000);
-                });
-                resultsContainer.appendChild(clonedItem);
-                hasResults = true;
-            }
-        });
-
-        if (!hasResults) {
-            resultsContainer.innerHTML = '<p class="text-gray-400">Nenhum produto encontrado.</p>';
-        }
-    });
-});
-
 // Inicializa o carregamento de todas as categorias ao carregar o DOM
 document.addEventListener('DOMContentLoaded', carregarTodasCategorias);
+
+// --- Funções de visibilidade das seções do menu ---
+function hideAllMenuSections() {
+    document.getElementById('show-pizza').style.display = "none";
+    document.getElementById('show-bebida').style.display = "none";
+    document.getElementById('show-esfirra').style.display = "none";
+    document.getElementById('show-lanche').style.display = "none";
+    document.getElementById('show-promocoes').style.display = "none";
+    document.getElementById('show-novidades').style.display = "none";
+}
+
+// Função genérica para exibir uma seção e rolar até ela (se for um link de âncora)
+function showSectionAndScroll(sectionId, event) {
+    if (event) event.preventDefault(); // Previne o comportamento padrão da âncora se for um clique
+    hideAllMenuSections();
+    const sectionElement = document.getElementById(sectionId);
+    if (sectionElement) {
+        sectionElement.style.display = "grid"; // Ou "block", dependendo do seu layout
+        sectionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+// Adiciona event listeners aos botões de categoria
+document.addEventListener('DOMContentLoaded', () => {
+    // Encontra todos os links de categoria no scroll-container
+    document.querySelectorAll('#scroll-container a').forEach(link => {
+        link.addEventListener('click', (e) => {
+            // Extrai o ID da seção do href, removendo o '#'
+            const sectionId = link.getAttribute('href').substring(1);
+            showSectionAndScroll(sectionId, e);
+        });
+    });
+
+    // Exibe a seção de pizzas por padrão ao carregar
+    showSectionAndScroll('show-pizza');
+});
