@@ -1206,11 +1206,11 @@ function imprimirPedido(pedidoId) {
 }
 
 /**
- * Gera um HTML para impressão de uma nota de pedido mais profissional.
+ * Gera um HTML para impressão e imprime-o sem abrir uma nova janela.
  * @param {object} pedido - O objeto do pedido a ser impresso.
  * @param {string} pedidoId - O ID do pedido.
  */
-function gerarNota(pedido, pedidoId) { // Added pedidoId parameter
+function gerarNota(pedido, pedidoId) {
     if (!pedido || !pedido.cart || !Array.isArray(pedido.cart)) {
         console.error("Dados do pedido inválidos para gerar a nota.");
         alert("Não foi possível gerar a nota: dados do pedido incompletos.");
@@ -1223,11 +1223,12 @@ function gerarNota(pedido, pedidoId) { // Added pedidoId parameter
     let itensHtml = '';
     pedido.cart.forEach(item => {
         let sizeInfo = item.pizzaSize || item.size ? ` (${item.pizzaSize || item.size})` : '';
+        let itemPrice = (item.price * item.quantity).toFixed(2).replace('.', ',');
         itensHtml += `
             <div class="item">
                 <span class="item-qty">${item.quantity}x</span>
-                <span class="item-name">${item.name}</span>
-                <span class="item-total">R$ ${(item.price * item.quantity).toFixed(2).replace('.', ',')}</span>
+                <span class="item-name">${item.name}${sizeInfo}</span>
+                <span class="item-total">R$ ${itemPrice}</span>
             </div>
         `;
         if (item.observacaoItem && item.observacaoItem.trim() !== '') {
@@ -1249,191 +1250,103 @@ function gerarNota(pedido, pedidoId) { // Added pedidoId parameter
 
     let pagamentoInfo = `<p><strong>Método de Pagamento:</strong> ${pedido.pagamento || 'N/A'}</p>`;
     if (pedido.pagamento === 'Dinheiro') {
-        const valorPago = parseFloat(pedido.dinheiroTotal || 0);
         const totalPedido = parseFloat(pedido.totalPedido || 0);
-        const troco = valorPago - totalPedido;
-        pagamentoInfo += `<p><strong>Valor Recebido:</strong> R$ ${valorPago.toFixed(2).replace('.', ',')}</p>`;
-        if (troco > 0.01) { // Check for a meaningful troco amount
-            pagamentoInfo += `<p><strong>Troco:</strong> R$ ${troco.toFixed(2).replace('.', ',')}</p>`;
-        } else {
-            pagamentoInfo += `<p><strong>Troco:</strong> Sem troco</p>`;
+        let trocoParaText = '';
+        if (pedido.dinheiroTroco && pedido.dinheiroTroco > 0) {
+            trocoParaText = ` (Troco para: R$ ${parseFloat(pedido.dinheiroTroco).toFixed(2).replace('.', ',')})`;
+        } else if (pedido.dinheiroTotal && pedido.dinheiroTotal > totalPedido) {
+            const trocoCalculado = (parseFloat(pedido.dinheiroTotal) - totalPedido).toFixed(2).replace('.', ',');
+            trocoParaText = ` (Troco: R$ ${trocoCalculado})`;
         }
+        pagamentoInfo = `<p><strong>Método de Pagamento:</strong> Dinheiro${trocoParaText}</p>`;
     } else if (pedido.pagamento === 'Pix' && pedido.chavePix) {
-         pagamentoInfo += `<p><strong>Chave Pix:</strong> ${pedido.chavePix}</p>`;
+        pagamentoInfo += `<p><strong>Chave Pix:</strong> ${pedido.chavePix}</p>`;
     }
 
     let observacaoGeral = pedido.observacao ? `<p><strong>Observações do Pedido:</strong> ${pedido.observacao}</p>` : '';
 
-    let htmlContent = `
-    <html>
-    <head>
-        <title>Pedido Bonanza #${pedidoId}</title>
-        <style>
-            @page {
-                size: 80mm auto; /* Standard thermal printer width, auto height */
-                margin: 0;
-            }
-            body {
-                font-family: 'Consolas', 'Courier New', monospace; /* Monospace for alignment */
-                font-size: 10pt;
-                margin: 0;
-                padding: 10mm 5mm; /* Top/Bottom padding, left/right for margins */
-                box-sizing: border-box;
-                line-height: 1.4;
-                color: #000;
-            }
-            .header, .footer {
-                text-align: center;
-                margin-bottom: 10mm;
-            }
-            .header img {
-                max-width: 50mm; /* Adjust logo size */
-                height: auto;
-                margin-bottom: 5mm;
-            }
-            .header h1 {
-                font-size: 14pt;
-                margin: 0;
-                text-transform: uppercase;
-                font-weight: bold;
-            }
-            .header p {
-                font-size: 9pt;
-                margin: 2mm 0;
-            }
-            .section {
-                border-top: 1px dashed #000;
-                padding-top: 5mm;
-                margin-top: 5mm;
-            }
-            .section h2 {
-                font-size: 11pt;
-                margin: 0 0 3mm 0;
-                font-weight: bold;
-            }
-            .section p {
-                margin: 1mm 0;
-            }
-            .items-list {
-                border-top: 1px dashed #000;
-                border-bottom: 1px dashed #000;
-                padding: 5mm 0;
-                margin: 5mm 0;
-            }
-            .item {
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: 2mm;
-            }
-            .item-qty {
-                flex: 0 0 20mm; /* Fixed width for quantity */
-                text-align: left;
-            }
-            .item-name {
-                flex-grow: 1;
-                text-align: left;
-                padding-right: 5mm;
-            }
-            .item-total {
-                flex: 0 0 25mm; /* Fixed width for item total */
-                text-align: right;
-                font-weight: bold;
-            }
-            .item-obs {
-                font-size: 8pt;
-                margin-left: 20mm; /* Align with item name */
-                margin-top: -1mm;
-                margin-bottom: 2mm;
-                color: #555;
-            }
-            .summary {
-                text-align: right;
-                font-size: 11pt;
-                margin-top: 5mm;
-            }
-            .summary .total-line {
-                display: flex;
-                justify-content: space-between;
-                font-weight: bold;
-                margin-top: 3mm;
-                font-size: 12pt;
-            }
-            .final-total {
-                font-size: 14pt;
-                color: green;
-            }
-            .dashed-line {
-                border-top: 1px dashed #000;
-                margin: 5mm 0;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <img src="assets/iconnota.png" alt="Logo Bonanza"> <h1>Bonanza Pizzaria</h1>
-            <p>Seu Melhor Sabor!</p>
-            <p>Rua Benjamin Constant, nº 621</p>
-            <p>Telefone: (14) 99816-5756</p>
-        </div>
+    let totalGeral = (pedido.totalPedido || 0).toFixed(2).replace('.', ',');
 
-        <div class="section">
-            <h2>Detalhes do Pedido #${pedidoId}</h2>
-            <p><strong>Data:</strong> ${dataPedido}</p>
-            <p><strong>Hora:</strong> ${horaPedido}</p>
-            <p><strong>Cliente:</strong> ${pedido.nomeCliente || 'N/A'}</p>
-            <p><strong>Telefone:</strong> ${pedido.telefone || 'N/A'}</p>
-            ${pedido.garcom ? `<p><strong>Garçom:</strong> ${pedido.garcom}</p>` : ''}
-            ${pedido.mesaNumero ? `<p><strong>Mesa:</strong> ${pedido.mesaNumero}</p>` : ''}
-        </div>
-
-        <div class="section">
-            <h2>Informações de Entrega/Retirada</h2>
-            ${enderecoInfo}
-        </div>
-
-        <div class="items-list">
-            <h2>Itens do Pedido</h2>
-            ${itensHtml}
-        </div>
-
-        <div class="section summary">
-            <p>Subtotal: R$ ${pedido.totalPedido.toFixed(2).replace('.', ',')}</p>
-            ${pedido.desconto && pedido.desconto > 0 ? `<p>Desconto: - R$ ${pedido.desconto.toFixed(2).replace('.', ',')}</p>` : ''}
-            <div class="total-line final-total">
-                <span>TOTAL A PAGAR:</span>
-                <span>R$ ${pedido.totalPedido.toFixed(2).replace('.', ',')}</span>
+    const printContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Comanda Bonanza #${pedidoId}</title>
+            <style>
+                body { font-family: 'Consolas', 'Courier New', monospace; font-size: 10pt; line-height: 1.4; color: #000; padding: 10mm; }
+                h1, h2, h3 { margin: 0 0 5mm 0; }
+                .header, .footer { text-align: center; margin-bottom: 10mm; }
+                .header img { max-width: 50mm; height: auto; margin-bottom: 5mm; }
+                .section { border-top: 1px dashed #000; padding-top: 5mm; margin-top: 5mm; }
+                .item { display: flex; justify-content: space-between; margin-bottom: 2mm; }
+                .item-qty { width: 10%; text-align: left; }
+                .item-name { flex-grow: 1; text-align: left; padding-right: 5mm; }
+                .item-total { width: 25%; text-align: right; font-weight: bold; }
+                .item-obs { font-size: 8pt; margin-left: 10%; margin-top: -1mm; margin-bottom: 2mm; color: #555; }
+                .summary { text-align: right; font-size: 11pt; margin-top: 5mm; }
+                .total-line { display: flex; justify-content: space-between; font-weight: bold; margin-top: 3mm; font-size: 12pt; }
+                .final-total { font-size: 14pt; color: green; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Bonanza Pizzaria</h1>
+                <p>Seu Melhor Sabor!</p>
+                <p>Rua Benjamin Constant, nº 621</p>
+                <p>Telefone: (14) 99816-5756</p>
             </div>
-            ${pedido.totalPago && pedido.totalPago > 0 && pedido.totalPago !== pedido.totalPedido ? `<p>Total Pago: R$ ${pedido.totalPago.toFixed(2).replace('.', ',')}</p>` : ''}
-            ${pedido.totalPago && pedido.totalPago > pedido.totalPedido ? `<p>Troco: R$ ${(pedido.totalPago - pedido.totalPedido).toFixed(2).replace('.', ',')}</p>` : ''}
-        </div>
-
-        <div class="section">
-            <h2>Detalhes de Pagamento</h2>
-            ${pagamentoInfo}
-        </div>
-
-        ${observacaoGeral ? `<div class="section"><p>${observacaoGeral}</p></div>` : ''}
-
-        <div class="footer section">
-            <p>Agradecemos a sua preferência!</p>
-            <p>Volte Sempre!</p>
-            <p>Desenvolvido por LGHN System</p>
-        </div>
-    </body>
-    </html>
+            <div class="section">
+                <h2>Comanda #${pedidoId}</h2>
+                <p><strong>Data:</strong> ${dataPedido} | <strong>Hora:</strong> ${horaPedido}</p>
+                <p><strong>Cliente:</strong> ${pedido.nomeCliente || 'N/A'}</p>
+                ${pedido.garcom ? `<p><strong>Garçom:</strong> ${pedido.garcom}</p>` : ''}
+                ${pedido.mesaNumero ? `<p><strong>Mesa:</strong> ${pedido.mesaNumero}</p>` : ''}
+            </div>
+            <div class="section">
+                <h2>Informações de Entrega/Retirada</h2>
+                ${enderecoInfo}
+            </div>
+            <div class="items-list">
+                <h3>Itens do Pedido</h3>
+                ${itensHtml}
+            </div>
+            <div class="section summary">
+                <div class="total-line final-total">
+                    <span>TOTAL:</span>
+                    <span>R$ ${totalGeral}</span>
+                </div>
+            </div>
+            <div class="section">
+                <h2>Detalhes de Pagamento</h2>
+                ${pagamentoInfo}
+            </div>
+            ${observacaoGeral ? `<div class="section"><p>${observacaoGeral}</p></div>` : ''}
+            <div class="footer section">
+                <p>Agradecemos a sua preferência!</p>
+            </div>
+        </body>
+        </html>
     `;
 
-    const printWindow = window.open('', '', 'width=800,height=600'); // Reduced default size for thermal print preview
-    if (printWindow) {
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
-        // Optionally close after printing, but often left open for user to review
-        // printWindow.onafterprint = () => printWindow.close();
-    } else {
-        alert("Não foi possível abrir a janela de impressão. Por favor, verifique se pop-ups estão bloqueados.");
-    }
+    // Cria um iframe temporário e o adiciona ao corpo do documento
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
+    // Escreve o conteúdo na janela do iframe e aciona a impressão
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(printContent);
+    doc.close();
+
+    // Foca na janela do iframe e aciona o diálogo de impressão
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+
+    // Remove o iframe do DOM depois de um pequeno atraso
+    setTimeout(() => {
+        document.body.removeChild(iframe);
+    }, 1000);
 }
 
 
