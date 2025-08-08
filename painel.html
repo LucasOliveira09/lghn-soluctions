@@ -253,6 +253,13 @@
                 <div id="container-outros-itens" class="w-full hidden">
                     <label for="manual-select-produto" class="block text-sm font-medium text-gray-700">Produto:</label>
                     <select id="manual-select-produto" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
+                    <div id="calzone-size-container" class="mt-4 hidden">
+    <label for="manual-calzone-tamanho" class="block text-sm font-medium text-gray-700">Tamanho:</label>
+    <select id="manual-calzone-tamanho" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+        <option value="Grande">Grande</option>
+        <option value="Broto">Pequeno</option>
+    </select>
+</div>
                 </div>
 
                 <button id="manual-btn-add-item" class="w-full mt-4 px-4 py-2 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700">Adicionar Item ao Pedido</button>
@@ -277,14 +284,20 @@
                             <option value="Entrega">Entrega</option>
                         </select>
                     </div>
-                    <div>
-                        <label for="manual-pagamento" class="block text-sm font-medium text-gray-700">Forma de Pagamento:</label>
-                        <select id="manual-pagamento" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                            <option value="Dinheiro">Dinheiro</option>
-                            <option value="Cartão">Cartão</option>
-                            <option value="Pix">Pix</option>
-                        </select>
-                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+        <label for="manual-pagamento" class="block text-sm font-medium text-gray-700">Forma de Pagamento:</label>
+        <select id="manual-pagamento" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+            <option value="Cartão">Cartão</option>
+            <option value="Dinheiro">Dinheiro</option>
+            <option value="Pix">Pix</option>
+        </select>
+    </div>
+    <div id="manual-troco-container" class="hidden">
+        <label for="manual-dinheiro-troco" class="block text-sm font-medium text-gray-700">Troco para:</label>
+        <input type="number" id="manual-dinheiro-troco" step="0.01" min="0" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Valor recebido">
+    </div>
+</div>
                 </div>
 
                 <div id="container-endereco" class=" grid-cols-1 sm:grid-cols-2 gap-4 hidden bg-gray-50 p-4 rounded-lg border border-gray-200">
@@ -437,150 +450,156 @@
             </div>
 
             <div id="editar-cardapio" class="hidden bg-gray-100 p-6 rounded-lg shadow-md">
-                <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2 border-gray-300">Edição de Itens do
-                    Cardápio</h2>
+    <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2 border-gray-300">Edição de Itens do
+        Cardápio</h2>
 
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                    <button onclick="mostrarNovoitem()" id="btn-adicionar-item-cardapio"
-                        class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded font-semibold transition">
-                        + Adicionar Novo Item
-                    </button>
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <button onclick="mostrarNovoitem()" id="btn-adicionar-item-cardapio"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded font-semibold transition">
+            + Adicionar Novo Item
+        </button>
 
-                    <div class="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-                        <div class="w-full sm:w-auto">
-                            <label for="categoria-select" class="block text-sm font-medium text-gray-700 mb-1">Escolha
-                                a categoria:</label>
-                            <select id="categoria-select"
-                                class="w-full sm:w-64 p-2 border rounded focus:ring-2 ring-blue-400 transition">
-                                <option value="pizzas">Pizzas</option>
-                                <option value="bebidas">Bebidas</option>
-                                <option value="esfirras">Esfirras</option>
-                                <option value="calzone">Calzones</option>
-                                <option value="promocoes">🔥 Promoções</option>
-                                <option value="novidades">✨ Novidades</option>
-                            </select>
-                        </div>
-                        <div class="w-full sm:w-auto">
-                            <label for="search-input" class="block text-sm font-medium text-gray-700 mb-1">Pesquisar
-                                item:</label>
-                            <input type="text" id="search-input" placeholder="Buscar por nome ou descrição..."
-                                class="w-full sm:w-64 p-2 border rounded focus:ring-2 ring-blue-400 transition" />
-                        </div>
-                    </div>
-                </div>
-
-                <div id="bulk-actions-panel" class="hidden bg-blue-100 p-4 rounded-lg shadow-md my-4 space-y-3">
-                    <div class="flex justify-between items-center">
-                        <h3 class="text-lg font-semibold text-blue-800"><span id="selected-items-count">0</span> itens selecionados</h3>
-                        <div>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" id="select-all-checkbox" class="form-checkbox h-5 w-5 text-blue-600 rounded">
-                                <span>Selecionar Todos</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="flex items-center gap-2">
-                            <input type="number" id="bulk-price-input" placeholder="Novo Preço (ex: 15.50)" class="p-2 border rounded w-full">
-                            <button id="btn-bulk-update-price" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 whitespace-nowrap">Alterar Preço</button>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <select id="bulk-move-category-select" class="p-2 border rounded w-full">
-                                <option value="">Mover para...</option>
-                                <option value="pizzas">Pizzas</option>
-                                <option value="bebidas">Bebidas</option>
-                                <option value="esfirras">Esfirras</option>
-                                <option value="calzone">Calzones</option>
-                                <option value="promocoes">🔥 Promoções</option>
-                                <option value="novidades">✨ Novidades</option>
-                            </select>
-                            <button id="btn-bulk-move-category" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 whitespace-nowrap">Mover Itens</button>
-                        </div>
-                    </div>
-                </div>
-                <div id="modal-novo-item"
-                    class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-                    <div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-md mx-4">
-                        <h2 class="text-xl font-bold text-gray-800 mb-4">Adicionar Novo Item</h2>
-
-                        <div class="space-y-4">
-                            <div>
-                                <label for="novo-categoria-select" class="block font-medium text-sm text-gray-700 mb-1">
-                                    Categoria Principal
-                                </label>
-                                <select id="novo-categoria-select" class="w-full border rounded p-2 focus:ring-2 ring-blue-500">
-                                    <option value="pizzas">Pizzas</option>
-                                    <option value="esfirras">Esfirras</option>
-                                    <option value="calzone">Calzones</option>
-                                    <option value="bebidas">Bebidas</option>
-                                    <option value="promocoes">🔥 Promoções</option>
-                                    <option value="novidades">✨ Novidades</option>
-                                </select>
-                            </div>
-                            
-                            <div>
-                                <label for="novo-nome"
-                                    class="block font-medium text-sm text-gray-700 mb-1">Nome</label>
-                                <input id="novo-nome" type="text"
-                                    class="w-full border rounded p-2 focus:ring-2 ring-blue-500"
-                                    placeholder="Nome do produto" />
-                            </div>
-
-                            <div>
-                                <label for="novo-descricao"
-                                    class="block font-medium text-sm text-gray-700 mb-1">Descrição</label>
-                                <textarea id="novo-descricao"
-                                    class="w-full border rounded p-2 focus:ring-2 ring-blue-500" rows="3"
-                                    placeholder="Descrição do produto"></textarea>
-                            </div>
-
-                            <div>
-                                <label for="novo-preco"
-                                    class="block font-medium text-sm text-gray-700 mb-1">Preço</label>
-                                <input id="novo-preco" type="number" step="0.01" min="0"
-                                    class="w-full border rounded p-2 focus:ring-2 ring-blue-500" placeholder="0.00" />
-                            </div>
-
-                            <div>
-                                <label for="novo-imagem" class="block font-medium text-sm text-gray-700 mb-1">URL da
-                                    Imagem</label>
-                                <input id="novo-imagem" type="text"
-                                    class="w-full border rounded p-2 focus:ring-2 ring-blue-500"
-                                    placeholder="https://..." />
-                                <img id="preview-nova-imagem" class="w-full h-32 object-cover mt-2 rounded border hidden" />
-                            </div>
-
-                            <div>
-                                <label for="novo-tipo"
-                                    class="block font-medium text-sm text-gray-700 mb-1">Tipo</label>
-                                <select id="novo-tipo"
-                                    class="w-full border rounded p-2 focus:ring-2 ring-blue-500">
-                                    <option value="salgado">Salgado</option>
-                                    <option value="doce">Doce</option>
-                                </select>
-                            </div>
-
-                            <div class="flex items-center">
-                                <input type="checkbox" id="novo-ativo" class="form-checkbox text-blue-600" checked />
-                                <label for="novo-ativo" class="ml-2 text-sm text-gray-700">Ativo</label>
-                            </div>
-
-                            <div class="flex justify-between pt-4 border-t mt-4">
-                                <button id="btn-fechar-novo-item"
-                                    class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded transition">
-                                    Fechar
-                                </button>
-                                <button id="btn-salvar-novo-item"
-                                    class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded font-semibold transition">
-                                    Salvar
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="itens-cardapio-container" class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 "></div>
+        <div class="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+            <div class="w-full sm:w-auto">
+                <label for="categoria-select" class="block text-sm font-medium text-gray-700 mb-1">Escolha
+                    a categoria:</label>
+                <select id="categoria-select"
+                    class="w-full sm:w-64 p-2 border rounded focus:ring-2 ring-blue-400 transition">
+                    <option value="pizzas">Pizzas</option>
+                    <option value="bebidas">Bebidas</option>
+                    <option value="esfirras">Esfirras</option>
+                    <option value="calzone">Calzones</option>
+                    <option value="promocoes">🔥 Promoções</option>
+                    <option value="novidades">✨ Novidades</option>
+                </select>
             </div>
+            <div class="w-full sm:w-auto">
+                <label for="search-input" class="block text-sm font-medium text-gray-700 mb-1">Pesquisar
+                    item:</label>
+                <input type="text" id="search-input" placeholder="Buscar por nome ou descrição..."
+                    class="w-full sm:w-64 p-2 border rounded focus:ring-2 ring-blue-400 transition" />
+            </div>
+        </div>
+    </div>
+
+    <div id="bulk-actions-panel" class="hidden bg-blue-100 p-4 rounded-lg shadow-md my-4 space-y-3">
+        <div class="flex justify-between items-center">
+            <h3 class="text-lg font-semibold text-blue-800"><span id="selected-items-count">0</span> itens selecionados</h3>
+            <div>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="select-all-checkbox" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                    <span>Selecionar Todos</span>
+                </label>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="border-t pt-3 mt-3">
+    <div id="bulk-price-single-group" class="flex items-center gap-2">
+        <input type="number" id="bulk-price-input-single" placeholder="Novo Preço (itens únicos)" class="p-2 border rounded w-full">
+    </div>
+    <div id="bulk-price-multi-group" class="grid grid-cols-2 gap-2 mt-2">
+        <input type="number" id="bulk-price-input-grande" placeholder="Novo Preço Grande" class="p-2 border rounded w-full">
+        <input type="number" id="bulk-price-input-pequeno" placeholder="Novo Preço Pequeno" class="p-2 border rounded w-full">
+    </div>
+    <button id="btn-bulk-update-price" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full mt-2">Alterar Preços</button>
+</div>
+            <div class="flex items-center gap-2">
+                <select id="bulk-move-category-select" class="p-2 border rounded w-full">
+                    <option value="">Mover para...</option>
+                    <option value="pizzas">Pizzas</option>
+                    <option value="bebidas">Bebidas</option>
+                    <option value="esfirras">Esfirras</option>
+                    <option value="calzone">Calzones</option>
+                    <option value="promocoes">🔥 Promoções</option>
+                    <option value="novidades">✨ Novidades</option>
+                </select>
+                <button id="btn-bulk-move-category" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 whitespace-nowrap">Mover Itens</button>
+            </div>
+        </div>
+    </div>
+    <div id="modal-novo-item"
+        class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-md mx-4">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Adicionar Novo Item</h2>
+
+            <div class="space-y-4">
+                <div>
+                    <label for="novo-categoria-select" class="block font-medium text-sm text-gray-700 mb-1">
+                        Categoria Principal
+                    </label>
+                    <select id="novo-categoria-select" class="w-full border rounded p-2 focus:ring-2 ring-blue-500">
+                        <option value="pizzas">Pizzas</option>
+                        <option value="esfirras">Esfirras</option>
+                        <option value="calzone">Calzones</option>
+                        <option value="bebidas">Bebidas</option>
+                        <option value="promocoes">🔥 Promoções</option>
+                        <option value="novidades">✨ Novidades</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="novo-nome"
+                        class="block font-medium text-sm text-gray-700 mb-1">Nome</label>
+                    <input id="novo-nome" type="text"
+                        class="w-full border rounded p-2 focus:ring-2 ring-blue-500"
+                        placeholder="Nome do produto" />
+                </div>
+
+                <div>
+                    <label for="novo-descricao"
+                        class="block font-medium text-sm text-gray-700 mb-1">Descrição</label>
+                    <textarea id="novo-descricao"
+                        class="w-full border rounded p-2 focus:ring-2 ring-blue-500" rows="3"
+                        placeholder="Descrição do produto"></textarea>
+                </div>
+
+                <div>
+                    <label for="novo-preco"
+                        class="block font-medium text-sm text-gray-700 mb-1">Preço</label>
+                    <input id="novo-preco" type="number" step="0.01" min="0"
+                        class="w-full border rounded p-2 focus:ring-2 ring-blue-500" placeholder="0.00" />
+                </div>
+
+                <div>
+                    <label for="novo-imagem" class="block font-medium text-sm text-gray-700 mb-1">URL da
+                        Imagem</label>
+                    <input id="novo-imagem" type="text"
+                        class="w-full border rounded p-2 focus:ring-2 ring-blue-500"
+                        placeholder="https://..." />
+                    <img id="preview-nova-imagem" class="w-full h-32 object-cover mt-2 rounded border hidden" />
+                </div>
+
+                <div>
+                    <label for="novo-tipo"
+                        class="block font-medium text-sm text-gray-700 mb-1">Tipo</label>
+                    <select id="novo-tipo"
+                        class="w-full border rounded p-2 focus:ring-2 ring-blue-500">
+                        <option value="salgado">Salgado</option>
+                        <option value="doce">Doce</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center">
+                    <input type="checkbox" id="novo-ativo" class="form-checkbox text-blue-600" checked />
+                    <label for="novo-ativo" class="ml-2 text-sm text-gray-700">Ativo</label>
+                </div>
+
+                <div class="flex justify-between pt-4 border-t mt-4">
+                    <button id="btn-fechar-novo-item"
+                        class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded transition">
+                        Fechar
+                    </button>
+                    <button id="btn-salvar-novo-item"
+                        class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded font-semibold transition">
+                        Salvar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="itens-cardapio-container" class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 "></div>
+</div>
 
             <div id="editar-horario" class="hidden">
                 <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2 border-gray-300">Edição de Horário de
@@ -598,47 +617,6 @@
                         </button>
                     </form>
                 </div>
-                
-                <div id="whatsapp-settings-section" class="p-6 bg-white rounded-lg shadow-md mt-6">
-    <h3 class="text-2xl font-semibold mb-4 text-gray-800">Gerenciamento de WhatsApp</h3>
-    
-    <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700">Restaurante Atual:</label>
-        <span id="current-restaurant-id-display" class="text-lg font-bold text-blue-700">Carregando...</span>
-        <input type="hidden" id="hidden-current-restaurant-id" value="">
-    </div>
-
-    <hr class="my-6 border-t border-gray-200">
-
-    <div class="flex flex-col md:flex-row items-center justify-around gap-8 mb-8 p-6 border rounded-lg bg-indigo-50">
-        <div class="flex-1 text-center min-w-0">
-            <h4 class="text-xl font-medium mb-3 text-indigo-800">Status da Conexão WhatsApp</h4>
-            <p id="whatsapp-session-status" class="text-lg font-bold text-indigo-700">Carregando status...</p>
-            <p id="whatsapp-phone-number" class="text-gray-700 text-sm mt-1">Número Conectado: N/A</p>
-            <p id="whatsapp-last-update" class="text-gray-600 text-xs mt-2">Última atualização: N/A</p>
-        </div>
-        <div class="flex-1 text-center flex flex-col items-center justify-center min-w-0">
-            <h4 class="text-xl font-medium mb-3 text-indigo-800">QR Code para Conexão</h4>
-            <img id="qr-code-display" src="" alt="QR Code WhatsApp" class="w-56 h-56 mx-auto border-4 border-gray-300 rounded-lg p-2 bg-white hidden">
-            <button id="btn-connect-whatsapp" class="mt-5 bg-indigo-600 text-white px-8 py-3 rounded-full shadow-lg hover:bg-indigo-700 transition duration-200 text-base font-semibold">
-                Conectar/Verificar WhatsApp
-            </button>
-            <p class="text-sm text-gray-500 mt-2">Escaneie com o app WhatsApp Business do celular.</p>
-        </div>
-    </div>
-
-    <hr class="my-6 border-t border-gray-200">
-
-    <h4 class="text-2xl font-semibold mb-4 text-gray-800">Enviar Mensagem Manual (Teste)</h4>
-    <div class="flex flex-col gap-5 p-6 border rounded-lg bg-blue-50">
-        <input type="text" id="manual-message-phone" placeholder="Número do Cliente (ex: 5511987654321)" class="p-3 border border-blue-300 rounded-md text-gray-800 focus:ring-blue-500 focus:border-blue-500">
-        <textarea id="manual-message-text" rows="4" placeholder="Digite a mensagem aqui... (Suporta *negrito*, _itálico_, ~riscado~)" class="p-3 border border-blue-300 rounded-md text-gray-800 focus:ring-blue-500 focus:border-blue-500"></textarea>
-        <button id="btn-send-manual-message" class="bg-blue-600 text-white px-8 py-3 rounded-full shadow-lg hover:bg-blue-700 transition duration-200 text-base font-semibold">
-            Enviar Mensagem
-        </button>
-        <p class="text-sm text-gray-600">Use este campo para testes ou mensagens avulsas.</p>
-    </div>
-</div>
             </div>
 
             <div id="aba-gerenciar-mesas" class="hidden">
