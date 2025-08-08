@@ -172,11 +172,56 @@
     .overlay.active {
         display: block;
     }
+    .nav-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        flex-grow: 1; /* Faz com que todos os itens ocupem o mesmo espaço */
+        height: 100%;
+        color: #a1a1aa; /* Cinza para os itens inativos (cor do Mercado Livre) */
+        transition: color 0.2s ease-in-out;
+        position: relative; /* Necessário para o contador do carrinho */
+    }
+
+    /* Efeito ao passar o mouse */
+    .nav-item:hover {
+        color: #ffffff;
+    }
+
+    /* Estilo para o item ATIVO (página atual) */
+    .nav-active {
+        color: #22c55e; /* Verde do seu tema para o item ativo */
+    }
+
+    /* Garante que a cor ativa não mude no hover */
+    .nav-active:hover {
+        color: #22c55e;
+    }
+    #cart-btn {
+        background-color: #22c55e; /* Verde do tema */
+        color: white;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        margin-top: -25px; /* Levanta o botão para cima da barra */
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        transition: transform 0.2s ease-in-out;
+    }
+    #cart-count {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+    }
 </style>
 <body class="bg-main bg-[#0E0C0A] font-serif">
 
 <header class="w-full h-[320px] bg-[#0E0C0A] bg-cover bg-center shadow-sm flex flex-col justify-center items-center px-4 relative">
-    <button id="menu-button" class="absolute top-4 right-4 z-20 text-yellow-50 hover:scale-110 transition-transform duration-200">
+    <button id="menu-button" class=" hidden absolute top-4 right-4 z-20 text-yellow-50 hover:scale-110 transition-transform duration-200">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
         </svg>
@@ -519,11 +564,36 @@
     </div>
 </main>
 
-<footer class="fixed bottom-0 left-0 right-0 bg-black border-t border-gray-700 p-4 gap-2">
-    <button id="cart-btn" class="max-w-md mx-auto flex justify-center text-center text-white text-lg font-semibold">
-        (<span id="cart-count" class="text-green-600">0</span>) Ver carrinho
-        <i class="fa fa-cart-plus text-lg"></i>
-    </button>
+<footer class="fixed bottom-0 left-0 right-0 h-16 z-50 bg-[#0E0C0A]">
+    <nav class="flex justify-around items-center h-full">
+
+        <a href="central-cardapio.html" class="nav-item">
+            <i class="fa-solid fa-house text-xl"></i>
+            <span class="text-xs font-medium mt-1">Início</span>
+        </a>
+
+        <a href="status.html" class="nav-item">
+            <i class="fa-solid fa-receipt text-xl"></i>
+            <span class="text-xs font-medium mt-1">Pedidos</span>
+        </a>
+
+        <button id="cart-btn" class="relative bg-green-500 text-white w-[50px] h-[50px] rounded-full flex items-center justify-center -mt-[25px] shadow-lg hover:scale-110 transition-transform duration-200 ease-in-out">
+            <i class="fa-solid fa-cart-shopping text-xl"></i>
+            <span id="cart-count" class=" absolute top-[5px] right-[5px] bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"> 0
+            </span>
+        </button>
+
+        <a href="cupons.html" class="nav-item">
+            <i class="fa-solid fa-ticket-simple text-xl"></i>
+            <span class="text-xs font-medium mt-1">Cupons</span>
+        </a>
+
+        <a href="sobreNos.html" class="nav-item">
+            <i class="fa-solid fa-info-circle"></i>
+            <span class="text-xs font-medium mt-1">Sobre</span>
+        </a>
+
+    </nav>
 </footer>
 
 <div id="calzone-modal" class="fixed inset-0 z-[999] hidden items-center justify-center bg-black/60 p-4">
@@ -642,4 +712,26 @@
         // Exibe a seção de pizzas por padrão ao carregar
         showSectionAndScroll('show-pizza');
     });
+
+    document.addEventListener("DOMContentLoaded", function() {
+    // Pega o caminho da página atual, ex: "/central-cardapio.html"
+    const currentPage = window.location.pathname;
+
+    // Seleciona todos os links da navegação do rodapé
+    const navLinks = document.querySelectorAll('footer nav a');
+
+    navLinks.forEach(link => {
+        const linkPage = new URL(link.href).pathname;
+
+        // Verifica se o href do link corresponde à página atual
+        if (linkPage === currentPage) {
+            link.classList.add('nav-active'); // Adiciona a classe ativa
+            // Se quiser, pode remover a classe de hover para não mudar a cor
+            link.classList.remove('hover:text-white');
+        }
+    });
+
+    // Como o carrinho não é uma página, ele nunca será "ativo" desta forma.
+    // O botão do carrinho agora abre o modal, como o seu "cart-btn" já fazia.
+});
 </script>
