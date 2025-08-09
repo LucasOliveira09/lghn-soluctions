@@ -649,31 +649,35 @@ DOM.btnGerenciarAdicionais.addEventListener('click', () => {
 
     // --- Event Listeners para a aba de Estoque (Relatórios Rápidos e Ações) ---
     DOM.btnResetarConsumoDiario.addEventListener('click', async () => {
-        const confirmacao = confirm('Tem certeza que deseja RESETAR o consumo do dia anterior? Isso vai zerar as quantidades e valores diários para todos os ingredientes. Esta ação é para ser feita no início de cada novo dia.');
-        if (!confirmacao) return;
+    const confirmacao = await customConfirm('Tem certeza que deseja RESETAR o consumo do dia anterior? Isso vai zerar as quantidades e valores diários para todos os ingredientes. Esta ação é para ser feita no início de cada novo dia.');
+    
+    if (!confirmacao) {
+        return;
+    }
 
-        try {
-            const updates = {};
-            Object.keys(allIngredients).forEach(ingredienteId => {
-                updates[ingredienteId + '/quantidadeUsadaDiaria'] = 0;
-                updates[ingredienteId + '/custoUsadaDiaria'] = 0;
-                updates[ingredienteId + '/ultimaAtualizacaoConsumo'] = firebase.database.ServerValue.TIMESTAMP;
-            });
-            await ingredientesRef.update(updates);
-            alert('Consumo do dia anterior resetado com sucesso!');
-        } catch (error) {
-            console.error('Erro ao resetar consumo diário:', error);
-            alert('Erro ao resetar consumo do dia anterior.');
-        }
-    });
+    try {
+        const updates = {};
+        Object.keys(allIngredients).forEach(ingredienteId => {
+            updates[ingredienteId + '/quantidadeUsadaDiaria'] = 0;
+            updates[ingredienteId + '/custoUsadaDiaria'] = 0;
+            updates[ingredienteId + '/ultimaAtualizacaoConsumo'] = firebase.database.ServerValue.TIMESTAMP;
+        });
+        await ingredientesRef.update(updates);
+        customAlert('Consumo do dia anterior resetado com sucesso!');
+    } catch (error) {
+        console.error('Erro ao resetar consumo diário:', error);
+        customAlert('Erro ao resetar consumo do dia anterior.');
+    }
+});
 
-    DOM.btnResetarConsumoMensal.addEventListener('click', async () => {
-        const today = new Date();
-        const yearMonth = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
+    DOM.btnResetarConsumoMensal.addEventListener('click', () => {
+    const today = new Date();
+    const yearMonth = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
 
-        if (confirm(`Tem certeza que deseja RESETAR o consumo mensal de TODOS os ingredientes para o mês de ${yearMonth}? Esta ação salvará o consumo atual em um histórico e zerará os contadores para o novo mês.`)) {
-            try {
-                const snapshot = await ingredientesRef.once('value');
+    customConfirm(`Tem certeza que deseja RESETAR o consumo mensal de TODOS os ingredientes para o mês de ${yearMonth}? Esta ação salvará o consumo atual em um histórico e zerará os contadores para o novo mês.`).then(result => {
+        if (result) {
+            // Lógica original de resetar, convertida para promises.
+            ingredientesRef.once('value').then(snapshot => {
                 const updates = {};
                 const consumoHistoricoMensal = {};
 
@@ -694,18 +698,20 @@ DOM.btnGerenciarAdicionais.addEventListener('click', () => {
                 });
 
                 if (Object.keys(consumoHistoricoMensal).length > 0) {
-                    await database.ref(`historicoConsumo/${yearMonth}`).set(consumoHistoricoMensal);
-                    console.log(`Consumo de ${yearMonth} salvo em histórico.`);
+                    return database.ref(`historicoConsumo/${yearMonth}`).set(consumoHistoricoMensal)
+                        .then(() => ingredientesRef.update(updates));
+                } else {
+                    return ingredientesRef.update(updates);
                 }
-
-                await ingredientesRef.update(updates);
-                alert('Consumo mensal de ingredientes resetado com sucesso!');
-            } catch (error) {
+            })
+            .then(() => customAlert('Consumo mensal de ingredientes resetado com sucesso!'))
+            .catch(error => {
                 console.error('Erro ao resetar consumo:', error);
-                alert('Erro ao resetar consumo de ingredientes.');
-            }
+                customAlert('Erro ao resetar consumo de ingredientes.');
+            });
         }
     });
+});
 
     if (DOM_ADDON_RECIPE_MODAL.cancelBtn) {
         DOM_ADDON_RECIPE_MODAL.cancelBtn.addEventListener('click', () => {
@@ -855,6 +861,113 @@ DOM.btnGerenciarAdicionais.addEventListener('click', () => {
 });
 });
 
+
+
+// --- Funções para Modais Personalizados ---
+// Funções de Modal Personalizadas
+const customAlert = (message, title = 'Aviso') => {
+  return new Promise(resolve => {
+    document.getElementById('custom-alert-title').textContent = title;
+    document.getElementById('custom-alert-message').textContent = message;
+    const modal = document.getElementById('custom-alert-modal');
+    modal.classList.remove('hidden');
+    
+    const okButton = document.getElementById('custom-alert-ok');
+    const handleOk = () => {
+      modal.classList.add('hidden');
+      okButton.removeEventListener('click', handleOk);
+      resolve();
+    };
+    okButton.addEventListener('click', handleOk);
+  });
+};
+
+const customConfirm = (message, title = 'Confirmação') => {
+  return new Promise(resolve => {
+    document.getElementById('custom-confirm-title').textContent = title;
+    document.getElementById('custom-confirm-message').textContent = message;
+    const modal = document.getElementById('custom-confirm-modal');
+    modal.classList.remove('hidden');
+    
+    const okButton = document.getElementById('custom-confirm-ok');
+    const cancelButton = document.getElementById('custom-confirm-cancel');
+    
+    const handleOk = () => {
+      modal.classList.add('hidden');
+      okButton.removeEventListener('click', handleOk);
+      cancelButton.removeEventListener('click', handleCancel);
+      resolve(true);
+    };
+    
+    const handleCancel = () => {
+      modal.classList.add('hidden');
+      okButton.removeEventListener('click', handleOk);
+      cancelButton.removeEventListener('click', handleCancel);
+      resolve(false);
+    };
+    
+    okButton.addEventListener('click', handleOk);
+    cancelButton.addEventListener('click', handleCancel);
+  });
+};
+
+const customPrompt = (message, defaultValue = '', title = 'Entrada de Dados') => {
+  return new Promise(resolve => {
+    document.getElementById('custom-prompt-title').textContent = title;
+    document.getElementById('custom-prompt-message').textContent = message;
+    const input = document.getElementById('custom-prompt-input');
+    input.value = defaultValue;
+    const modal = document.getElementById('custom-prompt-modal');
+    modal.classList.remove('hidden');
+    
+    const okButton = document.getElementById('custom-prompt-ok');
+    const cancelButton = document.getElementById('custom-prompt-cancel');
+    
+    const handleOk = () => {
+      modal.classList.add('hidden');
+      okButton.removeEventListener('click', handleOk);
+      cancelButton.removeEventListener('click', handleCancel);
+      resolve(input.value);
+    };
+    
+    const handleCancel = () => {
+      modal.classList.add('hidden');
+      okButton.removeEventListener('click', handleOk);
+      cancelButton.removeEventListener('click', handleCancel);
+      resolve(null);
+    };
+    
+    okButton.addEventListener('click', handleOk);
+    cancelButton.addEventListener('click', handleCancel);
+    input.focus(); // Foca no input para facilitar a digitação
+  });
+};
+
+function showToast(message, type = 'info') {
+    let backgroundColor;
+    switch (type) {
+        case 'success':
+            backgroundColor = "linear-gradient(to right, #00b09b, #96c93d)";
+            break;
+        case 'error':
+            backgroundColor = "linear-gradient(to right, #ff5f6d, #ffc371)";
+            break;
+        case 'warning':
+            backgroundColor = "linear-gradient(to right, #ffc92c, #ff9422)";
+            break;
+        case 'info':
+        default:
+            backgroundColor = "linear-gradient(to right, #0072ff, #00c6ff)";
+            break;
+    }
+
+    Toastify({
+        text: message,
+        duration: 3000, close: true, gravity: "top", position: "right", style: { background: "#ef4444" } // `left`, `center` or `right`
+        
+    }).showToast();
+}
+
 //Função pra corrigir os horarios LGHN---------------------------------------------------------------------------------------------------------------------------------------
 function parseDateAsLocal(dateString) {
     // Evita o problema de timezone lendo a data como UTC.
@@ -965,7 +1078,7 @@ function aceitarPedido(pedidoId) {
         .then(snapshot => {
             const pedido = snapshot.val();
             if (!pedido.telefone) {
-                alert('Não foi possível encontrar o telefone do cliente.');
+                customAlert('Não foi possível encontrar o telefone do cliente.');
                 console.error('Erro: Telefone do cliente não encontrado no pedido.');
                 return;
             }
@@ -993,7 +1106,7 @@ Aguarde que logo estará a caminho! 🍽️`;
         })
         .catch(err => {
             console.error('Erro ao aceitar pedido:', err);
-            alert('Erro ao aceitar pedido. Verifique o console para mais detalhes.');
+            customAlert('Erro ao aceitar pedido. Verifique o console para mais detalhes.');
         });
 } //asdasdqdw
 
@@ -1001,7 +1114,7 @@ function saiuParaEntrega(pedidoId) {
     database.ref('pedidos/' + pedidoId).once('value').then(snapshot => {
         const pedido = snapshot.val();
         if (!pedido.telefone) {
-            alert('Não foi possível encontrar o telefone do cliente.');
+            customAlert('Não foi possível encontrar o telefone do cliente.');
             return;
         }
 
@@ -1039,7 +1152,7 @@ async function finalizarPedido(pedidoId) {
 
         if (!pedido) {
             console.error(`Pedido com ID ${pedidoId} não encontrado.`);
-            alert('Erro: Pedido não encontrado para finalizar.');
+            customAlert('Erro: Pedido não encontrado para finalizar.');
             return;
         }
 
@@ -1068,14 +1181,16 @@ Esperamos vê-lo novamente em breve! 🍽️🍕`;
 
     } catch (error) {
         console.error('Erro ao finalizar pedido e registrar consumo:', error);
-        alert('Erro ao finalizar pedido. Verifique o console para mais detalhes.');
+        customAlert('Erro ao finalizar pedido. Verifique o console para mais detalhes.');
     }
 }
 
 function recusarPedido(pedidoId) {
-    if (confirm('Deseja realmente recusar o pedido?')) {
-        database.ref('pedidos/' + pedidoId).update({ status: 'Recusado' });
-    }
+    customConfirm('Deseja realmente recusar o pedido?').then(result => {
+        if (result) {
+            database.ref('pedidos/' + pedidoId).update({ status: 'Recusado' });
+        }
+    });
 }
 
 function gerarHtmlPedido(pedido, pedidoId) {
@@ -1220,11 +1335,11 @@ function imprimirPedido(pedidoId) {
             gerarNota(pedido, pedidoId); // Pass pedidoId to gerarNota for completeness, though not strictly used in current note format
         } else {
             console.error('Pedido não encontrado para impressão:', pedidoId);
-            alert('Erro: Pedido não encontrado para impressão.');
+            customAlert('Erro: Pedido não encontrado para impressão.');
         }
     }).catch(error => {
         console.error('Erro ao carregar pedido para impressão:', error);
-        alert('Erro ao carregar pedido para impressão.');
+        customAlert('Erro ao carregar pedido para impressão.');
     });
 }
 
@@ -1236,7 +1351,7 @@ function imprimirPedido(pedidoId) {
 function gerarNota(pedido, pedidoId) {
     if (!pedido || !pedido.cart || !Array.isArray(pedido.cart)) {
         console.error("Dados do pedido inválidos para gerar a nota.");
-        alert("Não foi possível gerar a nota: dados do pedido incompletos.");
+        customAlert("Não foi possível gerar a nota: dados do pedido incompletos.");
         return;
     }
 
@@ -1465,7 +1580,7 @@ function gerarNota(pedido, pedidoId) {
         printWindow.focus();
         printWindow.print();
     } else {
-        alert("Não foi possível abrir a janela de impressão. Por favor, verifique se pop-ups estão bloqueados.");
+        customAlert("Não foi possível abrir a janela de impressão. Por favor, verifique se pop-ups estão bloqueados.");
     }
 }
 
@@ -1536,7 +1651,7 @@ if (btnAdicionarItemModal) {
         const qtd = parseInt(document.getElementById('novo-item-quantidade').value, 10);
 
         if (!nome || isNaN(preco) || isNaN(qtd) || qtd <= 0 || preco <= 0) {
-            alert('Preencha todos os campos corretamente com valores positivos.');
+            customAlert('Preencha todos os campos corretamente com valores positivos.');
             return;
         }
 
@@ -1569,12 +1684,12 @@ function salvarPedidoEditado() {
 
     database.ref('pedidos/' + pedidoEmEdicao).update({ cart: novosItens, totalPedido: novoTotalPedido })
         .then(() => {
-            alert('Pedido atualizado com sucesso!');
+            customAlert('Pedido atualizado com sucesso!');
             fecharModalEditarPedido();
         })
         .catch(error => {
             console.error('Erro ao salvar pedido:', error);
-            alert('Erro ao salvar o pedido. Verifique o console para mais detalhes.');
+            customAlert('Erro ao salvar o pedido. Verifique o console para mais detalhes.');
         });
 }
 
@@ -1602,14 +1717,14 @@ function handleSalvarNovoItem() {
     const categoriaPrincipal = DOM.novoCategoriaSelect.value;
     const tipoDoItem = DOM.novoTipoSelect.value;
 
-    if (!nome) return alert("Preencha o nome do produto.");
-    if (imagem && !imagem.startsWith('http')) return alert("Coloque uma URL de imagem válida.");
+    if (!nome) return customAlert("Preencha o nome do produto.");
+    if (imagem && !imagem.startsWith('http')) return customAlert("Coloque uma URL de imagem válida.");
 
     const novoItem = { nome, descricao, imagem, ativo, tipo: tipoDoItem, receita: {} };
 
     const preco = parseFloat(DOM.novoPrecoInput.value);
     if (isNaN(preco) || preco <= 0) {
-        return alert("Preencha o preço corretamente com um valor positivo.");
+        return customAlert("Preencha o preço corretamente com um valor positivo.");
     }
 
     // Lógica ajustada: salva o mesmo preço para todos os tipos.
@@ -1626,13 +1741,13 @@ function handleSalvarNovoItem() {
 
     database.ref(`produtos/${categoriaPrincipal}`).push(novoItem)
         .then(() => {
-            alert("Item adicionado com sucesso!");
+            customAlert("Item adicionado com sucesso!");
             DOM.modalNovoItem.classList.add("hidden");
             carregarItensCardapio(categoriaPrincipal, DOM.searchInput.value);
             limparFormularioNovoItem();
         })
         .catch(error => {
-            alert("Erro ao adicionar item! " + error.message);
+            customAlert("Erro ao adicionar item! " + error.message);
         });
 }
 
@@ -1791,14 +1906,14 @@ function criarCardItem(item, key, categoriaAtual) {
             const precoGrande = parseFloat(card.querySelector(".preco-grande").value);
             const precoPequeno = parseFloat(card.querySelector(".preco-pequeno").value);
             if (isNaN(precoGrande) || isNaN(precoPequeno)) {
-                return alert("Preencha os preços corretamente.");
+                return customAlert("Preencha os preços corretamente.");
             }
             updates.precos = { Grande: precoGrande, Pequeno: precoPequeno, grande: precoGrande, broto: precoPequeno };
             updates.preco = null; // Remove o preço antigo se houver
         } else {
             const preco = parseFloat(card.querySelector(".preco").value);
             if (isNaN(preco)) {
-                return alert("Preencha o preço corretamente.");
+                return customAlert("Preencha o preço corretamente.");
             }
             updates.preco = preco;
             updates.precos = null; // Remove os preços múltiplos se houver
@@ -1809,57 +1924,52 @@ function criarCardItem(item, key, categoriaAtual) {
         }
 
         database.ref(`produtos/${categoriaAtual}/${key}`).update(updates)
-            .then(() => alert("Item atualizado com sucesso!"))
-            .catch(error => alert("Erro ao salvar! " + error.message));
+            .then(() => customAlert("Item atualizado com sucesso!"))
+            .catch(error => customAlert("Erro ao salvar! " + error.message));
     });
 
     card.querySelector(".excluir").addEventListener("click", function() {
-        if (confirm("Tem certeza que deseja excluir este item?")) {
+    customConfirm("Tem certeza que deseja excluir este item?").then(result => {
+        if (result) {
             database.ref(`produtos/${categoriaAtual}/${key}`).remove()
                 .then(() => {
                     card.remove();
-                    alert("Item excluído com sucesso!");
+                    customAlert("Item excluído com sucesso!");
                 })
-                .catch(error => alert("Erro ao excluir: " + error.message));
+                .catch(error => customAlert("Erro ao excluir: " + error.message));
         }
     });
+});
     
     card.querySelector(".move-item-btn").addEventListener("click", function() {
-        const targetCategory = card.querySelector(".move-category-select").value;
-        if (!targetCategory || targetCategory === categoriaAtual) {
-            return alert("Selecione uma categoria de destino diferente da atual.");
-        }
+    const targetCategory = card.querySelector(".move-category-select").value;
+    if (!targetCategory || targetCategory === categoriaAtual) {
+        return customAlert("Selecione uma categoria de destino diferente da atual.");
+    }
 
-        if (confirm(`Mover "${itemName}" para "${targetCategory}"?`)) {
-             // Pega os dados atuais do item direto do card
-            const itemData = {
-                nome: card.querySelector(".nome").value,
-                descricao: card.querySelector(".descricao").value,
-                imagem: card.querySelector(".imagem").value,
-                ativo: card.querySelector(".ativo").checked,
-                tipo: card.querySelector(".tipo").value,
-                receita: item.receita || {} // Mantém a receita original
-            };
-
-            // Adiciona a lógica de preço correta
-            if (categoriaAtual === 'calzone' || categoriaAtual === 'pizzas') {
-                itemData.precos = {
-                    Grande: parseFloat(card.querySelector('.preco-grande').value),
-                    Pequeno: parseFloat(card.querySelector('.preco-pequeno').value)
-                };
-            } else {
-                itemData.preco = parseFloat(card.querySelector('.preco').value);
-            }
-
-            database.ref(`produtos/${targetCategory}`).push(itemData)
-                .then(() => database.ref(`produtos/${categoriaAtual}/${key}`).remove())
+    customConfirm(`Mover "${itemName}" para "${targetCategory}"?`).then(result => {
+        if (result) {
+            database.ref(`/produtos/${categoriaAtual}/${key}`).once('value')
+                .then(itemSnapshot => {
+                    const itemData = itemSnapshot.val();
+                    if (itemData) {
+                        if (categoriaAtual === 'promocoes') delete itemData.titulo;
+                        if (targetCategory === 'promocoes') itemData.titulo = itemData.nome;
+                        
+                        return database.ref(`/produtos/${targetCategory}/${key}`).set(itemData)
+                            .then(() => database.ref(`produtos/${categoriaAtual}/${key}`).remove());
+                    } else {
+                        return Promise.reject(new Error("Item não encontrado para ser movido."));
+                    }
+                })
                 .then(() => {
-                    alert(`Item movido com sucesso!`);
+                    customAlert(`Item movido com sucesso!`);
                     carregarItensCardapio(categoriaAtual, DOM.searchInput.value);
                 })
-                .catch(error => alert("Erro ao mover: " + error.message));
+                .catch(error => customAlert("Erro ao mover: " + error.message));
         }
     });
+});
 
     return card;
 }
@@ -1871,7 +1981,7 @@ function criarCardItem(item, key, categoriaAtual) {
 function salvarHorariosNoFirebase(horarios) {
     database.ref('config/horarios')
         .set(horarios)
-        .then(() => alert("Horários salvos com sucesso!"))
+        .then(() => customAlert("Horários salvos com sucesso!"))
         .catch((error) => console.error("Erro ao salvar horários:", error));
 }
 
@@ -1967,7 +2077,7 @@ function inicializarEditorHorario() {
 
             // Validação simples para garantir que os campos de tempo não estão vazios se estiver aberto
             if (aberto && (!inicio || !fim)) {
-                alert(`Por favor, preencha os horários de início e fim para ${dias[i]}.`);
+                customAlert(`Por favor, preencha os horários de início e fim para ${dias[i]}.`);
                 return;
             }
             horarios[i] = { aberto, inicio, fim };
@@ -1997,37 +2107,39 @@ function inicializarEditorHorario() {
 DOM.btnConfigurarMesas.addEventListener('click', () => {
     const numMesas = parseInt(DOM.numMesasInput.value, 10);
     if (isNaN(numMesas) || numMesas < 1 || numMesas > 20) {
-        alert("Por favor, insira um número de mesas válido entre 1 e 20.");
+        customAlert("Por favor, insira um número de mesas válido entre 1 e 20.");
         return;
     }
 
-    if (confirm(`Deseja configurar ${numMesas} mesas? Isso redefinirá o estado de todas as mesas existentes.`)) {
-        mesasRef.remove()
-            .then(() => {
-                const updates = {};
-                for (let i = 1; i <= numMesas; i++) {
-                    updates[i] = {
-                        numero: i,
-                        status: 'Livre',
-                        cliente: '',
-                        garcom: '',
-                        observacoes: '',
-                        pedido: null,
-                        total: 0,
-                        pagamentosRegistrados: null,
-                        lastUpdate: firebase.database.ServerValue.TIMESTAMP
-                    };
-                }
-                return mesasRef.update(updates);
-            })
-            .then(() => {
-                alert(`${numMesas} mesas configuradas com sucesso!`);
-            })
-            .catch(error => {
-                console.error("Erro ao configurar mesas:", error);
-                alert("Erro ao configurar mesas. Verifique o console.");
-            });
-    }
+    customConfirm(`Deseja configurar ${numMesas} mesas? Isso redefinirá o estado de todas as mesas existentes.`).then(result => {
+        if (result) {
+            mesasRef.remove()
+                .then(() => {
+                    const updates = {};
+                    for (let i = 1; i <= numMesas; i++) {
+                        updates[i] = {
+                            numero: i,
+                            status: 'Livre',
+                            cliente: '',
+                            garcom: '',
+                            observacoes: '',
+                            pedido: null,
+                            total: 0,
+                            pagamentosRegistrados: null,
+                            lastUpdate: firebase.database.ServerValue.TIMESTAMP
+                        };
+                    }
+                    return mesasRef.update(updates);
+                })
+                .then(() => {
+                    customAlert(`${numMesas} mesas configuradas com sucesso!`);
+                })
+                .catch(error => {
+                    console.error("Erro ao configurar mesas:", error);
+                    customAlert("Erro ao configurar mesas. Verifique o console.");
+                });
+        }
+    });
 });
 
 function renderMesas(mesasData) {
@@ -2087,7 +2199,7 @@ async function abrirModalMesaDetalhes(mesaNumero) {
         const mesa = snapshot.val();
 
         if (!mesa) {
-            alert('Mesa não encontrada ou foi removida.');
+            customAlert('Mesa não encontrada ou foi removida.');
             return;
         }
 
@@ -2147,7 +2259,7 @@ async function abrirModalMesaDetalhes(mesaNumero) {
 
     } catch (error) {
         console.error("Erro ao abrir modal de mesa:", error);
-        alert("Erro ao carregar detalhes da mesa.");
+        customAlert("Erro ao carregar detalhes da mesa.");
     }
 }
 
@@ -2295,39 +2407,39 @@ function removePayment(index) {
     const payment = currentMesaPaymentsHistory[index];
     if (!payment) return;
 
-    if (!confirm(`Tem certeza que deseja remover este pagamento de R$ ${payment.valorPago.toFixed(2)} (${payment.metodo})?`)) {
-        return;
-    }
+    customConfirm(`Tem certeza que deseja remover este pagamento de R$ ${payment.valorPago.toFixed(2)} (${payment.metodo})?`).then(result => {
+        if (result) {
+            currentMesaPaymentsHistory.splice(index, 1);
 
-    currentMesaPaymentsHistory.splice(index, 1);
-
-    if (payment.itemsPaid) {
-        payment.itemsPaid.forEach(paidItem => {
-            const originalItem = currentMesaItemsToPay.find(item =>
-                item.name === paidItem.name && (item.size || '') === (paidItem.size || '')
-            );
-            if (originalItem) {
-                originalItem.remainingQuantity += paidItem.quantity;
-                if (originalItem.remainingQuantity > originalItem.originalQuantity + 0.001) {
-                    originalItem.remainingQuantity = originalItem.originalQuantity;
-                }
+            if (payment.itemsPaid) {
+                payment.itemsPaid.forEach(paidItem => {
+                    const originalItem = currentMesaItemsToPay.find(item =>
+                        item.name === paidItem.name && (item.size || '') === (paidItem.size || '')
+                    );
+                    if (originalItem) {
+                        originalItem.remainingQuantity += paidItem.quantity;
+                        if (originalItem.remainingQuantity > originalItem.originalQuantity + 0.001) {
+                            originalItem.remainingQuantity = originalItem.originalQuantity;
+                        }
+                    }
+                });
             }
-        });
-    }
 
-    const totalPaidSoFar = currentMesaPaymentsHistory.reduce((sum, p) => sum + p.valorPago, 0);
-    currentMesaRemainingToPay = currentMesaTotal - totalPaidSoFar;
-    if (Math.abs(currentMesaRemainingToPay) < 0.01) {
-        currentMesaRemainingToPay = 0;
-    }
+            const totalPaidSoFar = currentMesaPaymentsHistory.reduce((sum, p) => sum + p.valorPago, 0);
+            currentMesaRemainingToPay = currentMesaTotal - totalPaidSoFar;
+            if (Math.abs(currentMesaRemainingToPay) < 0.01) {
+                currentMesaRemainingToPay = 0;
+            }
 
-    currentMesaItemsToPay.forEach(item => item.selectedToPayQuantity = 0);
+            currentMesaItemsToPay.forEach(item => item.selectedToPayQuantity = 0);
 
-    DOM.valorAPagarInput.value = currentMesaRemainingToPay.toFixed(2);
+            DOM.valorAPagarInput.value = currentMesaRemainingToPay.toFixed(2);
 
-    renderMesaItemsForCheckout();
-    renderPagamentoHistory();
-    updateCheckoutStatus();
+            renderMesaItemsForCheckout();
+            renderPagamentoHistory();
+            updateCheckoutStatus();
+        }
+    });
 }
 
 function updateCheckoutStatus() {
@@ -2469,20 +2581,20 @@ async function adicionarPagamentoMesa() {
     updateCheckoutStatus(); // Recalcular e atualizar a exibição dos totais
 
     if (currentPaymentMethod === 'Dinheiro' && trocoADevolver > 0) {
-        alert(`Pagamento adicionado com sucesso!\nTROCO A DEVOLVER: R$ ${trocoADevolver.toFixed(2)}`);
+        customAlert(`Pagamento adicionado com sucesso!\nTROCO A DEVOLVER: R$ ${trocoADevolver.toFixed(2)}`);
     } else {
-        alert('Pagamento adicionado com sucesso!');
+        customAlert('Pagamento adicionado com sucesso!');
     }
 }
 
 function dividirContaMesa() {
     const numPessoas = parseInt(DOM.dividirPorInput.value, 10);
     if (isNaN(numPessoas) || numPessoas <= 0) {
-        alert('Por favor, digite um número válido de pessoas para dividir.');
+        customAlert('Por favor, digite um número válido de pessoas para dividir.');
         return;
     }
     if (currentMesaRemainingToPay <= 0.01) {
-        alert('Não há valor restante para dividir.');
+        customAlert('Não há valor restante para dividir.');
         return;
     }
 
@@ -2492,48 +2604,52 @@ function dividirContaMesa() {
     DOM.dividirPorInput.value = '';
     updateCheckoutStatus();
 
-    alert(`O valor por pessoa (R$ ${valorPorPessoa.toFixed(2)}) foi preenchido no campo "Valor desta Parcela". Agora, selecione o método de pagamento e clique em "Adicionar Pagamento".`);
+    customAlert(`O valor por pessoa (R$ ${valorPorPessoa.toFixed(2)}) foi preenchido no campo "Valor desta Parcela". Agora, selecione o método de pagamento e clique em "Adicionar Pagamento".`);
 }
 
 function cancelarPedidoMesa() {
     if (!currentMesaIdForCheckout) return;
 
     if (currentMesaPaymentsHistory.length > 0) {
-        alert('Não é possível cancelar um pedido de mesa que já possui pagamentos registrados. Se precisar, remova os pagamentos um por um antes de cancelar.');
+        customAlert('Não é possível cancelar um pedido de mesa que já possui pagamentos registrados. Se precisar, remova os pagamentos um por um antes de cancelar.');
         return;
     }
 
-    if (confirm(`Tem certeza que deseja CANCELAR COMPLETAMENTE o pedido da Mesa ${currentMesaIdForCheckout}? A mesa será liberada e o pedido NÃO será registrado como venda finalizada.`)) {
-        mesasRef.child(currentMesaIdForCheckout).update({
-            status: 'Livre',
-            cliente: '',
-            garcom: '',
-            observacoes: '',
-            pedido: null,
-            total: 0,
-            pagamentosRegistrados: null
-        })
+    customConfirm(`Tem certeza que deseja CANCELAR COMPLETAMENTE o pedido da Mesa ${currentMesaIdForCheckout}? A mesa será liberada e o pedido NÃO será registrado como venda finalizada.`).then(result => {
+        if (result) {
+            mesasRef.child(currentMesaIdForCheckout).update({
+                status: 'Livre',
+                cliente: '',
+                garcom: '',
+                observacoes: '',
+                pedido: null,
+                total: 0,
+                pagamentosRegistrados: null
+            })
             .then(() => {
-                alert(`Pedido da Mesa ${currentMesaIdForCheckout} cancelado e mesa liberada.`);
+                customAlert(`Pedido da Mesa ${currentMesaIdForCheckout} cancelado e mesa liberada.`);
                 fecharModalMesaDetalhes();
             })
             .catch(error => {
                 console.error("Erro ao cancelar pedido da mesa:", error);
-                alert("Erro ao cancelar pedido da mesa.");
+                customAlert("Erro ao cancelar pedido da mesa.");
             });
-    }
+        }
+    });
 }
 
 async function finalizarContaMesa() {
     // ... (validações existentes)
 
-    if (confirm(`Confirmar FINALIZAÇÃO da conta da Mesa ${currentMesaIdForCheckout}?`)) {
+    const confirmacao = await customConfirm(`Confirmar FINALIZAÇÃO da conta da Mesa ${currentMesaIdForCheckout}?`);
+    
+    if (confirmacao) {
         try {
             const mesaSnapshot = await mesasRef.child(currentMesaIdForCheckout).once('value');
             const mesaAtual = mesaSnapshot.val();
 
             if (!mesaAtual) {
-                alert('Erro: Dados da mesa não encontrados para finalizar a conta.');
+                customAlert('Erro: Dados da mesa não encontrados para finalizar a conta.');
                 return;
             }
 
@@ -2574,11 +2690,11 @@ async function finalizarContaMesa() {
                 pagamentosRegistrados: null // Limpar histórico de pagamentos para a mesa
             });
 
-            alert(`Conta da Mesa ${mesaAtual.numero} finalizada e mesa liberada!`);
+            customAlert(`Conta da Mesa ${mesaAtual.numero} finalizada e mesa liberada!`);
             fecharModalMesaDetalhes();
         } catch (error) {
             console.error("Erro ao finalizar conta da mesa:", error);
-            alert("Erro ao finalizar conta da mesa. Verifique o console para mais detalhes.");
+            customAlert("Erro ao finalizar conta da mesa. Verifique o console para mais detalhes.");
         }
     }
 }
@@ -2706,7 +2822,7 @@ function gerarRelatorios() {
     const fim = DOM.relatorioDataFim.value;
 
     if (!inicio || !fim) {
-        alert("Por favor, selecione as datas de início e fim para gerar os relatórios.");
+        customAlert("Por favor, selecione as datas de início e fim para gerar os relatórios.");
         return;
     }
 
@@ -2714,7 +2830,7 @@ function gerarRelatorios() {
     const dataFimTimestamp = parseDateAsLocal(fim).setHours(23, 59, 59, 999);
 
     if (dataInicioTimestamp > dataFimTimestamp) {
-        alert("A data de início não pode ser posterior à data de fim.");
+        customAlert("A data de início não pode ser posterior à data de fim.");
         return;
     }
 
@@ -3372,15 +3488,15 @@ function salvarCupom(){
         console.log("Chegou no evento de click do botão salvar cupom!"); // More descriptive log
 
         if (!codigo) {
-            alert("O código do cupom é obrigatório.");
+            customAlert("O código do cupom é obrigatório.");
             return;
         }
         if (isNaN(valor) || valor <= 0) {
-            alert("O valor do desconto deve ser um número positivo.");
+            customAlert("O valor do desconto deve ser um número positivo.");
             return;
         }
         if (!validadeStr) {
-            alert("A data de validade é obrigatória.");
+            customAlert("A data de validade é obrigatória.");
             return;
         }
 
@@ -3391,7 +3507,7 @@ function salvarCupom(){
         const hoje = new Date();
         hoje.setHours(0, 0, 0, 0);
         if (validadeDate < hoje) {
-            alert("A data de validade não pode ser no passado.");
+            customAlert("A data de validade não pode ser no passado.");
             return;
         }
 
@@ -3407,7 +3523,7 @@ function salvarCupom(){
 
         cuponsRef.child(codigo).set(cupomData)
             .then(() => {
-                alert(`Cupom "${codigo}" salvo com sucesso!`);
+                customAlert(`Cupom "${codigo}" salvo com sucesso!`);
                 DOM.cupomCodigoInput.value = '';
                 DOM.cupomValorInput.value = '';
                 DOM.cupomMinValorInput.value = '';
@@ -3415,7 +3531,7 @@ function salvarCupom(){
             })
             .catch(error => {
                 console.error("Erro ao salvar cupom:", error);
-                alert("Erro ao salvar cupom: " + error.message);
+                customAlert("Erro ao salvar cupom: " + error.message);
             });
 }
 
@@ -3488,23 +3604,26 @@ function carregarCupons(snapshot) {
                 const codigo = newButton.dataset.codigo;
                 const ativo = newButton.dataset.ativo === 'true';
                 cuponsRef.child(codigo).update({ ativo: !ativo })
-                    .then(() => alert(`Status do cupom ${codigo} alterado!`))
-                    .catch(error => alert("Erro ao atualizar status do cupom: " + error.message));
+                    .then(() => customAlert(`Status do cupom ${codigo} alterado!`))
+                    .catch(error => customAlert("Erro ao atualizar status do cupom: " + error.message));
             });
         });
 
         DOM.listaCuponsContainer.querySelectorAll('.btn-excluir-cupom').forEach(button => {
-            const newButton = button.cloneNode(true);
-            button.parentNode.replaceChild(newButton, button);
-            newButton.addEventListener('click', () => { 
-                const codigo = newButton.dataset.codigo;
-                if (confirm(`Deseja realmente excluir o cupom ${codigo}?`)) {
-                    cuponsRef.child(codigo).remove()
-                        .then(() => alert(`Cupom ${codigo} excluído com sucesso!`))
-                        .catch(error => alert("Erro ao excluir cupom: " + error.message));
-                }
-            });
+    const newButton = button.cloneNode(true);
+    button.parentNode.replaceChild(newButton, button);
+    newButton.addEventListener('click', () => { 
+        const codigo = newButton.dataset.codigo;
+        
+        customConfirm(`Deseja realmente excluir o cupom ${codigo}?`).then(result => {
+            if (result) {
+                cuponsRef.child(codigo).remove()
+                    .then(() => customAlert(`Cupom ${codigo} excluído com sucesso!`))
+                    .catch(error => customAlert("Erro ao excluir cupom: " + error.message));
+            }
         });
+    });
+});
     }).catch(error => {
         console.error("Erro ao carregar usos de cupons:", error);
         DOM.listaCuponsContainer.innerHTML = '<p class="text-red-600 col-span-full text-center">Erro ao carregar cupons.</p>';
@@ -3525,11 +3644,11 @@ async function handleSalvarIngredienteDetalhe() {
     const estoqueMinimo = parseFloat(DOM.ingredienteEstoqueMinimoDetalheInput.value) || 0;
 
     if (!nome || !unidade) {
-        alert('Por favor, preencha o nome e a unidade de medida do ingrediente.');
+        customAlert('Por favor, preencha o nome e a unidade de medida do ingrediente.');
         return;
     }
     if (isNaN(estoqueMinimo) || estoqueMinimo < 0) {
-        alert('Por favor, insira um valor válido para o estoque mínimo.');
+        customAlert('Por favor, insira um valor válido para o estoque mínimo.');
         return;
     }
 
@@ -3541,7 +3660,7 @@ async function handleSalvarIngredienteDetalhe() {
                 unidadeMedida: unidade,
                 estoqueMinimo: estoqueMinimo
             });
-            alert(`Ingrediente "${nome}" atualizado com sucesso!`);
+            customAlert(`Ingrediente "${nome}" atualizado com sucesso!`);
         } else {
             await ingredientesRef.push({
                 nome: nome,
@@ -3558,7 +3677,7 @@ async function handleSalvarIngredienteDetalhe() {
                 ativo: false,
                 receita: null
             });
-            alert(`Ingrediente "${nome}" adicionado com sucesso!`);
+            customAlert(`Ingrediente "${nome}" adicionado com sucesso!`);
         }
         DOM.ingredienteNomeDetalheInput.value = '';
         DOM.ingredienteUnidadeDetalheInput.value = '';
@@ -3566,7 +3685,7 @@ async function handleSalvarIngredienteDetalhe() {
         renderAdicionaisConfiguracao();
     } catch (error) {
         console.error('Erro ao salvar ingrediente:', error);
-        alert('Erro ao salvar ingrediente. Verifique o console para mais detalhes.');
+        customAlert('Erro ao salvar ingrediente. Verifique o console para mais detalhes.');
     }
 }
 
@@ -3576,60 +3695,78 @@ async function handleUpdateIngrediente(event) {
     const novaQuantidade = parseFloat(input.value);
 
     if (isNaN(novaQuantidade) || novaQuantidade < 0) {
-        alert('Por favor, insira uma quantidade válida.');
+        customAlert('Por favor, insira uma quantidade válida.');
         return;
     }
 
     try {
         await ingredientesRef.child(ingredienteId).update({ quantidadeAtual: novaQuantidade });
-        alert('Estoque atualizado manualmente com sucesso!');
+        customAlert('Estoque atualizado manualmente com sucesso!');
     } catch (error) {
         console.error('Erro ao atualizar ingrediente:', error);
-        alert('Erro ao atualizar ingrediente.');
+        customAlert('Erro ao atualizar ingrediente.');
     }
 }
 
-async function handleDeleteIngrediente(event) {
+function handleDeleteIngrediente(event) {
     const ingredienteId = event.target.dataset.id;
     const ingredienteNome = allIngredients[ingredienteId]?.nome || 'este ingrediente';
 
-    if (confirm(`Tem certeza que deseja excluir "${ingredienteNome}"? Isso também removerá ele de todas as receitas e configurações de adicional.`)) {
-        try {
-            await ingredientesRef.child(ingredienteId).remove();
-            // ... (sua lógica existente para remover de produtos/receitas) ...
-            const categories = ['pizzas', 'bebidas', 'esfirras', 'calzone', 'promocoes', 'novidades'];
-            for (const categoria of categories) {
-                const productsSnapshot = await produtosRef.child(categoria).once('value');
-                if (productsSnapshot.exists()) {
-                    productsSnapshot.forEach(produtoChild => {
-                        const produtoData = produtoChild.val();
-                        if (produtoData.tipo === 'pizza' && produtoData.receita) {
-                            if (produtoData.receita.grande && produtoData.receita.grande[ingredienteId]) {
-                                delete produtoData.receita.grande[ingredienteId];
+    customConfirm(`Tem certeza que deseja excluir "${ingredienteNome}"? Isso também removerá ele de todas as receitas e configurações de adicional.`).then(result => {
+        if (result) {
+            // Se o usuário confirmar, a lógica de exclusão assíncrona pode ser executada aqui.
+            // Para não usar async/await, você precisará aninhar promises aqui também.
+            ingredientesRef.child(ingredienteId).remove()
+                .then(() => {
+                    const categories = ['pizzas', 'bebidas', 'esfirras', 'calzone', 'promocoes', 'novidades'];
+                    
+                    // Aqui a lógica para remover de outros lugares se torna mais complexa sem async/await.
+                    // O código abaixo é apenas um exemplo simplificado de como você poderia encadear.
+                    const updatePromises = categories.map(categoria => 
+                        produtosRef.child(categoria).once('value').then(productsSnapshot => {
+                            if (productsSnapshot.exists()) {
+                                productsSnapshot.forEach(produtoChild => {
+                                    const produtoData = produtoChild.val();
+                                    let needsUpdate = false;
+                                    
+                                    if (produtoData.receita && produtoData.receita.grande && produtoData.receita.grande[ingredienteId]) {
+                                        delete produtoData.receita.grande[ingredienteId];
+                                        needsUpdate = true;
+                                    }
+                                    if (produtoData.receita && produtoData.receita.broto && produtoData.receita.broto[ingredienteId]) {
+                                        delete produtoData.receita.broto[ingredienteId];
+                                        needsUpdate = true;
+                                    }
+                                    if (produtoData.receita && produtoData.receita[ingredienteId]) {
+                                        delete produtoData.receita[ingredienteId];
+                                        needsUpdate = true;
+                                    }
+                                    
+                                    if (needsUpdate) {
+                                        // Retorne a promise de atualização
+                                        return produtosRef.child(categoria).child(produtoChild.key).update({ receita: produtoData.receita });
+                                    }
+                                    return Promise.resolve(); // Retorna uma promise resolvida se não precisar atualizar
+                                });
                             }
-                            if (produtoData.receita.broto && produtoData.receita.broto[ingredienteId]) {
-                                delete produtoData.receita.broto[ingredienteId];
-                            }
-                            if (JSON.stringify(produtoData.receita) !== JSON.stringify(produtoChild.val().receita)) {
-                                produtosRef.child(categoria).child(produtoChild.key).update({ receita: produtoData.receita });
-                            }
-                        } else if (produtoData.receita && produtoData.receita[ingredienteId]) {
-                            const updatedReceita = { ...produtoData.receita };
-                            delete updatedReceita[ingredienteId];
-                            produtosRef.child(categoria).child(produtoChild.key).update({ receita: updatedReceita });
-                        }
-                    });
-                }
-            }
-            alert(`Ingrediente "${ingredienteNome}" excluído com sucesso!`);
-            // Re-renderizar listas após exclusão
-            renderIngredientesListDetalhe();
-            renderAdicionaisConfiguracao();
-        } catch (error) {
-            console.error('Erro ao excluir ingrediente:', error);
-            alert('Erro ao excluir ingrediente.');
+                            return Promise.resolve();
+                        })
+                    );
+                    
+                    return Promise.all(updatePromises); // Aguarda todas as atualizações
+                })
+                .then(() => {
+                    customAlert(`Ingrediente "${ingredienteNome}" excluído com sucesso!`);
+                    // Re-renderizar listas após exclusão
+                    renderIngredientesListDetalhe();
+                    renderAdicionaisConfiguracao();
+                })
+                .catch(error => {
+                    console.error('Erro ao excluir ingrediente:', error);
+                    customAlert('Erro ao excluir ingrediente.');
+                });
         }
-    }
+    });
 }
 // Registro de Compras
 function popularIngredientesParaReceitaSelects() {
@@ -3650,11 +3787,11 @@ function handleAddItemCompraDetalhe() {
 
     // Validação inicial
     if (!ingredienteId || isNaN(quantidade) || quantidade <= 0 || isNaN(precoTotal) || precoTotal <= 0) {
-        alert('Por favor, selecione um ingrediente e insira uma quantidade e um custo total válidos e positivos.');
+        customAlert('Por favor, selecione um ingrediente e insira uma quantidade e um custo total válidos e positivos.');
         return;
     }
     if (!allIngredients[ingredienteId]) {
-        alert('Ingrediente selecionado não encontrado. Por favor, recarregue a página.');
+        customAlert('Ingrediente selecionado não encontrado. Por favor, recarregue a página.');
         return;
     }
 
@@ -3664,7 +3801,7 @@ function handleAddItemCompraDetalhe() {
     const itemExistenteIndex = currentPurchaseItems.findIndex(item => item.ingredienteId === ingredienteId);
 
     if (itemExistenteIndex > -1) {
-        alert('Este ingrediente já foi adicionado à lista de compra. Remova-o e adicione novamente com os valores corretos.');
+        customAlert('Este ingrediente já foi adicionado à lista de compra. Remova-o e adicione novamente com os valores corretos.');
         return;
     }
 
@@ -3721,15 +3858,16 @@ async function handleRegistrarCompraDetalhe() {
     const fornecedor = DOM.compraFornecedorDetalheInput.value.trim();
 
     if (!dataCompra) {
-        alert('Por favor, preencha a data da compra.');
+        customAlert('Por favor, preencha a data da compra.');
         return;
     }
     if (currentPurchaseItems.length === 0) {
-        alert('Adicione pelo menos um item à compra antes de registrar.');
+        customAlert('Adicione pelo menos um item à compra antes de registrar.');
         return;
     }
 
-    if (confirm('Deseja realmente registrar esta compra e atualizar o estoque?')) {
+    const result = await customConfirm('Deseja realmente registrar esta compra e atualizar o estoque?');
+    if (result) {
         try {
             let totalCompra = 0;
             const itemsParaFirebase = {};
@@ -3752,7 +3890,7 @@ async function handleRegistrarCompraDetalhe() {
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             });
 
-            alert('Compra registrada e estoque atualizado com sucesso!');
+            customAlert('Compra registrada e estoque atualizado com sucesso!');
             DOM.compraDataDetalheInput.valueAsDate = new Date();
             DOM.compraFornecedorDetalheInput.value = '';
             currentPurchaseItems = [];
@@ -3760,7 +3898,7 @@ async function handleRegistrarCompraDetalhe() {
             DOM.btnRegistrarCompraDetalhe.disabled = true;
         } catch (error) {
             console.error('Erro ao registrar compra:', error);
-            alert('Erro ao registrar compra. Verifique o console.');
+            customAlert('Erro ao registrar compra. Verifique o console.');
         }
     }
 }
@@ -3875,7 +4013,7 @@ async function handleReceitaProdutoSelectChangeDetalhe(event) {
 
     } catch (error) {
         console.error('Erro ao carregar receita:', error);
-        alert('Erro ao carregar receita para este produto.');
+        customAlert('Erro ao carregar receita para este produto.');
         currentRecipeProduct = null;
         DOM.receitaConfigDetalheContainer.classList.add('hidden');
         DOM.pizzaTamanhoSelectContainerDetalhe.classList.add('hidden'); // Ensure hidden in case of error
@@ -3990,7 +4128,7 @@ async function handleReceitaProdutoSelectChangeDetalhe(event) {
         DOM.btnSalvarReceitaDetalhe.disabled = false; // Habilita o botão de salvar receita
     } catch (error) {
         console.error('Erro ao carregar receita:', error);
-        alert('Erro ao carregar receita para este produto.');
+        customAlert('Erro ao carregar receita para este produto.');
         currentRecipeProduct = null;
         DOM.receitaConfigDetalheContainer.classList.add('hidden');
         DOM.pizzaTamanhoSelectContainerDetalhe.style.display = 'none'; // Garante que esteja escondido em caso de erro
@@ -4028,7 +4166,7 @@ function renderIngredientesReceitaDetalhe() {
 // Função para adicionar um ingrediente à receita
 function handleAddIngredienteReceitaDetalhe() {
     if (!currentRecipeProduct) {
-        alert('Selecione um produto primeiro.');
+        customAlert('Selecione um produto primeiro.');
         return;
     }
 
@@ -4036,7 +4174,7 @@ function handleAddIngredienteReceitaDetalhe() {
     const quantidade = parseFloat(DOM.receitaQuantidadeDetalheInput.value);
 
     if (!ingredienteId || isNaN(quantidade) || quantidade <= 0) {
-        alert('Selecione um ingrediente e insira uma quantidade válida e positiva.');
+        customAlert('Selecione um ingrediente e insira uma quantidade válida e positiva.');
         return;
     }
 
@@ -4060,7 +4198,7 @@ function handleAddIngredienteReceitaDetalhe() {
 // Função para salvar a receita
 async function handleSalvarReceitaDetalhe() {
     if (!currentRecipeProduct || !currentRecipeProduct.id || !currentRecipeProduct.categoria) {
-        alert('Nenhum produto selecionado ou informações incompletas para salvar a receita.');
+        customAlert('Nenhum produto selecionado ou informações incompletas para salvar a receita.');
         return;
     }
 
@@ -4077,10 +4215,10 @@ async function handleSalvarReceitaDetalhe() {
         await produtosRef.child(currentRecipeProduct.categoria).child(currentRecipeProduct.id).update({
             receita: currentRecipeProduct.receita
         });
-        alert(`Receita para "${currentRecipeProduct.nome}" salva com sucesso!`);
+        customAlert(`Receita para "${currentRecipeProduct.nome}" salva com sucesso!`);
     } catch (error) {
         console.error('Erro ao salvar receita:', error);
-        alert('Erro ao salvar receita. Verifique o console para mais detalhes.');
+        customAlert('Erro ao salvar receita. Verifique o console para mais detalhes.');
     }
 }
 
@@ -4088,20 +4226,23 @@ function handleRemoveIngredienteReceitaDetalhe(event) {
     const ingredienteIdToRemove = event.target.closest('button').dataset.ingredienteId;
     if (!currentRecipeProduct) return;
 
-    if (confirm('Tem certeza que deseja remover este ingrediente da receita?')) {
-        if (currentRecipeProduct.tipo === 'pizza') {
-            const tamanhoSelecionado = DOM.pizzaTamanhoSelectDetalhe.value;
-            if (currentRecipeProduct.receita?.[tamanhoSelecionado]) {
-                delete currentRecipeProduct.receita[tamanhoSelecionado][ingredienteIdToRemove];
-                if (Object.keys(currentRecipeProduct.receita[tamanhoSelecionado]).length === 0) {
-                    delete currentRecipeProduct.receita[tamanhoSelecionado];
+    customConfirm('Tem certeza que deseja remover este ingrediente da receita?').then(result => {
+        if (result) {
+            // Lógica de exclusão que só será executada se o usuário confirmar
+            if (currentRecipeProduct.tipo === 'pizza') {
+                const tamanhoSelecionado = DOM.pizzaTamanhoSelectDetalhe.value;
+                if (currentRecipeProduct.receita?.[tamanhoSelecionado]) {
+                    delete currentRecipeProduct.receita[tamanhoSelecionado][ingredienteIdToRemove];
+                    if (Object.keys(currentRecipeProduct.receita[tamanhoSelecionado]).length === 0) {
+                        delete currentRecipeProduct.receita[tamanhoSelecionado];
+                    }
                 }
+            } else {
+                delete currentRecipeProduct.receita[ingredienteIdToRemove];
             }
-        } else {
-            delete currentRecipeProduct.receita[ingredienteIdToRemove];
+            renderIngredientesReceitaDetalhe();
         }
-        renderIngredientesReceitaDetalhe();
-    }
+    });
 }
 
 function calcularCustoReceita(receita) {
@@ -4328,7 +4469,7 @@ async function handleSalvarAddonConfig(event) {
     const precoAdicional = parseFloat(inputPreco.value);
 
     if (ativoAdicional && (isNaN(precoAdicional) || precoAdicional <= 0)) {
-        alert('Se o adicional estiver ativo, o preço para o cliente deve ser um valor positivo.');
+        customAlert('Se o adicional estiver ativo, o preço para o cliente deve ser um valor positivo.');
         return;
     }
 
@@ -4338,7 +4479,7 @@ async function handleSalvarAddonConfig(event) {
             precoAdicional: ativoAdicional ? precoAdicional : null // Define como null se não for ativo
         };
         await ingredientesRef.child(ingredienteId).update(updateData);
-        alert('Configuração de adicional salva com sucesso!');
+        customAlert('Configuração de adicional salva com sucesso!');
         // Resetar o estilo do botão de salvar
         const saveButton = event.target;
         saveButton.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
@@ -4346,7 +4487,7 @@ async function handleSalvarAddonConfig(event) {
         saveButton.textContent = 'Salvar';
     } catch (error) {
         console.error('Erro ao salvar configuração de adicional:', error);
-        alert('Erro ao salvar configuração de adicional.');
+        customAlert('Erro ao salvar configuração de adicional.');
     }
 }
 
@@ -4355,7 +4496,7 @@ async function handleConfigAddonRecipe(event) {
     const addonName = event.target.dataset.name;
 
     if (!addonId || !addonName) {
-        alert('Erro: ID ou nome do adicional não encontrado.');
+        customAlert('Erro: ID ou nome do adicional não encontrado.');
         return;
     }
 
@@ -4425,12 +4566,12 @@ function handleAddAddonRecipeIngrediente() {
     const quantidade = parseFloat(DOM_ADDON_RECIPE_MODAL.quantidadeInput.value);
 
     if (!ingredienteId || isNaN(quantidade) || quantidade <= 0) {
-        alert('Selecione um ingrediente e insira uma quantidade válida e positiva.');
+        customAlert('Selecione um ingrediente e insira uma quantidade válida e positiva.');
         return;
     }
 
     if (!allIngredients[ingredienteId]) {
-        alert('Ingrediente selecionado não encontrado. Por favor, recarregue a página.');
+        customAlert('Ingrediente selecionado não encontrado. Por favor, recarregue a página.');
         return;
     }
 
@@ -4444,15 +4585,17 @@ function handleRemoveAddonRecipeIngrediente(event) {
     const ingredienteIdToRemove = event.target.closest('button').dataset.ingredienteId;
     if (!currentAddonRecipe) return;
 
-    if (confirm('Tem certeza que deseja remover este ingrediente da receita do adicional?')) {
-        delete currentAddonRecipe[ingredienteIdToRemove];
-        renderAddonRecipeIngredients();
-    }
+    customConfirm('Tem certeza que deseja remover este ingrediente da receita do adicional?').then(result => {
+        if (result) {
+            delete currentAddonRecipe[ingredienteIdToRemove];
+            renderAddonRecipeIngredients();
+        }
+    });
 }
 
 async function handleSaveAddonRecipe() {
     if (!currentAddonRecipeId) {
-        alert('Nenhum adicional selecionado para salvar a receita.');
+        customAlert('Nenhum adicional selecionado para salvar a receita.');
         return;
     }
 
@@ -4461,14 +4604,14 @@ async function handleSaveAddonRecipe() {
         await ingredientesRef.child(currentAddonRecipeId).update({
             receitaAdicional: currentAddonRecipe
         });
-        alert('Receita do adicional salva com sucesso!');
+        customAlert('Receita do adicional salva com sucesso!');
         DOM_ADDON_RECIPE_MODAL.modal.style.display = 'none';
         // Atualize allIngredients globalmente (se o listener não fizer isso rápido o suficiente)
         // ou recarregue a lista de adicionais para refletir a mudança
         // renderAdicionaisConfiguracao(); // Pode ser chamado aqui se necessário
     } catch (error) {
         console.error('Erro ao salvar receita do adicional:', error);
-        alert('Erro ao salvar receita do adicional.');
+        customAlert('Erro ao salvar receita do adicional.');
     }
 }
 
@@ -4514,11 +4657,11 @@ async function handleSalvarGarcom() {
     const btnSpinner = document.getElementById('btn-salvar-garcom-spinner');
 
     if (!nome || !senha) {
-        alert("O nome e a senha são obrigatórios.");
+        customAlert("O nome e a senha são obrigatórios.");
         return;
     }
     if (senha.length < 6) {
-        alert("A senha deve ter pelo menos 6 caracteres.");
+        customAlert("A senha deve ter pelo menos 6 caracteres.");
         return;
     }
 
@@ -4541,16 +4684,16 @@ async function handleSalvarGarcom() {
             createdAt: firebase.database.ServerValue.TIMESTAMP
         });
 
-        alert(`Garçom "${nome}" adicionado com sucesso!`);
+        customAlert(`Garçom "${nome}" adicionado com sucesso!`);
         DOM.garcomNomeInput.value = '';
         DOM.garcomSenhaInput.value = '';
 
     } catch (error) {
         console.error("Erro ao adicionar garçom:", error);
         if (error.code === 'auth/email-already-in-use') {
-            alert('Erro: Já existe um garçom com este nome. Use um nome diferente.');
+            customAlert('Erro: Já existe um garçom com este nome. Use um nome diferente.');
         } else {
-            alert("Erro ao adicionar garçom: " + error.message);
+            customAlert("Erro ao adicionar garçom: " + error.message);
         }
     } finally {
         // Esconde o spinner e reabilita o botão
@@ -4615,18 +4758,16 @@ async function carregarGarcons(snapshot = null) {
  * ATENÇÃO: A exclusão do usuário de autenticação requer uma Cloud Function.
  */
 async function handleExcluirGarcom(uid, nome) {
-    if (confirm(`Tem certeza que deseja excluir o garçom "${nome}"?`)) {
+    const result = await customConfirm(`Tem certeza que deseja excluir o garçom "${nome}"?`);
+    if (result) {
         try {
-            // 1. Remove do Realtime Database (isso o cliente pode fazer)
             await garconsInfoRef.child(uid).remove();
-            alert(`Garçom "${nome}" removido da lista com sucesso!`);
+            customAlert(`Garçom "${nome}" removido da lista com sucesso!`);
             
-            // 2. AVISO sobre a conta de autenticação
-            alert("⚠️ ATENÇÃO: A conta de login do garçom ('${nome}') NÃO foi excluída. Para uma exclusão completa e segura, isso deve ser feito no servidor. Veja o console para mais detalhes.");
+            customAlert("⚠️ ATENÇÃO: A conta de login do garçom NÃO foi excluída. Para uma exclusão completa e segura, isso deve ser feito no servidor.");
             console.warn(`Para excluir completamente o usuário de autenticação (UID: ${uid}), você precisa usar uma Cloud Function do Firebase. O SDK do cliente não tem permissão para excluir outros usuários.`);
-
         } catch (error) {
-            alert("Erro ao excluir dados do garçom: " + error.message);
+            customAlert("Erro ao excluir dados do garçom: " + error.message);
             console.error("Erro ao excluir dados do garçom:", error);
         }
     }
@@ -4657,11 +4798,11 @@ async function handleExcluirGarcom(uid, nome) {
             const senhaGarcom = DOM.garcomSenhaInput.value.trim();
 
                 if (!nomeGarcom || !senhaGarcom) {
-                    alert("O nome e a senha do garçom são obrigatórios.");
+                    customAlert("O nome e a senha do garçom são obrigatórios.");
                     return;
                 }
                 if (senhaGarcom.length < 6) {
-                    alert("A senha deve ter pelo menos 6 caracteres.");
+                    customAlert("A senha deve ter pelo menos 6 caracteres.");
                     return;
                 }
 
@@ -4679,18 +4820,18 @@ async function handleExcluirGarcom(uid, nome) {
                         createdAt: firebase.database.ServerValue.TIMESTAMP
                     });
 
-                    alert(`Garçom "${nomeGarcom}" adicionado com sucesso!`);
+                    customAlert(`Garçom "${nomeGarcom}" adicionado com sucesso!`);
                     DOM.garcomNomeInput.value = '';
                     DOM.garcomSenhaInput.value = '';
 
                 } catch (error) {
                     console.error("Erro ao adicionar garçom:", error);
                     if (error.code === 'auth/email-already-in-use') {
-                        alert('Erro: Já existe um garçom com este nome. Use um nome diferente.');
+                        customAlert('Erro: Já existe um garçom com este nome. Use um nome diferente.');
                     } else if (error.code === 'auth/weak-password') {
-                        alert('Erro: A senha deve ter pelo menos 6 caracteres.');
+                        customAlert('Erro: A senha deve ter pelo menos 6 caracteres.');
                     } else {
-                        alert("Erro ao adicionar garçom: " + error.message);
+                        customAlert("Erro ao adicionar garçom: " + error.message);
                     }
                 }
         });
@@ -4712,7 +4853,7 @@ async function verificarClientesInativos() {
     const diasInatividade = parseInt(DOM.diasInatividadeInput.value, 10);
 
     if (isNaN(diasInatividade) || diasInatividade <= 0) {
-        alert('Por favor, insira um número válido de dias para inatividade (maior que zero).');
+        customAlert('Por favor, insira um número válido de dias para inatividade (maior que zero).');
         DOM.clientesInativosContainer.innerHTML = '<p class="text-red-600">Erro: Número de dias inválido.</p>';
         return;
     }
@@ -4802,17 +4943,20 @@ function renderInactiveCustomers(customers) {
     });
 }
 
-function sendInactiveCustomerMessage(event) {
+async function sendInactiveCustomerMessage(event) {
     const phone = event.target.dataset.phone;
     const name = event.target.dataset.name;
 
     const cleanedPhone = phone.replace(/\D/g, ''); // Remove non-digits for WhatsApp URL
 
-    const defaultMessage = `Olá ${name}! 👋 Notamos que você não faz um pedido conosco há um tempo. Sentimos sua falta! Que tal dar uma olhada no nosso cardápio atualizado e matar a saudade dos seus sabores favoritos? Estamos esperando você! 😊 [Seu link do cardápio aqui]`;
+    const dynamicMenuLink = menuLink ? `\n\nConfira nosso cardápio: ${menuLink}` : '';
+    const defaultMessage = `Olá ${name}! 👋 Notamos que você não faz um pedido conosco há um tempo. Sentimos sua falta! Que tal dar uma olhada no nosso cardápio atualizado e matar a saudade dos seus pratos favoritos? Estamos esperando você! 😊${dynamicMenuLink}`;
 
-    const message = prompt("Edite a mensagem antes de enviar:", defaultMessage);
+    // Substituição da chamada 'prompt' pela função 'customPrompt' com 'await'
+    const message = await customPrompt("Edite a mensagem antes de enviar:", defaultMessage);
 
-    if (message) {
+    // Verifica se o usuário não cancelou o modal (retorna null) e se a mensagem não está vazia
+    if (message !== null && message.trim() !== '') {
         window.open(`https://api.whatsapp.com/send?phone=${cleanedPhone}&text=${encodeURIComponent(message)}`, '_blank');
     }
 }
@@ -4835,7 +4979,7 @@ async function verificarClientesInativos() {
 
 
     if (isNaN(diasInatividade) || diasInatividade <= 0) {
-        alert('Por favor, insira um número válido de dias para inatividade (maior que zero).');
+        customAlert('Por favor, insira um número válido de dias para inatividade (maior que zero).');
         DOM.clientesInativosContainer.innerHTML = '<p class="text-red-600">Erro: Número de dias inválido.</p>';
         return;
     }
@@ -4924,22 +5068,6 @@ function renderInactiveCustomers(customers) {
     });
 }
 
-function sendInactiveCustomerMessage(event) {
-    const phone = event.target.dataset.phone;
-    const name = event.target.dataset.name;
-
-    const cleanedPhone = phone.replace(/\D/g, ''); // Remove non-digits for WhatsApp URL
-
-    const dynamicMenuLink = menuLink ? `\n\nConfira nosso cardápio: ${menuLink}` : '';
-    const defaultMessage = `Olá ${name}! 👋 Notamos que você não faz um pedido conosco há um tempo. Sentimos sua falta! Que tal dar uma olhada no nosso cardápio atualizado e matar a saudade dos seus pratos favoritos? Estamos esperando você! 😊${dynamicMenuLink}`;
-
-    const message = prompt("Edite a mensagem antes de enviar:", defaultMessage);
-
-    if (message) {
-        window.open(`https://api.whatsapp.com/send?phone=${cleanedPhone}&text=${encodeURIComponent(message)}`, '_blank');
-    }
-}
-
 // --- New Functions for Menu Link Modal ---
 function abrirModalMenuLink() {
     DOM.menuLinkInput.value = menuLink; // Populate input with current saved link
@@ -4956,22 +5084,22 @@ async function salvarMenuLink() {
     const newMenuLink = DOM.menuLinkInput.value.trim();
 
     if (!newMenuLink) {
-        alert('Por favor, insira um link para o cardápio.');
+        customAlert('Por favor, insira um link para o cardápio.');
         return;
     }
     if (!newMenuLink.startsWith('http://') && !newMenuLink.startsWith('https://')) {
-        alert('O link deve começar com "http://" ou "https://".');
+        customAlert('O link deve começar com "http://" ou "https://".');
         return;
     }
 
     try {
         await database.ref('config/menuLink').set(newMenuLink);
         menuLink = newMenuLink; // Update global variable
-        alert('Link do cardápio salvo com sucesso!');
+        customAlert('Link do cardápio salvo com sucesso!');
         fecharModalMenuLink();
     } catch (error) {
         console.error('Erro ao salvar link do cardápio:', error);
-        alert('Erro ao salvar link do cardápio: ' + error.message);
+        customAlert('Erro ao salvar link do cardápio: ' + error.message);
     }
 }
 
@@ -5109,7 +5237,7 @@ function addItemToManualCart() {
     const quantidade = parseInt(document.getElementById('manual-qtd-produto').value);
 
     if (!categoria || isNaN(quantidade) || quantidade <= 0) {
-        alert("Selecione uma categoria e uma quantidade válida.");
+        showToast("Selecione uma categoria e uma quantidade válida.");
         return;
     }
 
@@ -5148,7 +5276,7 @@ function buildPizzaItem() {
     const sabor2Key = document.getElementById('pizza-sabor2').value;
 
     if (!sabor1Key || (isMeioAMeio && !sabor2Key)) {
-        alert("Selecione os sabores da pizza corretamente.");
+        showToast("Selecione os sabores da pizza corretamente.");
         return null;
     }
 
@@ -5161,7 +5289,7 @@ function buildPizzaItem() {
     } else if (sabor1 && sabor1.preco !== undefined) {
         precoBase1 = sabor1.preco;
     } else {
-        alert(`Erro: Preço do 1º sabor (${sabor1?.nome || 'desconhecido'}) para o tamanho ${tamanho} não encontrado.`);
+        showToast(`Erro: Preço do 1º sabor (${sabor1?.nome || 'desconhecido'}) para o tamanho ${tamanho} não encontrado.`);
         return null;
     }
 
@@ -5179,7 +5307,7 @@ function buildPizzaItem() {
         } else if (sabor2 && sabor2.preco !== undefined) {
             precoBase2 = sabor2.preco;
         } else {
-            alert(`Erro: Preço do 2º sabor (${sabor2?.nome || 'desconhecido'}) para o tamanho ${tamanho} não encontrado.`);
+            showToast(`Erro: Preço do 2º sabor (${sabor2?.nome || 'desconhecido'}) para o tamanho ${tamanho} não encontrado.`);
             return null;
         }
 
@@ -5234,12 +5362,12 @@ function buildPizzaItem() {
 function buildGenericItem(categoria) {
     const produtoId = document.getElementById('manual-select-produto').value;
     if (!produtoId) {
-        alert("Selecione um produto.");
+        showToast("Selecione um produto.");
         return null;
     }
     const produto = allProducts[categoria][produtoId];
     if (!produto) {
-        alert("Produto não encontrado para a categoria selecionada.");
+        showToast("Produto não encontrado para a categoria selecionada.");
         return null;
     }
 
@@ -5267,7 +5395,7 @@ function buildGenericItem(categoria) {
     
     if (isNaN(finalPrice)) {
         console.error("Preço do produto é inválido:", produto);
-        alert("O preço do produto selecionado é inválido.");
+        showToast("O preço do produto selecionado é inválido.");
         return null;
     }
 
@@ -5461,11 +5589,11 @@ async function saveManualOrder() {
     const pagamento = document.getElementById('manual-pagamento').value;
 
     if (!nomeCliente || !telefone) {
-        alert("Nome e telefone do cliente são obrigatórios.");
+        showToast("Nome e telefone do cliente são obrigatórios.");
         return;
     }
     if (manualOrderCart.length === 0) {
-        alert("Adicione pelo menos um item ao pedido.");
+        showToast("Adicione pelo menos um item ao pedido.");
         return;
     }
 
@@ -5476,7 +5604,7 @@ async function saveManualOrder() {
         const bairro = document.getElementById('manual-input-bairro').value.trim();
 
         if (!rua || !numero || !bairro) {
-            alert("Rua, número e bairro são obrigatórios para entrega.");
+            showToast("Rua, número e bairro são obrigatórios para entrega.");
             return;
         }
         endereco = { rua, numero, bairro };
@@ -5521,12 +5649,12 @@ async function saveManualOrder() {
         await firebase.database().ref('pedidos/' + newOrderId).set(novoPedido);
         await deductIngredientsFromStock(manualOrderCart);
         
-        alert("Pedido manual salvo com sucesso com ID: " + newOrderId);
+        showToast("Pedido manual salvo com sucesso com ID: " + newOrderId);
         document.getElementById('modal-pedido-manual').classList.add('hidden');
         resetManualOrderModal();
     } catch (error) {
         console.error("Erro ao salvar pedido manual:", error);
-        alert("Ocorreu um erro ao salvar o pedido.");
+        showToast("Ocorreu um erro ao salvar o pedido.");
     }
 }
 
@@ -5711,10 +5839,11 @@ async function handleBulkPriceChange() {
     const pequenoPrice = parseFloat(pequenoPriceStr);
 
     if (!singlePriceStr && !grandePriceStr && !pequenoPriceStr) {
-        return alert("Preencha pelo menos um campo de preço para alterar.");
+        return customAlert("Preencha pelo menos um campo de preço para alterar.");
     }
     
-    if (confirm(`Confirmar alteração de preços para ${selectedItemsForBulkAction.length} itens?`)) {
+    const result = await customConfirm(`Confirmar alteração de preços para ${selectedItemsForBulkAction.length} itens?`);
+    if (result) {
         const updates = {};
         
         selectedItemsForBulkAction.forEach(item => {
@@ -5737,15 +5866,15 @@ async function handleBulkPriceChange() {
         });
 
         if (Object.keys(updates).length === 0) {
-            return alert("Nenhum preço válido foi preenchido para os itens selecionados.");
+            return customAlert("Nenhum preço válido foi preenchido para os itens selecionados.");
         }
 
         try {
             await database.ref().update(updates);
-            alert("Preços atualizados com sucesso!");
+            customAlert("Preços atualizados com sucesso!");
             carregarItensCardapio(DOM.categoriaSelect.value, DOM.searchInput.value);
         } catch (error) {
-            alert("Ocorreu um erro ao atualizar os preços.");
+            customAlert("Ocorreu um erro ao atualizar os preços.");
             console.error("Erro na alteração de preço em massa:", error);
         }
     }
@@ -5753,9 +5882,11 @@ async function handleBulkPriceChange() {
 
 async function handleBulkMove() {
     const targetCategory = DOM.bulkMoveCategorySelect.value;
-    if (!targetCategory) return alert("Selecione uma categoria de destino.");
+    if (!targetCategory) return customAlert("Selecione uma categoria de destino.");
 
-    if (confirm(`Mover ${selectedItemsForBulkAction.length} itens para "${targetCategory}"?`)) {
+    const result = await customConfirm(`Mover ${selectedItemsForBulkAction.length} itens para "${targetCategory}"?`);
+    if (result) {
+        // ... (lógica de mover item aqui) ...
         const updates = {};
         const itemsToMove = selectedItemsForBulkAction.filter(item => item.category !== targetCategory);
 
@@ -5772,11 +5903,12 @@ async function handleBulkMove() {
         
         try {
             await database.ref().update(updates);
-            alert("Itens movidos com sucesso!");
+            customAlert("Itens movidos com sucesso!");
             carregarItensCardapio(DOM.categoriaSelect.value, DOM.searchInput.value);
         } catch (error) {
-            alert("Ocorreu um erro ao mover.");
+            customAlert("Ocorreu um erro ao mover.");
             console.error("Erro na movimentação em massa:", error);
         }
     }
 }
+
