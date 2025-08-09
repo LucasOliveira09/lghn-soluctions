@@ -115,6 +115,7 @@ function criarItemCardapio(item, type, idDoItemFirebase) {
     const buttonClass = (type === 'pizza' || type === 'lanche') ? 'open-modal-btn' : 'add-to-cart-btn';
     const name = item.nome || item.titulo;
     const description = item.descricao || '';
+    const icon = type === 'pizza' ? '<i class="fa-solid fa-pizza-slice ml-2"></i>' : '<i class="fa fa-cart-plus text-white text-lg"></i>';
     
     // Lógica corrigida para exibir o preço corretamente
     let displayPrice;
@@ -155,7 +156,7 @@ function criarItemCardapio(item, type, idDoItemFirebase) {
             ${priceAttributes}
             data-id="${idDoItemFirebase}"
             data-category="${type === 'pizza' ? 'pizzas' : type === 'bebida' ? 'bebidas' : type === 'esfirra' ? 'esfirras' : type === 'lanche' ? 'calzone' : type === 'promocao' ? 'promocoes' : 'novidades'}">
-            <i class="fa fa-cart-plus text-white text-lg"></i>
+            <p class="font-bold text-lg">${icon}</p>
           </button>
         </div>
       </div>
@@ -226,6 +227,15 @@ async function loadAndRenderProducts(dbRefPath, containerId, itemType, sectionId
         console.error(`Erro ao carregar produtos de ${dbRefPath}:`, error);
         Toastify({ text: "Erro ao carregar o menu. Tente novamente mais tarde.", duration: 3000, style: { background: "#ef4444" } }).showToast();
     }
+}
+
+function saveCartToLocalStorage() {
+    const cartData = {
+        items: cart,
+        timestamp: Date.now()
+    };
+    localStorage.setItem('restaurant_cart', JSON.stringify(cartData));
+    console.log("Carrinho salvo no localStorage.");
 }
 
 /**
@@ -403,6 +413,7 @@ function addToCart(name, price, productId, productCategory, options = {}) {
         });
     }
     updateCartModal();
+    saveCartToLocalStorage();
 
     Toastify({
         text: "Item adicionado ao carrinho!",
@@ -491,6 +502,7 @@ function updateCartModal() {
     }
 
     cartCounter.innerHTML = cart.length;
+    saveCartToLocalStorage();
 }
 
 cartItemsContainer.addEventListener("click", function(event) {
@@ -515,6 +527,7 @@ cartItemsContainer.addEventListener("click", function(event) {
             }
         }
         updateCartModal();
+        saveCartToLocalStorage();
     }
 });
 
@@ -529,6 +542,30 @@ function timeStringToMinutes(timeInput) {
         return timeInput * 60; // Converte horas para minutos se for um número
     }
     return 0;
+}
+
+function loadCartFromLocalStorage() {
+    const savedCart = localStorage.getItem('restaurant_cart');
+    if (!savedCart) {
+        console.log("Nenhum carrinho salvo encontrado.");
+        return;
+    }
+
+    const cartData = JSON.parse(savedCart);
+    const savedTimestamp = cartData.timestamp;
+    const now = Date.now();
+    const timeElapsed = now - savedTimestamp; // Tempo decorrido em milissegundos
+    const thirtyMinutes = 30 * 60 * 1000; // 30 minutos em milissegundos
+
+    if (timeElapsed > thirtyMinutes) {
+        localStorage.removeItem('restaurant_cart');
+        console.log("Carrinho expirou (mais de 30 minutos). Limpando.");
+        return;
+    }
+
+    cart = cartData.items;
+    updateCartModal();
+    console.log("Carrinho carregado do localStorage.");
 }
 
 function getStatusMessage(horarios) {
@@ -597,6 +634,8 @@ function atualizarStatusVisual() {
 
 document.addEventListener("DOMContentLoaded", () => {
     atualizarStatusVisual();
+    loadCartFromLocalStorage(); // Adicione esta linha no topo
+    carregarTodasCategorias();
     setInterval(atualizarStatusVisual, 60000); // atualiza a cada minuto
 });
 
