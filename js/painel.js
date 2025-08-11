@@ -261,11 +261,16 @@ function estilizaBotaoAtivo(botaoAtivo, ...inativos) {
 
 document.addEventListener('DOMContentLoaded', () => {
 
+    carregarCategorias();
+
     if (document.getElementById('manual-pagamento')) {
         document.getElementById('manual-pagamento').addEventListener('change', handlePaymentChange);
     }
     // Preenchendo o objeto DOM com as referências dos elementos HTML
     Object.assign(DOM, {
+
+        inputNovaCategoria: document.getElementById('nova-categoria-nome'),
+        btnCriarCategoria: document.getElementById('btn-criar-categoria'),
         
         listaAdicionaisConfiguracao: document.getElementById('lista-adicionais-configuracao'),
         tiposEntregaSummary: document.getElementById('tipos-entrega-summary'),
@@ -798,6 +803,14 @@ DOM.btnGerenciarAdicionais.addEventListener('click', () => {
         DOM.btnSalvarNovoItem.addEventListener("click", handleSalvarNovoItem);
     }
 
+    if (DOM.btnCriarCategoria) {
+    DOM.btnCriarCategoria.addEventListener('click', () => {
+        const nomeCategoria = DOM.inputNovaCategoria.value.trim();
+        criarNovaCategoria(nomeCategoria);
+    });
+}
+
+
     DOM.btnVerificarInativos.addEventListener('click', verificarClientesInativos);
     DOM.btnAbrirModalMenuLink.addEventListener('click', abrirModalMenuLink);
     DOM.modalMenuLink.querySelector('.close-modal').addEventListener('click', fecharModalMenuLink);
@@ -861,6 +874,46 @@ DOM.btnGerenciarAdicionais.addEventListener('click', () => {
 });
 });
 
+
+function carregarCategorias() {
+    produtosRef.once('value')
+        .then(snapshot => {
+            const categorias = snapshot.val();
+            const categoryKeys = Object.keys(categorias || {});
+
+            // Limpa e popula o select na aba de editar cardápio
+            if (DOM.categoriaSelect) {
+                DOM.categoriaSelect.innerHTML = '';
+                categoryKeys.forEach(key => {
+                    const option = document.createElement('option');
+                    option.value = key;
+                    option.textContent = key.charAt(0).toUpperCase() + key.slice(1);
+                    DOM.categoriaSelect.appendChild(option);
+                });
+            }
+
+            // Limpa e popula o select na modal de novo item
+            if (DOM.novoCategoriaSelect) {
+                DOM.novoCategoriaSelect.innerHTML = '';
+                categoryKeys.forEach(key => {
+                    const option = document.createElement('option');
+                    option.value = key;
+                    option.textContent = key.charAt(0).toUpperCase() + key.slice(1);
+                    DOM.novoCategoriaSelect.appendChild(option);
+                });
+            }
+
+            // Você pode adicionar outros selects aqui, se tiver.
+            
+            // Força a atualização da lista de produtos da categoria ativa
+            if (DOM.categoriaSelect.value) {
+                carregarItensCardapio(DOM.categoriaSelect.value, DOM.searchInput.value);
+            }
+        })
+        .catch(error => {
+            console.error("Erro ao carregar categorias:", error);
+        });
+}
 
 
 // --- Funções para Modais Personalizados ---
@@ -1701,7 +1754,44 @@ function fecharModalEditarPedido() {
 }
 
 
-// --- SEÇÃO: GERENCIAMENTO DE CARDÁPIO ---
+// --- SEÇÃO: GERENCIAMENTO DE CARDÁPIO lghn ---
+
+/**
+ * Adiciona uma nova categoria de produto ao Firebase.
+ * @param {string} newCategoryName O nome da nova categoria.
+ */
+async function criarNovaCategoria(newCategoryName) {
+    if (!newCategoryName || newCategoryName.trim() === '') {
+        customAlert('Por favor, insira um nome para a nova categoria.');
+        return;
+    }
+
+    const categoryId = newCategoryName.toLowerCase().replace(/\s+/g, '');
+
+    try {
+        const categoryRef = firebase.database().ref(`produtos/${categoryId}`);
+        const snapshot = await categoryRef.once('value');
+        
+        if (snapshot.exists()) {
+            customAlert(`A categoria "${newCategoryName}" já existe.`);
+            return;
+        }
+
+        await categoryRef.set({
+            // Você pode adicionar um item de placeholder ou deixar vazio
+            _placeholder: true
+        });
+
+        customAlert(`Categoria "${newCategoryName}" adicionada com sucesso!`);
+        console.log(`Nova categoria "${newCategoryName}" (ID: ${categoryId}) criada.`);
+        
+        // Atualizar as listas de seleção de categoria (seção "Editar Cardápio")
+        carregarCategorias(); // Esta função precisaria ser implementada
+    } catch (error) {
+        console.error('Erro ao criar nova categoria:', error);
+        customAlert('Ocorreu um erro ao criar a categoria. Por favor, tente novamente.');
+    }
+}
 
 function mostrarNovoitem() {
     DOM.modalNovoItem.classList.remove("hidden");
